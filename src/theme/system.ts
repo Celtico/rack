@@ -3,7 +3,9 @@ import { createSystem, defaultConfig, defineConfig } from "@chakra-ui/react"
 import { displayRecipe } from "./recipes/display"
 import { knobRecipe } from "./recipes/knob"
 import { ledRecipe } from "./recipes/led"
+import { meterRecipe } from "./recipes/meter"
 import { rackUnitRecipe } from "./recipes/rackUnit"
+import { railRecipe } from "./recipes/rail"
 import { stepGridRecipe } from "./recipes/stepGrid"
 import { timelineRecipe } from "./recipes/timeline"
 
@@ -50,6 +52,18 @@ const config = defineConfig({
         },
         ink: {
           900: { value: "#0c0b09" },
+        },
+        /** LED meter segments and alternative LCD backlights. */
+        led: {
+          green: { value: "#4fd865" },
+          yellow: { value: "#ffd23a" },
+          red: { value: "#ff4a3d" },
+          off: { value: "#1e2422" },
+        },
+        lcd: {
+          red: { value: "#ff5a4a" },
+          green: { value: "#6fe38a" },
+          blue: { value: "#6ec3ff" },
         },
         /** One colour per bank slot, for the timeline blocks. */
         pattern: {
@@ -149,6 +163,9 @@ const config = defineConfig({
         stepPlaying: {
           value: "0 0 0 1px {colors.amber.300}",
         },
+        meterGreen: { value: "0 0 4px {colors.led.green}" },
+        meterYellow: { value: "0 0 4px {colors.led.yellow}" },
+        meterRed: { value: "0 0 5px {colors.led.red}" },
       },
     },
     semanticTokens: {
@@ -191,6 +208,17 @@ const config = defineConfig({
             3: { value: "{colors.pattern.3}" },
             4: { value: "{colors.pattern.4}" },
           },
+          meter: {
+            green: { value: "{colors.led.green}" },
+            yellow: { value: "{colors.led.yellow}" },
+            red: { value: "{colors.led.red}" },
+            off: { value: "{colors.led.off}" },
+          },
+          lcd: {
+            red: { value: "{colors.lcd.red}" },
+            green: { value: "{colors.lcd.green}" },
+            blue: { value: "{colors.lcd.blue}" },
+          },
         },
       },
     },
@@ -217,10 +245,12 @@ const config = defineConfig({
       knob: knobRecipe,
       display: displayRecipe,
       led: ledRecipe,
+      rail: railRecipe,
     },
     slotRecipes: {
       rackUnit: rackUnitRecipe,
       stepGrid: stepGridRecipe,
+      meter: meterRecipe,
       // Not `timeline`: Chakra ships a Timeline component whose slot recipe owns that key.
       songTimeline: timelineRecipe,
     },

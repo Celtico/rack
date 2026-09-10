@@ -5,7 +5,7 @@ for your own files (**SMP-8**), an acid bass (**BASS-2**), a mono synth (**MONO-
 (**POLY-4**), an FM electric piano (**EP-1**), plucked strings (**STR-6**), an FX unit (**FX-2**),
 a four-slot pattern bank, a **SONG** timeline that lays the patterns out bar by bar, and a
 transport with tempo and swing — built with Tone.js and Chakra UI v3. Every unit can be folded and
-muted from its header.
+muted from its header; the FX-2 mixer has a fader and LED meter per module.
 
 Live: https://rack.serverscel.com/
 

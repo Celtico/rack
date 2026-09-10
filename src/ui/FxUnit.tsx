@@ -12,7 +12,9 @@ import {
   type DelayTime,
   type FxParams,
 } from "../state/store"
+import { Fader } from "./Fader"
 import { Knob } from "./Knob"
+import { LevelMeter } from "./LevelMeter"
 import { RackUnit } from "./RackUnit"
 
 const DELAY_LABELS: Record<DelayTime, string> = {
@@ -38,21 +40,47 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
   )
 }
 
-/** FX-2: the mixer strips (level + send per module), the echo and the reverb. */
+/** One mixer strip: meter, fader and FX send. */
+function Strip({ channel }: { channel: ChannelId }) {
+  const level = useRackStore((s) => s.mix.level[channel])
+  const send = useRackStore((s) => s.mix.send[channel])
+  const { setChannelLevel, setChannelSend } = useRackStore.getState()
+
+  return (
+    <Section title={CHANNEL_LABELS[channel]}>
+      <HStack gap="2" align="flex-end">
+        <LevelMeter source={channel} label={`${CHANNEL_LABELS[channel]} level`} size="sm" />
+        <Fader
+          label="Level"
+          value={level}
+          onChange={(v) => {
+            setChannelLevel(channel, v)
+            getEngine().setChannelVolume(channel, v)
+          }}
+        />
+        <Knob
+          size="sm"
+          label="Send"
+          value={send}
+          min={0}
+          max={1}
+          step={0.01}
+          defaultValue={MIX_DEFAULT.send[channel]}
+          format={formatPercent}
+          onChange={(v) => {
+            setChannelSend(channel, v)
+            getEngine().setSend(channel, v)
+          }}
+        />
+      </HStack>
+    </Section>
+  )
+}
+
+/** FX-2: the mixer strips (meter, fader, send per module), the echo and the reverb. */
 export function FxUnit() {
-  const mix = useRackStore((s) => s.mix)
   const fx = useRackStore((s) => s.fx)
-  const { setChannelLevel, setChannelSend, setFxParam } = useRackStore.getState()
-
-  const changeLevel = (channel: ChannelId) => (level: number) => {
-    setChannelLevel(channel, level)
-    getEngine().setChannelVolume(channel, level)
-  }
-
-  const changeSend = (channel: ChannelId) => (level: number) => {
-    setChannelSend(channel, level)
-    getEngine().setSend(channel, level)
-  }
+  const { setFxParam } = useRackStore.getState()
 
   const changeFx =
     <K extends keyof FxParams>(key: K) =>
@@ -63,84 +91,63 @@ export function FxUnit() {
 
   return (
     <RackUnit model="FX-2" title="Mix · Echo · Reverb" finish="yellow">
-      <Flex wrap="wrap" gap={{ base: "5", md: "8" }} align="stretch">
-        {CHANNEL_IDS.map((channel) => (
-          <Section key={channel} title={CHANNEL_LABELS[channel]}>
-            <HStack gap="4">
+      <VStack gap="6" align="stretch">
+        <Flex wrap="wrap" gap={{ base: "4", md: "6" }} align="flex-end">
+          {CHANNEL_IDS.map((channel) => (
+            <Strip key={channel} channel={channel} />
+          ))}
+        </Flex>
+
+        <Flex wrap="wrap" gap={{ base: "5", md: "8" }} align="stretch">
+          <Section title="Echo">
+            <HStack gap="4" align="flex-start">
+              <SegmentGroup.Root
+                size="sm"
+                value={fx.delayTime}
+                onValueChange={(details) => {
+                  if (isDelayTime(details.value)) changeFx("delayTime")(details.value)
+                }}
+              >
+                <SegmentGroup.Indicator />
+                {DELAY_TIMES.map((t) => (
+                  <SegmentGroup.Item key={t} value={t}>
+                    <SegmentGroup.ItemText>{DELAY_LABELS[t]}</SegmentGroup.ItemText>
+                    <SegmentGroup.ItemHiddenInput />
+                  </SegmentGroup.Item>
+                ))}
+              </SegmentGroup.Root>
               <Knob
                 size="sm"
-                label="Level"
-                value={mix.level[channel]}
-                min={0}
-                max={1}
+                label="Feedback"
+                value={fx.feedback}
+                min={FX_RANGES.feedback.min}
+                max={FX_RANGES.feedback.max}
                 step={0.01}
-                defaultValue={MIX_DEFAULT.level[channel]}
+                defaultValue={FX_DEFAULT.feedback}
                 format={formatPercent}
-                onChange={changeLevel(channel)}
-              />
-              <Knob
-                size="sm"
-                label="Send"
-                value={mix.send[channel]}
-                min={0}
-                max={1}
-                step={0.01}
-                defaultValue={MIX_DEFAULT.send[channel]}
-                format={formatPercent}
-                onChange={changeSend(channel)}
+                onChange={changeFx("feedback")}
               />
             </HStack>
           </Section>
-        ))}
 
-        <Separator orientation="vertical" borderColor="rack.panel.edge" alignSelf="stretch" />
+          <Separator orientation="vertical" borderColor="rack.panel.edge" alignSelf="stretch" />
 
-        <Section title="Echo">
-          <HStack gap="4" align="flex-start">
-            <SegmentGroup.Root
-              size="sm"
-              value={fx.delayTime}
-              onValueChange={(details) => {
-                if (isDelayTime(details.value)) changeFx("delayTime")(details.value)
-              }}
-            >
-              <SegmentGroup.Indicator />
-              {DELAY_TIMES.map((t) => (
-                <SegmentGroup.Item key={t} value={t}>
-                  <SegmentGroup.ItemText>{DELAY_LABELS[t]}</SegmentGroup.ItemText>
-                  <SegmentGroup.ItemHiddenInput />
-                </SegmentGroup.Item>
-              ))}
-            </SegmentGroup.Root>
+          <Section title="Reverb">
             <Knob
               size="sm"
-              label="Feedback"
-              value={fx.feedback}
-              min={FX_RANGES.feedback.min}
-              max={FX_RANGES.feedback.max}
-              step={0.01}
-              defaultValue={FX_DEFAULT.feedback}
-              format={formatPercent}
-              onChange={changeFx("feedback")}
+              label="Decay"
+              scale="log"
+              value={fx.reverbDecay}
+              min={FX_RANGES.reverbDecay.min}
+              max={FX_RANGES.reverbDecay.max}
+              step={0.1}
+              defaultValue={FX_DEFAULT.reverbDecay}
+              format={formatSeconds}
+              onChange={changeFx("reverbDecay")}
             />
-          </HStack>
-        </Section>
-
-        <Section title="Reverb">
-          <Knob
-            size="sm"
-            label="Decay"
-            scale="log"
-            value={fx.reverbDecay}
-            min={FX_RANGES.reverbDecay.min}
-            max={FX_RANGES.reverbDecay.max}
-            step={0.1}
-            defaultValue={FX_DEFAULT.reverbDecay}
-            format={formatSeconds}
-            onChange={changeFx("reverbDecay")}
-          />
-        </Section>
-      </Flex>
+          </Section>
+        </Flex>
+      </VStack>
     </RackUnit>
   )
 }

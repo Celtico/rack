@@ -36,9 +36,17 @@ import type { Voice } from "./types"
 interface Channel {
   input: Tone.Gain
   send: Tone.Gain
+  meter: Tone.Meter
   level: number
   muted: boolean
 }
+
+/** Where a level meter can look. */
+export type LevelSource = ChannelId | "master"
+export type Levels = Readonly<Record<LevelSource, number>>
+
+/** Meter ballistics: enough smoothing to read, little enough to bounce. */
+const METER_SMOOTHING = 0.85
 
 /** Ramp length for parameter changes — long enough to avoid clicks, short enough to feel direct. */
 const RAMP = 0.03
@@ -62,6 +70,7 @@ export class AudioEngine {
   private delay: Tone.FeedbackDelay | null = null
   private reverb: Tone.Reverb | null = null
   private reverbDecayTimer: ReturnType<typeof setTimeout> | null = null
+  private masterMeter: Tone.Meter | null = null
   private readonly channels = new Map<ChannelId, Channel>()
   private readonly voices = new Map<HitVoiceId, Voice>()
   private drums: DrumKit | null = null
@@ -84,6 +93,8 @@ export class AudioEngine {
     const state = useRackStore.getState()
 
     const master = new Tone.Gain(state.masterVolume).toDestination()
+    this.masterMeter = new Tone.Meter({ normalRange: true, smoothing: METER_SMOOTHING })
+    master.connect(this.masterMeter)
     const reverb = new Tone.Reverb({ decay: state.fx.reverbDecay, wet: 1 }).connect(master)
     const delay = new Tone.FeedbackDelay({
       delayTime: state.fx.delayTime,
@@ -97,8 +108,10 @@ export class AudioEngine {
       const muted = state.mix.mute[id]
       const input = new Tone.Gain(muted ? 0 : level).connect(master)
       const send = new Tone.Gain(state.mix.send[id]).connect(fxInput)
+      const meter = new Tone.Meter({ normalRange: true, smoothing: METER_SMOOTHING })
       input.connect(send)
-      this.channels.set(id, { input, send, level, muted })
+      input.connect(meter)
+      this.channels.set(id, { input, send, meter, level, muted })
     }
 
     this.drums = new DrumKit(this.channelInput("drums"), state.drumLevels)
@@ -183,6 +196,24 @@ export class AudioEngine {
 
   private applyChannelGain(ch: Channel): void {
     ch.input.gain.rampTo(ch.muted ? 0 : ch.level, RAMP)
+  }
+
+  /**
+   * Current signal level of every channel and the master, 0–1 linear amplitude
+   * (RMS, smoothed). Zeros before build(). Read from a UI animation frame — it
+   * allocates nothing.
+   */
+  getLevels(): Levels {
+    const out = {} as Record<LevelSource, number>
+    for (const id of CHANNEL_IDS) out[id] = this.readMeter(this.channels.get(id)?.meter)
+    out.master = this.readMeter(this.masterMeter)
+    return out
+  }
+
+  private readMeter(meter: Tone.Meter | null | undefined): number {
+    if (!meter) return 0
+    const value = meter.getValue()
+    return typeof value === "number" ? value : (value[0] ?? 0)
   }
 
   /** How much of a channel goes to the FX bus, 0–1. */
@@ -332,12 +363,15 @@ export class AudioEngine {
     this.poly?.dispose()
     this.ep?.dispose()
     this.strings?.dispose()
-    for (const { input, send } of this.channels.values()) {
+    for (const { input, send, meter } of this.channels.values()) {
       input.dispose()
       send.dispose()
+      meter.dispose()
     }
     this.channels.clear()
     this.voices.clear()
+    this.masterMeter?.dispose()
+    this.masterMeter = null
     this.fxInput?.dispose()
     this.delay?.dispose()
     this.reverb?.dispose()

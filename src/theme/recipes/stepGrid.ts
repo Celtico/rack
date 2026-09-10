@@ -12,8 +12,13 @@ export const stepGridRecipe = defineSlotRecipe({
   slots: ["root", "grid", "row", "label", "step"],
   base: {
     root: {
+      // Takes what is left next to a unit's controls and scrolls inside — never pushes them off.
+      flex: "1 1 auto",
+      minW: "0",
       overflowX: "auto",
       overscrollBehaviorX: "contain",
+      // When focus scrolls a column into view, keep it clear of the sticky labels.
+      scrollPaddingInlineStart: "16",
       // Keep the focus ring of the last column visible inside the scroller.
       py: "1",
       px: "1",
@@ -21,12 +26,14 @@ export const stepGridRecipe = defineSlotRecipe({
     },
     grid: {
       display: "grid",
-      gridTemplateColumns: "auto repeat(16, max-content)",
+      // Cells grow to 36px on a wide rack and shrink to 20px before the grid resorts to scrolling.
+      gridTemplateColumns: "max-content repeat(16, minmax(1.25rem, 2.25rem))",
+      // Spare width stays at the end; otherwise the label track would stretch to take it.
+      justifyContent: "start",
       columnGap: "1",
       rowGap: "1.5",
       alignItems: "center",
-      width: "max-content",
-      minW: "full",
+      width: "full",
     },
     row: {
       display: "contents",
@@ -40,9 +47,11 @@ export const stepGridRecipe = defineSlotRecipe({
       bg: "rack.panel",
       pr: "3",
       minW: "12",
+      whiteSpace: "nowrap",
     },
     step: {
-      boxSize: "7",
+      w: "full",
+      aspectRatio: "1",
       rounded: "xs",
       borderWidth: "1px",
       borderColor: "rack.panel.edge",

@@ -84,14 +84,14 @@ export function SamplerUnit() {
 
   return (
     <RackUnit model="SMP-8" title="Sampler" units={2} finish="teal" channel="sampler">
-      <Flex direction={{ base: "column", lg: "row" }} gap={{ base: "5", lg: "8" }} align="stretch">
+      <Flex direction={{ base: "column", xl: "row" }} gap={{ base: "5", xl: "8" }} align="stretch">
         <StepGrid rows={rows} currentStep={currentStep} onToggle={toggleSampleStep} />
 
-        <VStack gap="3" align="flex-start" flexShrink={0}>
+        <VStack gap="3" align="flex-start" flexShrink={0} maxW={{ xl: "64" }}>
           <Text textStyle="silkscreen" color="rack.silkscreen.muted">
             Pad
           </Text>
-          <HStack gap="1" wrap="wrap" maxW="56">
+          <HStack gap="1" wrap="wrap">
             {PAD_IDS.map((id) => (
               <Button
                 key={id}
@@ -109,8 +109,8 @@ export function SamplerUnit() {
           </HStack>
 
           <HStack gap="2" wrap="wrap">
-            <Display size="sm" aria-label="Sample" minW="32">
-              {pad.name ?? "— empty —"}
+            <Display size="sm" aria-label="Sample" minW="24" title={pad.name ?? undefined}>
+              {pad.name ? shortName(pad.name, selected) : "— empty —"}
             </Display>
             <Button
               size="xs"

@@ -51,8 +51,14 @@ strict build order:
      Timeline component owns the `timeline` key): the chain as coloured bar blocks (`colors.pattern.*`),
      click cycles the pattern, × removes, + appends the active one; the sounding bar (`playingBar % length`)
      is outlined with a 16-step progress bar. The old +1…+4 chain buttons are gone from PATTERN.
-   - ⏳ Next: the rest of the restyle — wood rails, LCD variants, faders, LED meters. No Reason names,
-     logos or layouts.
+   - ✅ Extra — restyle: wooden `rail` recipe either side of the rack (holes every 44px), `LevelMeter`
+     (engine owns a `Tone.Meter` per channel + master, `engine.getLevels()` read from a rAF loop, 8 LED
+     segments 6 dB apart via `meterScale.ts`), vertical `Fader`s on the FX-2 strips (Chakra `Slider`),
+     `Display` `tone` variant (amber/red/green/blue). Step grids size cells with
+     `minmax(1.25rem, 2.25rem)` and `justifyContent: start`, so they fit before they scroll; rack is `8xl`.
+
+**All extras above are done.** Ideas not started: LCD readouts per synth, drag-reorder on the timeline,
+per-step velocity on the kits.
 
 **The brief is fully implemented.** Anything from here is polish or new scope — confirm with the user first.
 

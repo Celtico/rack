@@ -7,6 +7,7 @@ import { BPM_DEFAULT, BPM_MAX, BPM_MIN, MASTER_DEFAULT, useRackStore } from "../
 import { Display } from "./Display"
 import { Knob } from "./Knob"
 import { Led } from "./Led"
+import { LevelMeter } from "./LevelMeter"
 import { RackUnit } from "./RackUnit"
 
 const formatBpm = (bpm: number) => `${bpm} BPM`
@@ -120,16 +121,24 @@ export function Transport() {
           </VStack>
         </HStack>
 
-        <Knob
-          label="Master"
-          value={masterVolume}
-          min={0}
-          max={1}
-          step={0.01}
-          defaultValue={MASTER_DEFAULT}
-          format={formatPercent}
-          onChange={changeMaster}
-        />
+        <HStack gap="3" align="flex-end">
+          <Knob
+            label="Master"
+            value={masterVolume}
+            min={0}
+            max={1}
+            step={0.01}
+            defaultValue={MASTER_DEFAULT}
+            format={formatPercent}
+            onChange={changeMaster}
+          />
+          <VStack gap="1" align="center">
+            <LevelMeter source="master" label="Master level" />
+            <Text textStyle="silkscreen" color="rack.silkscreen.muted">
+              Out
+            </Text>
+          </VStack>
+        </HStack>
       </Flex>
     </RackUnit>
   )

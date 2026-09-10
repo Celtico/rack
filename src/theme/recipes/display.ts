@@ -1,6 +1,6 @@
 import { defineRecipe } from "@chakra-ui/react"
 
-/** Amber LCD-style readout. */
+/** LCD-style readout. `tone` picks the backlight colour. */
 export const displayRecipe = defineRecipe({
   className: "display",
   base: {
@@ -26,6 +26,12 @@ export const displayRecipe = defineRecipe({
       md: { fontSize: "lg", minW: "16" },
       lg: { fontSize: "2xl", minW: "24" },
     },
+    tone: {
+      amber: {},
+      red: { color: "rack.lcd.red" },
+      green: { color: "rack.lcd.green" },
+      blue: { color: "rack.lcd.blue" },
+    },
   },
-  defaultVariants: { size: "md" },
+  defaultVariants: { size: "md", tone: "amber" },
 })
