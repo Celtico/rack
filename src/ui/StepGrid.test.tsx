@@ -1,0 +1,50 @@
+import { screen, within } from "@testing-library/react"
+import userEvent from "@testing-library/user-event"
+import { describe, expect, it, vi } from "vitest"
+
+import { renderWithChakra } from "../test/render"
+import { StepGrid } from "./StepGrid"
+
+const off = Array.from({ length: 16 }, () => false)
+const rows = [
+  { id: "kick", label: "Kick", steps: off.map((_, i) => i % 4 === 0) },
+  { id: "hat", label: "Hat", steps: off },
+] as const
+
+describe("<StepGrid />", () => {
+  it("renders one toggle button per row and step with pressed state", () => {
+    renderWithChakra(<StepGrid rows={rows} currentStep={-1} onToggle={() => {}} />)
+
+    const kick = within(screen.getByRole("group", { name: "Kick" }))
+    expect(kick.getAllByRole("button")).toHaveLength(16)
+    expect(kick.getByRole("button", { name: "Kick step 1" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    )
+    expect(kick.getByRole("button", { name: "Kick step 2" })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    )
+    expect(screen.getAllByRole("button")).toHaveLength(32)
+  })
+
+  it("reports toggles with the row id and zero-based step", async () => {
+    const user = userEvent.setup()
+    const onToggle = vi.fn()
+    renderWithChakra(<StepGrid rows={rows} currentStep={-1} onToggle={onToggle} />)
+
+    await user.click(screen.getByRole("button", { name: "Hat step 7" }))
+    expect(onToggle).toHaveBeenCalledWith("hat", 6)
+  })
+
+  it("marks accents on every fourth step and the playhead column", () => {
+    renderWithChakra(<StepGrid rows={rows} currentStep={5} onToggle={() => {}} />)
+
+    expect(screen.getByRole("button", { name: "Kick step 5" })).toHaveAttribute("data-accent")
+    expect(screen.getByRole("button", { name: "Kick step 6" })).not.toHaveAttribute("data-accent")
+
+    expect(screen.getByRole("button", { name: "Kick step 6" })).toHaveAttribute("data-playing")
+    expect(screen.getByRole("button", { name: "Hat step 6" })).toHaveAttribute("data-playing")
+    expect(screen.getByRole("button", { name: "Hat step 5" })).not.toHaveAttribute("data-playing")
+  })
+})

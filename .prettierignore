@@ -1,0 +1,6 @@
+node_modules
+dist
+pnpm-lock.yaml
+prompt-claude-code-rack.md
+.claude
+.idea
