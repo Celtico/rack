@@ -8,13 +8,12 @@
     "CLAUDE_CODE_MAX_WEB_SEARCHES_PER_SESSION": "600"
   },
   "hooks": {
-    "PostToolUse": [
+    "Stop": [
       {
-        "matcher": "Write|Edit",
         "hooks": [
           {
             "type": "command",
-            "command": "jq -r '.tool_input.file_path // empty' | grep -qE '\\.(ts|tsx)$' || exit 0; out=$(pnpm lint 2>&1 && pnpm test 2>&1) && exit 0; echo \"$out\" | tail -40 >&2; exit 2",
+            "command": "jq -e '.stop_hook_active == true' >/dev/null && exit 0; git status --porcelain -- '*.ts' '*.tsx' | grep -q . || exit 0; out=$(pnpm lint 2>&1 && pnpm test 2>&1) && exit 0; echo \"$out\" | tail -40 >&2; exit 2",
             "timeout": 120,
             "statusMessage": "pnpm lint && pnpm test"
           }
