@@ -10,6 +10,7 @@ import { PercUnit } from "./PercUnit"
 import { PolyUnit } from "./PolyUnit"
 import { SamplerUnit } from "./SamplerUnit"
 import { StringsUnit } from "./StringsUnit"
+import { TimelineUnit } from "./TimelineUnit"
 import { Transport } from "./Transport"
 
 /** The rack itself: two rails with the modules stacked between them. */
@@ -27,6 +28,7 @@ export function Rack() {
         <VStack gap={{ base: "2", md: "3" }} align="stretch">
           <Transport />
           <PatternBank />
+          <TimelineUnit />
           <DrumMachine />
           <PercUnit />
           <SamplerUnit />

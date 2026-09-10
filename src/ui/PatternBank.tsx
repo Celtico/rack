@@ -1,13 +1,12 @@
 import { Button, chakra, Flex, HStack, Text, VStack } from "@chakra-ui/react"
 import { useRef, type ChangeEvent, type ReactNode } from "react"
-import { LuCopy, LuDownload, LuEraser, LuUpload } from "react-icons/lu"
+import { LuCopy, LuDownload, LuUpload } from "react-icons/lu"
 
-import { toaster } from "../components/ui/toaster"
 import { getEngine } from "../audio/engine"
+import { toaster } from "../components/ui/toaster"
 import { PATTERN_COUNT } from "../state/patterns"
 import { parseSong, serializeSong, SongParseError } from "../state/song"
 import { toSong, useRackStore } from "../state/store"
-import { Display } from "./Display"
 import { Led } from "./Led"
 import { RackUnit } from "./RackUnit"
 
@@ -34,13 +33,11 @@ function download(filename: string, text: string) {
   URL.revokeObjectURL(url)
 }
 
-/** Bank of four patterns, a chain that plays them in order, and JSON save/load. */
+/** Bank of four patterns and JSON save/load. The chain lives on the SONG timeline. */
 export function PatternBank() {
   const activePattern = useRackStore((s) => s.activePattern)
   const playingPattern = useRackStore((s) => s.playingPattern)
-  const chain = useRackStore((s) => s.chain)
-  const { setActivePattern, copyActivePatternTo, appendToChain, clearChain, loadSong } =
-    useRackStore.getState()
+  const { setActivePattern, copyActivePatternTo, loadSong } = useRackStore.getState()
   const fileInput = useRef<HTMLInputElement>(null)
 
   const save = () => {
@@ -62,7 +59,7 @@ export function PatternBank() {
   }
 
   return (
-    <RackUnit model="PATTERN" title="Bank · Chain · File">
+    <RackUnit model="PATTERN" title="Bank · File">
       <Flex wrap="wrap" gap={{ base: "5", md: "8" }} align="flex-start">
         <Section title="Bank">
           <HStack gap="2" align="flex-end">
@@ -90,36 +87,6 @@ export function PatternBank() {
               aria-label="Copy the active pattern to the next slot"
             >
               <LuCopy /> Copy →
-            </Button>
-          </HStack>
-        </Section>
-
-        <Section title="Chain">
-          <HStack gap="2" wrap="wrap">
-            <Display size="sm" aria-label="Chain" minW="28">
-              {chain.length ? chain.map((c) => c + 1).join(" · ") : "—"}
-            </Display>
-            {SLOTS.map((slot) => (
-              <Button
-                key={slot}
-                size="sm"
-                rounded="sm"
-                variant="subtle"
-                aria-label={`Add pattern ${slot + 1} to chain`}
-                onClick={() => appendToChain(slot)}
-              >
-                +{slot + 1}
-              </Button>
-            ))}
-            <Button
-              size="sm"
-              rounded="sm"
-              variant="outline"
-              onClick={clearChain}
-              disabled={chain.length === 0}
-              aria-label="Clear chain"
-            >
-              <LuEraser /> Clear
             </Button>
           </HStack>
         </Section>

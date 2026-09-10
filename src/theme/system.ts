@@ -5,6 +5,7 @@ import { knobRecipe } from "./recipes/knob"
 import { ledRecipe } from "./recipes/led"
 import { rackUnitRecipe } from "./recipes/rackUnit"
 import { stepGridRecipe } from "./recipes/stepGrid"
+import { timelineRecipe } from "./recipes/timeline"
 
 /**
  * The rack look: dark metallic panels, amber displays, small light silkscreen.
@@ -49,6 +50,13 @@ const config = defineConfig({
         },
         ink: {
           900: { value: "#0c0b09" },
+        },
+        /** One colour per bank slot, for the timeline blocks. */
+        pattern: {
+          1: { value: "#e69a00" },
+          2: { value: "#2e9a92" },
+          3: { value: "#8b5cc9" },
+          4: { value: "#5f9e3b" },
         },
         /** Unit finishes: panel colour, its darker edge, and the silkscreen inks that read on it. */
         finish: {
@@ -177,6 +185,12 @@ const config = defineConfig({
             edge: { value: "{colors.metal.900}" },
             indicator: { value: "{colors.cream.100}" },
           },
+          pattern: {
+            1: { value: "{colors.pattern.1}" },
+            2: { value: "{colors.pattern.2}" },
+            3: { value: "{colors.pattern.3}" },
+            4: { value: "{colors.pattern.4}" },
+          },
         },
       },
     },
@@ -207,6 +221,8 @@ const config = defineConfig({
     slotRecipes: {
       rackUnit: rackUnitRecipe,
       stepGrid: stepGridRecipe,
+      // Not `timeline`: Chakra ships a Timeline component whose slot recipe owns that key.
+      songTimeline: timelineRecipe,
     },
   },
 })

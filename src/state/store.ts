@@ -107,6 +107,9 @@ export interface RackState {
   setActivePattern: (index: number) => void
   copyActivePatternTo: (index: number) => void
   appendToChain: (index: number) => void
+  /** Change which pattern a bar of the chain plays. */
+  setChainSlot: (bar: number, index: number) => void
+  removeChainSlot: (bar: number) => void
   clearChain: () => void
   setDrumLevel: (voice: DrumVoiceId, level: number) => void
   setPercLevel: (voice: PercVoiceId, level: number) => void
@@ -223,6 +226,9 @@ export const useRackStore = create<RackState>()((set) => ({
     set((state) =>
       state.chain.length >= MAX_CHAIN ? state : { chain: [...state.chain, slot(index)] },
     ),
+  setChainSlot: (bar, index) =>
+    set((state) => ({ chain: state.chain.map((p, i) => (i === bar ? slot(index) : p)) })),
+  removeChainSlot: (bar) => set((state) => ({ chain: state.chain.filter((_, i) => i !== bar) })),
   clearChain: () => set({ chain: [] }),
   setDrumLevel: (voice, level) =>
     set((state) => ({ drumLevels: { ...state.drumLevels, [voice]: clamp(level, 0, 1) } })),

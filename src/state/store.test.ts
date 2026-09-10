@@ -120,6 +120,21 @@ describe("rack store", () => {
     expect(useRackStore.getState().chain).toEqual([])
   })
 
+  it("edits and removes single bars of the chain", () => {
+    const store = useRackStore.getState()
+    store.appendToChain(0)
+    store.appendToChain(1)
+    store.appendToChain(2)
+    store.setChainSlot(1, 3)
+    expect(useRackStore.getState().chain).toEqual([0, 3, 2])
+    store.setChainSlot(1, 7)
+    expect(useRackStore.getState().chain).toEqual([0, 3, 2])
+    store.removeChainSlot(0)
+    expect(useRackStore.getState().chain).toEqual([3, 2])
+    store.removeChainSlot(9)
+    expect(useRackStore.getState().chain).toEqual([3, 2])
+  })
+
   it("sets channel level and send clamped to 0–1 without mutating the previous mix", () => {
     const before = useRackStore.getState().mix
     useRackStore.getState().setChannelSend("synth", 2)

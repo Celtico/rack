@@ -47,8 +47,12 @@ strict build order:
    - ✅ Extra — per-unit **finish** (slot-recipe variant that overrides the `rack.panel` / `rack.silkscreen`
      CSS variables on the unit root, tokens under `colors.finish.*`), **fold** (store `folded`, UI-only) and
      **mute** (`mix.mute`, saved; engine keeps level and mute separately) buttons in every `RackUnit` header.
-   - ⏳ Next: a bar timeline for the chain (`playingBar` is published), then the rest of the restyle —
-     wood rails, LCD variants, faders, LED meters. No Reason names, logos or layouts.
+   - ✅ Extra — SONG timeline (`TimelineUnit`, slot recipe registered as `songTimeline` because Chakra's own
+     Timeline component owns the `timeline` key): the chain as coloured bar blocks (`colors.pattern.*`),
+     click cycles the pattern, × removes, + appends the active one; the sounding bar (`playingBar % length`)
+     is outlined with a 16-step progress bar. The old +1…+4 chain buttons are gone from PATTERN.
+   - ⏳ Next: the rest of the restyle — wood rails, LCD variants, faders, LED meters. No Reason names,
+     logos or layouts.
 
 **The brief is fully implemented.** Anything from here is polish or new scope — confirm with the user first.
 
