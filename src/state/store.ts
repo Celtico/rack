@@ -9,6 +9,7 @@ import {
   BPM_MIN,
   clamp,
   clampRecord,
+  defaultPads,
   DRUM_LEVELS_DEFAULT,
   EP_PARAMS_DEFAULT,
   EP_RANGES,
@@ -16,6 +17,7 @@ import {
   FX_RANGES,
   MASTER_DEFAULT,
   MIX_DEFAULT,
+  PAD_RANGES,
   PERC_LEVELS_DEFAULT,
   POLY_PARAMS_DEFAULT,
   POLY_RANGES,
@@ -28,6 +30,7 @@ import {
   type EpParams,
   type FxParams,
   type MixParams,
+  type PadParams,
   type PercLevels,
   type PolyParams,
   type StringsParams,
@@ -35,15 +38,18 @@ import {
 } from "./params"
 import {
   DRUM_VOICES,
+  PAD_IDS,
   PERC_VOICES,
   toggleBassFlag,
   toggleBassNote,
   toggleDrumStep,
   togglePercStep,
   togglePolyNote,
+  toggleSampleStep,
   toggleSynthNote,
   type BassFlag,
   type DrumVoiceId,
+  type PadId,
   type Pattern,
   type PercVoiceId,
   type PolyInstrumentId,
@@ -73,6 +79,9 @@ export interface RackState {
   chain: readonly number[]
   drumLevels: DrumLevels
   percLevels: PercLevels
+  pads: Readonly<Record<PadId, PadParams>>
+  /** Pad whose controls the SMP-8 panel shows. */
+  selectedPad: PadId
   synthParams: SynthParams
   bassParams: BassParams
   polyParams: PolyParams
@@ -80,6 +89,8 @@ export interface RackState {
   stringsParams: StringsParams
   mix: MixParams
   fx: FxParams
+  /** Units folded down to their header. UI-only, not saved. */
+  folded: Readonly<Record<string, boolean>>
 
   setBpm: (bpm: number) => void
   setSwing: (swing: number) => void
@@ -88,6 +99,7 @@ export interface RackState {
   setMasterVolume: (level: number) => void
   toggleDrumStep: (voice: DrumVoiceId, step: number) => void
   togglePercStep: (voice: PercVoiceId, step: number) => void
+  toggleSampleStep: (pad: PadId, step: number) => void
   toggleSynthNote: (step: number, rowIndex: number) => void
   toggleBassNote: (step: number, rowIndex: number) => void
   toggleBassFlag: (step: number, flag: BassFlag) => void
@@ -98,6 +110,8 @@ export interface RackState {
   clearChain: () => void
   setDrumLevel: (voice: DrumVoiceId, level: number) => void
   setPercLevel: (voice: PercVoiceId, level: number) => void
+  selectPad: (pad: PadId) => void
+  setPadParam: <K extends keyof PadParams>(pad: PadId, key: K, value: PadParams[K]) => void
   setSynthParam: <K extends keyof SynthParams>(key: K, value: SynthParams[K]) => void
   setBassParam: <K extends keyof BassParams>(key: K, value: BassParams[K]) => void
   setPolyParam: <K extends keyof PolyParams>(key: K, value: PolyParams[K]) => void
@@ -105,7 +119,9 @@ export interface RackState {
   setStringsParam: <K extends keyof StringsParams>(key: K, value: StringsParams[K]) => void
   setChannelLevel: (channel: ChannelId, level: number) => void
   setChannelSend: (channel: ChannelId, level: number) => void
+  setChannelMute: (channel: ChannelId, muted: boolean) => void
   setFxParam: <K extends keyof FxParams>(key: K, value: FxParams[K]) => void
+  toggleFold: (unit: string) => void
   loadSong: (song: Song) => void
 }
 
@@ -137,6 +153,12 @@ function clampParams<T extends object>(params: T, ranges: Ranges<T>): T {
   return out
 }
 
+function clampPads(pads: Readonly<Record<PadId, PadParams>>): Record<PadId, PadParams> {
+  const out = {} as Record<PadId, PadParams>
+  for (const id of PAD_IDS) out[id] = clampParams(pads[id], PAD_RANGES)
+  return out
+}
+
 /**
  * Pattern bank, tempo, parameters and transport state. Pure state — it never
  * touches the audio engine; the UI forwards changes to the engine itself. The
@@ -156,6 +178,8 @@ export const useRackStore = create<RackState>()((set) => ({
   chain: [],
   drumLevels: DRUM_LEVELS_DEFAULT,
   percLevels: PERC_LEVELS_DEFAULT,
+  pads: defaultPads(),
+  selectedPad: "pad1",
   synthParams: SYNTH_PARAMS_DEFAULT,
   bassParams: BASS_PARAMS_DEFAULT,
   polyParams: POLY_PARAMS_DEFAULT,
@@ -163,6 +187,7 @@ export const useRackStore = create<RackState>()((set) => ({
   stringsParams: STRINGS_PARAMS_DEFAULT,
   mix: MIX_DEFAULT,
   fx: FX_DEFAULT,
+  folded: {},
 
   setBpm: (bpm) => set({ bpm: Math.round(clamp(bpm, BPM_MIN, BPM_MAX)) }),
   setSwing: (swing) => set({ swing: clamp(swing, 0, 1) }),
@@ -174,6 +199,8 @@ export const useRackStore = create<RackState>()((set) => ({
     set((state) => updateActive(state, (p) => toggleDrumStep(p, voice, step))),
   togglePercStep: (voice, step) =>
     set((state) => updateActive(state, (p) => togglePercStep(p, voice, step))),
+  toggleSampleStep: (pad, step) =>
+    set((state) => updateActive(state, (p) => toggleSampleStep(p, pad, step))),
   toggleSynthNote: (step, rowIndex) =>
     set((state) => updateActive(state, (p) => toggleSynthNote(p, step, rowIndex))),
   toggleBassNote: (step, rowIndex) =>
@@ -201,6 +228,14 @@ export const useRackStore = create<RackState>()((set) => ({
     set((state) => ({ drumLevels: { ...state.drumLevels, [voice]: clamp(level, 0, 1) } })),
   setPercLevel: (voice, level) =>
     set((state) => ({ percLevels: { ...state.percLevels, [voice]: clamp(level, 0, 1) } })),
+  selectPad: (pad) => set({ selectedPad: pad }),
+  setPadParam: (pad, key, value) =>
+    set((state) => ({
+      pads: {
+        ...state.pads,
+        [pad]: clampParams({ ...state.pads[pad], [key]: value }, PAD_RANGES),
+      },
+    })),
   setSynthParam: (key, value) =>
     set((state) => ({ synthParams: { ...state.synthParams, [key]: value } })),
   setBassParam: (key, value) =>
@@ -218,7 +253,11 @@ export const useRackStore = create<RackState>()((set) => ({
     set((state) => ({
       mix: { ...state.mix, send: { ...state.mix.send, [channel]: clamp(level, 0, 1) } },
     })),
+  setChannelMute: (channel, muted) =>
+    set((state) => ({ mix: { ...state.mix, mute: { ...state.mix.mute, [channel]: muted } } })),
   setFxParam: (key, value) => set((state) => ({ fx: { ...state.fx, [key]: value } })),
+  toggleFold: (unit) =>
+    set((state) => ({ folded: { ...state.folded, [unit]: !state.folded[unit] } })),
   loadSong: (song) =>
     set({
       bpm: Math.round(clamp(song.bpm, BPM_MIN, BPM_MAX)),
@@ -229,6 +268,7 @@ export const useRackStore = create<RackState>()((set) => ({
       chain: song.chain.slice(0, MAX_CHAIN).map(slot),
       drumLevels: clampRecord(DRUM_VOICES, song.drumLevels, 0, 1),
       percLevels: clampRecord(PERC_VOICES, song.percLevels, 0, 1),
+      pads: clampPads(song.pads),
       synthParams: clampParams(song.synthParams, SYNTH_RANGES),
       bassParams: clampParams(song.bassParams, BASS_RANGES),
       polyParams: clampParams(song.polyParams, POLY_RANGES),
@@ -237,6 +277,7 @@ export const useRackStore = create<RackState>()((set) => ({
       mix: {
         level: clampRecord(CHANNEL_IDS, song.mix.level, 0, 1),
         send: clampRecord(CHANNEL_IDS, song.mix.send, 0, 1),
+        mute: { ...song.mix.mute },
       },
       fx: clampParams(song.fx, FX_RANGES),
     }),
@@ -253,6 +294,8 @@ const copyRows = <Id extends string>(
 
 /** Snapshot of everything worth saving. */
 export function toSong(state: RackState): Song {
+  const pads = {} as Record<PadId, PadParams>
+  for (const id of PAD_IDS) pads[id] = { ...state.pads[id] }
   return {
     version: SONG_VERSION,
     bpm: state.bpm,
@@ -261,6 +304,7 @@ export function toSong(state: RackState): Song {
     patterns: state.patterns.map((p) => ({
       drums: copyRows(DRUM_VOICES, p.drums),
       perc: copyRows(PERC_VOICES, p.perc),
+      samples: copyRows(PAD_IDS, p.samples),
       synth: [...p.synth],
       bass: { notes: [...p.bass.notes], accent: [...p.bass.accent], slide: [...p.bass.slide] },
       poly: {
@@ -273,12 +317,17 @@ export function toSong(state: RackState): Song {
     chain: [...state.chain],
     drumLevels: { ...state.drumLevels },
     percLevels: { ...state.percLevels },
+    pads,
     synthParams: { ...state.synthParams },
     bassParams: { ...state.bassParams },
     polyParams: { ...state.polyParams },
     epParams: { ...state.epParams },
     stringsParams: { ...state.stringsParams },
-    mix: { level: { ...state.mix.level }, send: { ...state.mix.send } },
+    mix: {
+      level: { ...state.mix.level },
+      send: { ...state.mix.send },
+      mute: { ...state.mix.mute },
+    },
     fx: { ...state.fx },
   }
 }

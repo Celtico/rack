@@ -62,7 +62,7 @@ export function FxUnit() {
     }
 
   return (
-    <RackUnit model="FX-2" title="Mix · Echo · Reverb">
+    <RackUnit model="FX-2" title="Mix · Echo · Reverb" finish="yellow">
       <Flex wrap="wrap" gap={{ base: "5", md: "8" }} align="stretch">
         {CHANNEL_IDS.map((channel) => (
           <Section key={channel} title={CHANNEL_LABELS[channel]}>

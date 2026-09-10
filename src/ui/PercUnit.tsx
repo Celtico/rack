@@ -28,6 +28,8 @@ export function PercUnit() {
     <KitUnit
       model="PERC-6"
       title="Percussion"
+      finish="rust"
+      channel="perc"
       voices={PERC_VOICES}
       labels={VOICE_LABELS}
       rows={perc}

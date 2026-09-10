@@ -50,6 +50,69 @@ const config = defineConfig({
         ink: {
           900: { value: "#0c0b09" },
         },
+        /** Unit finishes: panel colour, its darker edge, and the silkscreen inks that read on it. */
+        finish: {
+          graphite: {
+            panel: { value: "#2c2e30" },
+            edge: { value: "#18191b" },
+            ink: { value: "#d8d4c8" },
+            inkMuted: { value: "#a9a59a" },
+          },
+          red: {
+            panel: { value: "#5a2323" },
+            edge: { value: "#2e1010" },
+            ink: { value: "#f3dede" },
+            inkMuted: { value: "#d0a8a8" },
+          },
+          rust: {
+            panel: { value: "#5b3720" },
+            edge: { value: "#2e1a0e" },
+            ink: { value: "#f3e6da" },
+            inkMuted: { value: "#d2b8a2" },
+          },
+          teal: {
+            panel: { value: "#1f4a48" },
+            edge: { value: "#0e2624" },
+            ink: { value: "#dcefed" },
+            inkMuted: { value: "#a3c6c2" },
+          },
+          silver: {
+            panel: { value: "#9a9ea3" },
+            edge: { value: "#5c6066" },
+            ink: { value: "#16181a" },
+            inkMuted: { value: "#3a3e44" },
+          },
+          blue: {
+            panel: { value: "#22354f" },
+            edge: { value: "#101a2a" },
+            ink: { value: "#dfe7f3" },
+            inkMuted: { value: "#a9b7cc" },
+          },
+          purple: {
+            panel: { value: "#3b2a52" },
+            edge: { value: "#1d1329" },
+            ink: { value: "#ebe2f5" },
+            inkMuted: { value: "#bfb0d2" },
+          },
+          cream: {
+            panel: { value: "#d9d0b8" },
+            edge: { value: "#8c8368" },
+            ink: { value: "#1c1a15" },
+            inkMuted: { value: "#4c473a" },
+          },
+          wood: {
+            panel: { value: "#5b3d26" },
+            edge: { value: "#2f1e11" },
+            ink: { value: "#f2e6d6" },
+            inkMuted: { value: "#cdb89f" },
+          },
+          yellow: {
+            panel: { value: "#c29a22" },
+            edge: { value: "#6e5510" },
+            ink: { value: "#1c1804" },
+            inkMuted: { value: "#4a3f10" },
+          },
+        },
       },
       fonts: {
         display: { value: `"SF Mono", ui-monospace, Menlo, Consolas, monospace` },

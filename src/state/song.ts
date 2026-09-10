@@ -1,10 +1,11 @@
-import { CHANNEL_IDS } from "./channels"
+import { CHANNEL_IDS, type ChannelId } from "./channels"
 import {
   BASS_PARAMS_DEFAULT,
   BASS_WAVEFORMS,
   DELAY_TIMES,
   EP_PARAMS_DEFAULT,
   MIX_DEFAULT,
+  PAD_DEFAULT,
   PERC_LEVELS_DEFAULT,
   POLY_PARAMS_DEFAULT,
   STRINGS_PARAMS_DEFAULT,
@@ -14,6 +15,7 @@ import {
   type EpParams,
   type FxParams,
   type MixParams,
+  type PadParams,
   type PercLevels,
   type PolyParams,
   type StringsParams,
@@ -24,6 +26,7 @@ import {
   DRUM_VOICES,
   kitRows,
   noteRow,
+  PAD_IDS,
   PERC_VOICES,
   POLY_INSTRUMENTS,
   POLY_NOTES,
@@ -32,6 +35,7 @@ import {
   SYNTH_NOTES,
   type BassRow,
   type KitRows,
+  type PadId,
   type Pattern,
   type PolyInstrumentId,
   type PolyRow,
@@ -44,7 +48,8 @@ export const SONG_VERSION = 1
 /**
  * Everything worth saving. Transport position and playing state are not.
  * Fields added after the first release (swing, perc, bass, the poly
- * instruments) are optional on read so older files keep loading.
+ * instruments, the sampler, mutes) are optional on read so older files keep
+ * loading. Sample audio is not here — it stays in the browser's IndexedDB.
  */
 export interface Song {
   version: typeof SONG_VERSION
@@ -56,6 +61,7 @@ export interface Song {
   chain: number[]
   drumLevels: DrumLevels
   percLevels: PercLevels
+  pads: Record<PadId, PadParams>
   synthParams: SynthParams
   bassParams: BassParams
   polyParams: PolyParams
@@ -150,6 +156,7 @@ function parsePattern(v: unknown, path: string): Pattern {
   return {
     drums: parseKitRows(p.drums, `${path}.drums`, DRUM_VOICES),
     perc: parseKitRows(p.perc, `${path}.perc`, PERC_VOICES),
+    samples: parseKitRows(p.samples, `${path}.samples`, PAD_IDS),
     synth: monoRow(p.synth, `${path}.synth`, SYNTH_NOTES.length),
     bass: parseBassRow(p.bass, `${path}.bass`),
     poly: parsePolyRows(p.poly, `${path}.poly`),
@@ -192,6 +199,37 @@ function parseParams<T extends object>(
   return out as T
 }
 
+function parsePads(v: unknown, path: string): Record<PadId, PadParams> {
+  const obj = v === undefined ? {} : record(v, path)
+  const out = {} as Record<PadId, PadParams>
+  for (const id of PAD_IDS) {
+    if (obj[id] === undefined) {
+      out[id] = { ...PAD_DEFAULT }
+      continue
+    }
+    const pad = record(obj[id], `${path}.${id}`)
+    const name = pad.name ?? null
+    out[id] = {
+      name:
+        name === null || typeof name === "string" ? name : fail(`${path}.${id}.name`, "a string"),
+      pitch: num(pad.pitch, `${path}.${id}.pitch`),
+      decay: num(pad.decay, `${path}.${id}.decay`),
+      level: num(pad.level, `${path}.${id}.level`),
+    }
+  }
+  return out
+}
+
+function parseMutes(v: unknown, path: string): Record<ChannelId, boolean> {
+  const obj = v === undefined ? {} : record(v, path)
+  const out = {} as Record<ChannelId, boolean>
+  for (const ch of CHANNEL_IDS) {
+    const value = obj[ch] ?? false
+    out[ch] = typeof value === "boolean" ? value : fail(`${path}.${ch}`, "a boolean")
+  }
+  return out
+}
+
 /** Strict on shape, lenient on ranges — the store clamps numbers when it applies the song. */
 export function parseSong(text: string): Song {
   let raw: unknown
@@ -221,6 +259,7 @@ export function parseSong(text: string): Song {
       .map((c, i) => int(c, `song.chain[${i}]`, PATTERN_COUNT)),
     drumLevels: parseNumbers(s.drumLevels, "song.drumLevels", DRUM_VOICES),
     percLevels: parseNumbers(s.percLevels, "song.percLevels", PERC_VOICES, PERC_LEVELS_DEFAULT),
+    pads: parsePads(s.pads, "song.pads"),
     synthParams: {
       waveform: oneOf(synth.waveform, "song.synthParams.waveform", WAVEFORMS),
       cutoff: num(synth.cutoff, "song.synthParams.cutoff"),
@@ -238,6 +277,7 @@ export function parseSong(text: string): Song {
     mix: {
       level: parseNumbers(mix.level, "song.mix.level", CHANNEL_IDS, MIX_DEFAULT.level),
       send: parseNumbers(mix.send, "song.mix.send", CHANNEL_IDS, MIX_DEFAULT.send),
+      mute: parseMutes(mix.mute, "song.mix.mute"),
     },
     fx: {
       delayTime: oneOf(fx.delayTime, "song.fx.delayTime", DELAY_TIMES),

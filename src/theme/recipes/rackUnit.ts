@@ -1,17 +1,47 @@
 import { defineSlotRecipe } from "@chakra-ui/react"
 
+export const FINISHES = [
+  "graphite",
+  "red",
+  "rust",
+  "teal",
+  "silver",
+  "blue",
+  "purple",
+  "cream",
+  "wood",
+  "yellow",
+] as const
+export type Finish = (typeof FINISHES)[number]
+
+/**
+ * A finish repaints the `rack.panel` / `rack.silkscreen` tokens for everything
+ * inside the unit by overriding their CSS variables on the root, so grids,
+ * labels and borders follow without knowing which panel they sit on.
+ */
+const finish = (name: Finish) => ({
+  root: {
+    "--chakra-colors-rack-panel": `{colors.finish.${name}.panel}`,
+    "--chakra-colors-rack-panel-edge": `{colors.finish.${name}.edge}`,
+    "--chakra-colors-rack-silkscreen": `{colors.finish.${name}.ink}`,
+    "--chakra-colors-rack-silkscreen-muted": `{colors.finish.${name}.inkMuted}`,
+  },
+})
+
 /**
  * One module in the rack: a metal panel with four corner screws, a silkscreen
- * header (model name + description) and a body that holds the controls.
- * Screw placement is keyed off `data-corner` so it stays in the recipe.
+ * header (model name + description + fold/mute controls) and a body that holds
+ * the controls. Screw placement is keyed off `data-corner` so it stays in the
+ * recipe.
  */
 export const rackUnitRecipe = defineSlotRecipe({
   className: "rack-unit",
-  slots: ["root", "header", "model", "title", "body", "screw"],
+  slots: ["root", "header", "model", "title", "controls", "body", "screw"],
   base: {
     root: {
       position: "relative",
       bg: "rack.panel",
+      color: "rack.silkscreen",
       borderWidth: "1px",
       borderColor: "rack.panel.edge",
       rounded: "sm",
@@ -19,16 +49,18 @@ export const rackUnitRecipe = defineSlotRecipe({
       px: { base: "4", md: "6" },
       pt: "3",
       pb: "5",
+      "&[data-folded]": { pb: "3" },
     },
     header: {
       display: "flex",
-      alignItems: "baseline",
+      alignItems: "center",
       gap: "3",
       borderBottomWidth: "1px",
       borderColor: "rack.panel.edge",
       pb: "2",
       mb: "4",
       mx: "4",
+      "[data-folded] &": { borderBottomWidth: "0", pb: "0", mb: "0" },
     },
     model: {
       textStyle: "silkscreen",
@@ -38,6 +70,13 @@ export const rackUnitRecipe = defineSlotRecipe({
     },
     title: {
       textStyle: "silkscreen",
+      color: "rack.silkscreen.muted",
+    },
+    controls: {
+      display: "flex",
+      alignItems: "center",
+      gap: "1",
+      ml: "auto",
       color: "rack.silkscreen.muted",
     },
     body: {
@@ -68,10 +107,14 @@ export const rackUnitRecipe = defineSlotRecipe({
   },
   variants: {
     units: {
-      1: { root: { minH: "28" } },
-      2: { root: { minH: "52" } },
-      3: { root: { minH: "76" } },
+      1: { root: { minH: "28", "&[data-folded]": { minH: "0" } } },
+      2: { root: { minH: "52", "&[data-folded]": { minH: "0" } } },
+      3: { root: { minH: "76", "&[data-folded]": { minH: "0" } } },
     },
+    finish: Object.fromEntries(FINISHES.map((name) => [name, finish(name)])) as Record<
+      Finish,
+      ReturnType<typeof finish>
+    >,
   },
-  defaultVariants: { units: 1 },
+  defaultVariants: { units: 1, finish: "graphite" },
 })

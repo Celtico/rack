@@ -1,6 +1,8 @@
 import { Flex, HStack, Text, VStack } from "@chakra-ui/react"
 
+import type { ChannelId } from "../state/channels"
 import type { KitRows } from "../state/pattern"
+import type { Finish } from "../theme/recipes/rackUnit"
 import { Knob } from "./Knob"
 import { RackUnit } from "./RackUnit"
 import { StepGrid } from "./StepGrid"
@@ -8,6 +10,8 @@ import { StepGrid } from "./StepGrid"
 export interface KitUnitProps<Id extends string> {
   model: string
   title: string
+  finish: Finish
+  channel: ChannelId
   voices: readonly Id[]
   labels: Readonly<Record<Id, string>>
   rows: KitRows<Id>
@@ -24,6 +28,8 @@ const formatPercent = (level: number) => `${Math.round(level * 100)}%`
 export function KitUnit<Id extends string>({
   model,
   title,
+  finish,
+  channel,
   voices,
   labels,
   rows,
@@ -36,7 +42,7 @@ export function KitUnit<Id extends string>({
   const gridRows = voices.map((id) => ({ id, label: labels[id], steps: rows[id] }))
 
   return (
-    <RackUnit model={model} title={title} units={2}>
+    <RackUnit model={model} title={title} units={2} finish={finish} channel={channel}>
       <Flex direction={{ base: "column", lg: "row" }} gap={{ base: "5", lg: "8" }} align="stretch">
         <StepGrid rows={gridRows} currentStep={currentStep} onToggle={onToggle} />
 

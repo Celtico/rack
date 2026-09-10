@@ -26,6 +26,8 @@ export function DrumMachine() {
     <KitUnit
       model="DR-4"
       title="Drum machine"
+      finish="red"
+      channel="drums"
       voices={DRUM_VOICES}
       labels={VOICE_LABELS}
       rows={drums}

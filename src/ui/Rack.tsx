@@ -8,6 +8,7 @@ import { MonoSynth } from "./MonoSynth"
 import { PatternBank } from "./PatternBank"
 import { PercUnit } from "./PercUnit"
 import { PolyUnit } from "./PolyUnit"
+import { SamplerUnit } from "./SamplerUnit"
 import { StringsUnit } from "./StringsUnit"
 import { Transport } from "./Transport"
 
@@ -28,6 +29,7 @@ export function Rack() {
           <PatternBank />
           <DrumMachine />
           <PercUnit />
+          <SamplerUnit />
           <BassUnit />
           <MonoSynth />
           <PolyUnit />

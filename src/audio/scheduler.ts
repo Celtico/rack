@@ -3,6 +3,7 @@ import * as Tone from "tone"
 import {
   bassEventAt,
   DRUM_VOICES,
+  PAD_IDS,
   PERC_VOICES,
   POLY_INSTRUMENTS,
   polyNotesAt,
@@ -21,6 +22,7 @@ export function triggersForStep(pattern: Pattern, step: number): HitVoiceId[] {
   return [
     ...DRUM_VOICES.filter((voice) => pattern.drums[voice][step] === true),
     ...PERC_VOICES.filter((voice) => pattern.perc[voice][step] === true),
+    ...PAD_IDS.filter((pad) => pattern.samples[pad][step] === true),
   ]
 }
 

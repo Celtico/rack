@@ -54,7 +54,7 @@ export function MonoSynth() {
     }
 
   return (
-    <RackUnit model="MONO-1" title="Mono synth" units={3}>
+    <RackUnit model="MONO-1" title="Mono synth" units={3} finish="blue" channel="synth">
       <Flex direction={{ base: "column", lg: "row" }} gap={{ base: "5", lg: "8" }} align="stretch">
         <StepGrid rows={rows} currentStep={currentStep} onToggle={onToggle} />
 

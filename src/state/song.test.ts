@@ -74,8 +74,11 @@ describe("song save/load", () => {
       delete p.perc
       delete p.bass
       delete p.poly
+      delete p.samples
     }
     delete legacy.percLevels
+    delete (legacy as Record<string, unknown>).pads
+    delete (legacy.mix as Record<string, unknown>).mute
     delete (legacy as Record<string, unknown>).bassParams
     delete (legacy as Record<string, unknown>).polyParams
     delete (legacy as Record<string, unknown>).epParams
@@ -94,6 +97,10 @@ describe("song save/load", () => {
     expect(song.polyParams.cutoff).toBe(2200)
     expect(song.epParams.tone).toBe(2)
     expect(song.stringsParams.damp).toBe(3200)
+    expect(song.patterns[0]!.samples.pad1.some(Boolean)).toBe(false)
+    expect(song.pads.pad3).toEqual({ name: null, pitch: 0, decay: 1, level: 0.8 })
+    expect(song.mix.mute.drums).toBe(false)
+    expect(song.mix.level.sampler).toBe(0.85)
     expect(song.mix.level.perc).toBe(0.8)
     expect(song.mix.send.perc).toBe(0.25)
     expect(song.mix.level.bass).toBe(0.85)

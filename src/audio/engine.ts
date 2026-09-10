@@ -3,9 +3,11 @@ import * as Tone from "tone"
 import { CHANNEL_IDS, type ChannelId } from "../state/channels"
 import {
   DRUM_VOICES,
+  PAD_IDS,
   PERC_VOICES,
   type DrumVoiceId,
   type HitVoiceId,
+  type PadId,
   type PercVoiceId,
   type PolyInstrumentId,
 } from "../state/pattern"
@@ -15,6 +17,7 @@ import {
   type BassParams,
   type EpParams,
   type FxParams,
+  type PadParams,
   type PolyParams,
   type StringsParams,
   type SynthParams,
@@ -24,6 +27,8 @@ import { DrumKit } from "./devices/drums"
 import { MonoVoice } from "./devices/monoSynth"
 import { PercKit } from "./devices/perc"
 import { EPiano, PolyPad, Strings, type PolyInstrument } from "./devices/polySynths"
+import { SamplerKit } from "./devices/sampler"
+import { deleteSample, putSample } from "./sampleStore"
 import { Scheduler } from "./scheduler"
 import type { Voice } from "./types"
 
@@ -31,6 +36,8 @@ import type { Voice } from "./types"
 interface Channel {
   input: Tone.Gain
   send: Tone.Gain
+  level: number
+  muted: boolean
 }
 
 /** Ramp length for parameter changes — long enough to avoid clicks, short enough to feel direct. */
@@ -59,6 +66,7 @@ export class AudioEngine {
   private readonly voices = new Map<HitVoiceId, Voice>()
   private drums: DrumKit | null = null
   private perc: PercKit | null = null
+  private sampler: SamplerKit | null = null
   private synth: MonoVoice | null = null
   private bass: BassVoice | null = null
   private poly: PolyPad | null = null
@@ -85,16 +93,21 @@ export class AudioEngine {
     const fxInput = new Tone.Gain(1).connect(delay)
 
     for (const id of CHANNEL_IDS) {
-      const input = new Tone.Gain(state.mix.level[id]).connect(master)
+      const level = state.mix.level[id]
+      const muted = state.mix.mute[id]
+      const input = new Tone.Gain(muted ? 0 : level).connect(master)
       const send = new Tone.Gain(state.mix.send[id]).connect(fxInput)
       input.connect(send)
-      this.channels.set(id, { input, send })
+      this.channels.set(id, { input, send, level, muted })
     }
 
     this.drums = new DrumKit(this.channelInput("drums"), state.drumLevels)
     for (const id of DRUM_VOICES) this.voices.set(id, this.drums.voice(id))
     this.perc = new PercKit(this.channelInput("perc"), state.percLevels)
     for (const id of PERC_VOICES) this.voices.set(id, this.perc.voice(id))
+    this.sampler = new SamplerKit(this.channelInput("sampler"), state.pads)
+    for (const id of PAD_IDS) this.voices.set(id, this.sampler.voice(id))
+    void this.sampler.loadStored()
     this.synth = new MonoVoice(this.channelInput("synth"), state.synthParams)
     this.bass = new BassVoice(this.channelInput("bass"), state.bassParams)
     this.poly = new PolyPad(this.channelInput("poly"), state.polyParams)
@@ -154,7 +167,22 @@ export class AudioEngine {
 
   /** Channel level into the master bus, 0–1. */
   setChannelVolume(channel: ChannelId, level: number): void {
-    this.channels.get(channel)?.input.gain.rampTo(level, RAMP)
+    const ch = this.channels.get(channel)
+    if (!ch) return
+    ch.level = level
+    this.applyChannelGain(ch)
+  }
+
+  /** Silence a channel without losing its level. */
+  setChannelMute(channel: ChannelId, muted: boolean): void {
+    const ch = this.channels.get(channel)
+    if (!ch) return
+    ch.muted = muted
+    this.applyChannelGain(ch)
+  }
+
+  private applyChannelGain(ch: Channel): void {
+    ch.input.gain.rampTo(ch.muted ? 0 : ch.level, RAMP)
   }
 
   /** How much of a channel goes to the FX bus, 0–1. */
@@ -170,6 +198,26 @@ export class AudioEngine {
   /** Per-voice level on the PERC-6, 0–1. */
   setPercLevel(voice: PercVoiceId, level: number): void {
     this.perc?.setLevel(voice, level)
+  }
+
+  /** Pitch, decay and level of one SMP-8 pad. */
+  setPadParams(pad: PadId, params: PadParams): void {
+    this.sampler?.setParams(pad, params)
+  }
+
+  /**
+   * Put a file on a pad: persist the bytes in the browser first, then — if
+   * the graph exists — decode them into the player. Before the first Play the
+   * sampler picks them up from storage when it is built.
+   */
+  async importSample(pad: PadId, name: string, data: ArrayBuffer): Promise<void> {
+    await putSample(pad, { name, data })
+    if (this.sampler) await this.sampler.setSample(pad, data)
+  }
+
+  async clearSample(pad: PadId): Promise<void> {
+    await deleteSample(pad)
+    this.sampler?.clearSample(pad)
   }
 
   /** Audition a one-shot voice now (outside the sequence), e.g. from a pad. Requires build(). */
@@ -232,6 +280,7 @@ export class AudioEngine {
     this.setMasterVolume(s.masterVolume)
     for (const voice of DRUM_VOICES) this.setDrumLevel(voice, s.drumLevels[voice])
     for (const voice of PERC_VOICES) this.setPercLevel(voice, s.percLevels[voice])
+    for (const pad of PAD_IDS) this.setPadParams(pad, s.pads[pad])
     for (const key of keysOf(s.synthParams)) this.setSynthParam(key, s.synthParams[key])
     for (const key of keysOf(s.bassParams)) this.setBassParam(key, s.bassParams[key])
     for (const key of keysOf(s.polyParams)) this.setPolyParam(key, s.polyParams[key])
@@ -239,6 +288,7 @@ export class AudioEngine {
     for (const key of keysOf(s.stringsParams)) this.setStringsParam(key, s.stringsParams[key])
     for (const ch of CHANNEL_IDS) {
       this.setChannelVolume(ch, s.mix.level[ch])
+      this.setChannelMute(ch, s.mix.mute[ch])
       this.setSend(ch, s.mix.send[ch])
     }
     for (const key of keysOf(s.fx)) this.setFxParam(key, s.fx[key])
@@ -276,6 +326,7 @@ export class AudioEngine {
     this.scheduler?.dispose()
     this.drums?.dispose()
     this.perc?.dispose()
+    this.sampler?.dispose()
     this.synth?.dispose()
     this.bass?.dispose()
     this.poly?.dispose()
@@ -295,6 +346,7 @@ export class AudioEngine {
     this.scheduler = null
     this.drums = null
     this.perc = null
+    this.sampler = null
     this.synth = null
     this.bass = null
     this.poly = null

@@ -156,6 +156,30 @@ describe("rack store", () => {
     expect(after.rim).toBe(before.rim)
   })
 
+  it("edits a pad's params clamped, selects pads, and mutes a channel", () => {
+    const store = useRackStore.getState()
+    store.selectPad("pad5")
+    store.setPadParam("pad5", "pitch", 40)
+    store.setPadParam("pad5", "name", "kick.wav")
+    store.toggleSampleStep("pad5", 2)
+    store.setChannelMute("sampler", true)
+    const s = useRackStore.getState()
+    expect(s.selectedPad).toBe("pad5")
+    expect(s.pads.pad5.pitch).toBe(12)
+    expect(s.pads.pad5.name).toBe("kick.wav")
+    expect(s.pads.pad1.name).toBeNull()
+    expect(selectPattern(s).samples.pad5[2]).toBe(true)
+    expect(s.mix.mute.sampler).toBe(true)
+    expect(s.mix.mute.drums).toBe(false)
+  })
+
+  it("folds and unfolds a unit", () => {
+    useRackStore.getState().toggleFold("DR-4")
+    expect(useRackStore.getState().folded["DR-4"]).toBe(true)
+    useRackStore.getState().toggleFold("DR-4")
+    expect(useRackStore.getState().folded["DR-4"]).toBe(false)
+  })
+
   it("sets a drum level clamped to 0–1 without mutating the previous levels", () => {
     const before = useRackStore.getState().drumLevels
     useRackStore.getState().setDrumLevel("hat", 1.7)

@@ -7,6 +7,7 @@ import {
   toggleDrumStep,
   togglePercStep,
   togglePolyNote,
+  toggleSampleStep,
   toggleSynthNote,
   type Pattern,
 } from "../state/pattern"
@@ -108,12 +109,13 @@ describe("triggersForStep", () => {
     expect(triggersForStep(p, 1)).toEqual([])
   })
 
-  it("includes PERC-6 voices after the DR-4 ones", () => {
+  it("includes PERC-6 voices and SMP-8 pads after the DR-4 ones", () => {
     let p = createEmptyPattern()
     p = toggleDrumStep(p, "kick", 0)
     p = togglePercStep(p, "crash", 0)
+    p = toggleSampleStep(p, "pad2", 0)
     p = togglePercStep(p, "shaker", 2)
-    expect(triggersForStep(p, 0)).toEqual(["kick", "crash"])
+    expect(triggersForStep(p, 0)).toEqual(["kick", "crash", "pad2"])
     expect(triggersForStep(p, 2)).toEqual(["shaker"])
   })
 })

@@ -1,9 +1,10 @@
 # RACK
 
-A browser-based hardware rack: a drum machine (**DR-4**), a percussion kit (**PERC-6**), an acid
-bass (**BASS-2**), a mono synth (**MONO-1**), a poly pad (**POLY-4**), an FM electric piano
-(**EP-1**), plucked strings (**STR-6**), an FX unit (**FX-2**), a four-slot pattern bank with
-chaining, and a transport with tempo and swing — built with Tone.js and Chakra UI v3.
+A browser-based hardware rack: a drum machine (**DR-4**), a percussion kit (**PERC-6**), a sampler
+for your own files (**SMP-8**), an acid bass (**BASS-2**), a mono synth (**MONO-1**), a poly pad
+(**POLY-4**), an FM electric piano (**EP-1**), plucked strings (**STR-6**), an FX unit (**FX-2**),
+a four-slot pattern bank with chaining, and a transport with tempo and swing — built with Tone.js
+and Chakra UI v3. Every unit can be folded and muted from its header.
 
 Live: https://rack.serverscel.com/
 
@@ -48,3 +49,6 @@ docker compose up -d --build     # serves dist/ with nginx on port 7273
 
 **Save** downloads a `rack-song.json` with the bank, chain, tempo and every parameter;
 **Load** reads one back. `docs/rack-song.json` is an example.
+
+SMP-8 samples are stored in the browser (IndexedDB), not in the song file — a song lists each
+pad's file name, pitch, decay and level, and expects the same samples to be present.

@@ -6,8 +6,11 @@ export type DrumVoiceId = (typeof DRUM_VOICES)[number]
 export const PERC_VOICES = ["tomLo", "tomHi", "rim", "cowbell", "shaker", "crash"] as const
 export type PercVoiceId = (typeof PERC_VOICES)[number]
 
+export const PAD_IDS = ["pad1", "pad2", "pad3", "pad4", "pad5", "pad6", "pad7", "pad8"] as const
+export type PadId = (typeof PAD_IDS)[number]
+
 /** Any one-shot voice the scheduler can fire. Names are unique across kits. */
-export type HitVoiceId = DrumVoiceId | PercVoiceId
+export type HitVoiceId = DrumVoiceId | PercVoiceId | PadId
 
 /** MONO-1 rows, low to high. Row index in the pattern is an index into this list. */
 export const SYNTH_NOTES = ["C2", "D2", "Eb2", "F2", "G2", "Ab2", "Bb2", "C3"] as const
@@ -47,6 +50,7 @@ export type BassFlag = "accent" | "slide"
 export interface Pattern {
   drums: KitRows<DrumVoiceId>
   perc: KitRows<PercVoiceId>
+  samples: KitRows<PadId>
   synth: SynthRow
   bass: BassRow
   poly: Readonly<Record<PolyInstrumentId, PolyRow>>
@@ -83,6 +87,7 @@ export function createEmptyPattern(): Pattern {
   return {
     drums: kitRows(DRUM_VOICES),
     perc: kitRows(PERC_VOICES),
+    samples: kitRows(PAD_IDS),
     synth: noteRow(),
     bass: { notes: noteRow(), accent: row(), slide: row() },
     poly: { poly: polyRow(), ep: polyRow(), strings: polyRow() },
@@ -98,6 +103,7 @@ export function createDefaultPattern(): Pattern {
       hat: [0, 2, 4, 6, 8, 10, 12, 14],
     }),
     perc: kitRows(PERC_VOICES, { shaker: [2, 6, 10, 14] }),
+    samples: kitRows(PAD_IDS),
     synth: noteRow([0, 0], [3, 0], [6, 4], [8, 0], [11, 0], [13, 3], [14, 2]),
     bass: {
       notes: noteRow(
@@ -150,6 +156,11 @@ export function toggleDrumStep(pattern: Pattern, voice: DrumVoiceId, step: numbe
 /** Returns a new pattern with one PERC-6 step flipped. Never mutates the input. */
 export function togglePercStep(pattern: Pattern, voice: PercVoiceId, step: number): Pattern {
   return { ...pattern, perc: toggleRow(pattern.perc, voice, step) }
+}
+
+/** Returns a new pattern with one SMP-8 step flipped. Never mutates the input. */
+export function toggleSampleStep(pattern: Pattern, pad: PadId, step: number): Pattern {
+  return { ...pattern, samples: toggleRow(pattern.samples, pad, step) }
 }
 
 /**
