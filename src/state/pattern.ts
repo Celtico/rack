@@ -17,11 +17,24 @@ export type SynthNote = (typeof SYNTH_NOTES)[number]
 export const BASS_NOTES = ["E1", "G1", "A1", "B1", "D2", "E2", "G2", "A2"] as const
 export type BassNote = (typeof BASS_NOTES)[number]
 
+/** The polyphonic instruments: any number of notes per column. */
+export const POLY_INSTRUMENTS = ["poly", "ep", "strings"] as const
+export type PolyInstrumentId = (typeof POLY_INSTRUMENTS)[number]
+
+/** Rows of each polyphonic instrument, low to high. */
+export const POLY_NOTES: Readonly<Record<PolyInstrumentId, readonly string[]>> = {
+  poly: ["C3", "D3", "E3", "G3", "A3", "C4", "D4", "E4"],
+  ep: ["C3", "E3", "G3", "B3", "D4", "E4", "G4", "B4"],
+  strings: ["E2", "G2", "A2", "B2", "D3", "E3", "G3", "B3"],
+}
+
 export type StepRow = readonly boolean[]
 /** One on/off row per voice of a kit. */
 export type KitRows<Id extends string> = Readonly<Record<Id, StepRow>>
 /** One row index per column, or null for a rest. Monophonic by construction. */
 export type SynthRow = readonly (number | null)[]
+/** Per column, the sorted row indices sounding — any number of them. */
+export type PolyRow = readonly (readonly number[])[]
 
 /** BASS-2: a note row plus per-step accent and slide flags. */
 export interface BassRow {
@@ -36,6 +49,7 @@ export interface Pattern {
   perc: KitRows<PercVoiceId>
   synth: SynthRow
   bass: BassRow
+  poly: Readonly<Record<PolyInstrumentId, PolyRow>>
 }
 
 const row = (...on: number[]): StepRow =>
@@ -58,16 +72,24 @@ export function noteRow(...pairs: [step: number, row: number][]): SynthRow {
   return out
 }
 
+/** A polyphonic row from (step, rows) pairs. */
+export function polyRow(...pairs: [step: number, rows: number[]][]): PolyRow {
+  const out: number[][] = Array.from({ length: STEP_COUNT }, () => [])
+  for (const [step, rows] of pairs) out[step] = [...rows].sort((a, b) => a - b)
+  return out
+}
+
 export function createEmptyPattern(): Pattern {
   return {
     drums: kitRows(DRUM_VOICES),
     perc: kitRows(PERC_VOICES),
     synth: noteRow(),
     bass: { notes: noteRow(), accent: row(), slide: row() },
+    poly: { poly: polyRow(), ep: polyRow(), strings: polyRow() },
   }
 }
 
-/** Four-on-the-floor, a small bassline and an acid line, so the rack makes sense the moment it plays. */
+/** Four-on-the-floor, a bassline, an acid line, two chords and an arpeggio — a groove from the first Play. */
 export function createDefaultPattern(): Pattern {
   return {
     drums: kitRows(DRUM_VOICES, {
@@ -93,6 +115,20 @@ export function createDefaultPattern(): Pattern {
       ),
       accent: row(0, 6, 12),
       slide: row(14),
+    },
+    poly: {
+      poly: polyRow([0, [0, 2, 4]], [8, [1, 3, 5]]),
+      ep: polyRow([4, [0, 2, 4]], [12, [1, 3, 5]]),
+      strings: polyRow(
+        [0, [0]],
+        [2, [2]],
+        [4, [4]],
+        [6, [6]],
+        [8, [1]],
+        [10, [3]],
+        [12, [5]],
+        [14, [7]],
+      ),
     },
   }
 }
@@ -138,11 +174,37 @@ export function toggleBassFlag(pattern: Pattern, step: number, flag: BassFlag): 
   return { ...pattern, bass: { ...pattern.bass, [flag]: flags } }
 }
 
+/** Add or remove one note of a chord. Rows stay sorted so equal chords compare equal. */
+export function togglePolyNote(
+  pattern: Pattern,
+  instrument: PolyInstrumentId,
+  step: number,
+  rowIndex: number,
+): Pattern {
+  const rows = pattern.poly[instrument].map((column, i) => {
+    if (i !== step) return column
+    return column.includes(rowIndex)
+      ? column.filter((r) => r !== rowIndex)
+      : [...column, rowIndex].sort((a, b) => a - b)
+  })
+  return { ...pattern, poly: { ...pattern.poly, [instrument]: rows } }
+}
+
 /** The MONO-1 note name sounding at a step, or null for a rest. */
 export function synthNoteAt(pattern: Pattern, step: number): SynthNote | null {
   const rowIndex = pattern.synth[step]
   if (rowIndex === null || rowIndex === undefined) return null
   return SYNTH_NOTES[rowIndex] ?? null
+}
+
+/** The note names a polyphonic instrument plays at a step — empty for a rest. */
+export function polyNotesAt(
+  pattern: Pattern,
+  instrument: PolyInstrumentId,
+  step: number,
+): string[] {
+  const names = POLY_NOTES[instrument]
+  return (pattern.poly[instrument][step] ?? []).flatMap((r) => names[r] ?? [])
 }
 
 /** What BASS-2 does at a step — sent every step so a held slide can be released on a rest. */

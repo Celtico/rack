@@ -3,12 +3,32 @@ import { describe, expect, it } from "vitest"
 import {
   bassEventAt,
   createEmptyPattern,
+  polyNotesAt,
   synthNoteAt,
   toggleBassFlag,
   toggleBassNote,
   togglePercStep,
+  togglePolyNote,
   toggleSynthNote,
 } from "./pattern"
+
+describe("togglePolyNote", () => {
+  it("adds and removes notes of a chord, keeping the column sorted and other instruments untouched", () => {
+    let p = createEmptyPattern()
+    p = togglePolyNote(p, "ep", 4, 5)
+    p = togglePolyNote(p, "ep", 4, 1)
+    p = togglePolyNote(p, "ep", 4, 3)
+    expect(p.poly.ep[4]).toEqual([1, 3, 5])
+    expect(polyNotesAt(p, "ep", 4)).toEqual(["E3", "B3", "E4"])
+    expect(polyNotesAt(p, "poly", 4)).toEqual([])
+
+    const before = p
+    p = togglePolyNote(p, "ep", 4, 3)
+    expect(p.poly.ep[4]).toEqual([1, 5])
+    expect(before.poly.ep[4]).toEqual([1, 3, 5])
+    expect(p.poly.strings).toBe(before.poly.strings)
+  })
+})
 
 describe("BASS-2 row", () => {
   it("keeps one note per column and flips flags independently", () => {

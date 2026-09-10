@@ -1,5 +1,5 @@
 /** Mixer channels — one per sound module. The engine builds one strip for each. */
-export const CHANNEL_IDS = ["drums", "perc", "synth", "bass"] as const
+export const CHANNEL_IDS = ["drums", "perc", "synth", "bass", "poly", "ep", "strings"] as const
 export type ChannelId = (typeof CHANNEL_IDS)[number]
 
 export const CHANNEL_LABELS: Record<ChannelId, string> = {
@@ -7,4 +7,7 @@ export const CHANNEL_LABELS: Record<ChannelId, string> = {
   perc: "PERC-6",
   synth: "MONO-1",
   bass: "BASS-2",
+  poly: "POLY-4",
+  ep: "EP-1",
+  strings: "STR-6",
 }

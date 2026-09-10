@@ -29,7 +29,7 @@ export function Transport() {
     if (playing) {
       engine.stop()
       setPlaying(false)
-      setPlayhead(-1, -1)
+      setPlayhead(-1, -1, -1)
     } else {
       await engine.start()
       setPlaying(true)

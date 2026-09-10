@@ -6,6 +6,7 @@ import {
   toggleBassNote,
   toggleDrumStep,
   togglePercStep,
+  togglePolyNote,
   toggleSynthNote,
   type Pattern,
 } from "../state/pattern"
@@ -59,6 +60,7 @@ function makeScheduler(initial: Pattern, chain: number[] = []) {
   const trigger = vi.fn()
   const triggerNote = vi.fn()
   const triggerBass = vi.fn()
+  const triggerPoly = vi.fn()
   const onStep = vi.fn()
   const getPattern = vi.fn((bar: number) => resolvePlayingPattern(patterns, active, chain, bar))
   const scheduler = new Scheduler({
@@ -68,6 +70,7 @@ function makeScheduler(initial: Pattern, chain: number[] = []) {
     trigger,
     triggerNote,
     triggerBass,
+    triggerPoly,
     onStep,
   })
   return {
@@ -75,6 +78,7 @@ function makeScheduler(initial: Pattern, chain: number[] = []) {
     trigger,
     triggerNote,
     triggerBass,
+    triggerPoly,
     onStep,
     getPattern,
     setPattern: (next: Pattern, slot = 0) => {
@@ -157,7 +161,7 @@ describe("Scheduler", () => {
       ["snare", 0.5],
       ["kick", 1],
     ])
-    expect(onStep.mock.calls).toEqual(Array.from({ length: 16 }, (_, i) => [i, 0]))
+    expect(onStep.mock.calls).toEqual(Array.from({ length: 16 }, (_, i) => [i, 0, 0]))
     // Every UI update went through Draw with the audio time attached.
     expect(fake.drawSchedule).toHaveBeenCalledTimes(16)
     expect(fake.drawSchedule.mock.calls[4]?.[1]).toBe(0.5)
@@ -224,6 +228,23 @@ describe("Scheduler", () => {
     ])
   })
 
+  it("sounds chords on the polyphonic instruments and skips their rests", () => {
+    let pattern = createEmptyPattern()
+    pattern = togglePolyNote(pattern, "poly", 0, 0)
+    pattern = togglePolyNote(pattern, "poly", 0, 2)
+    pattern = togglePolyNote(pattern, "strings", 1, 7)
+
+    const { scheduler, triggerPoly } = makeScheduler(pattern)
+    scheduler.start()
+    const seq = fake.sequences[0]!
+    for (let step = 0; step < 3; step++) seq.callback(step * SIXTEENTH, step)
+
+    expect(triggerPoly.mock.calls).toEqual([
+      ["poly", ["C3", "E3"], 0],
+      ["strings", ["B3"], SIXTEENTH],
+    ])
+  })
+
   it("reads the pattern fresh on every tick, not the one captured at start", () => {
     const { scheduler, trigger, setPattern } = makeScheduler(createEmptyPattern())
     scheduler.start()
@@ -256,9 +277,10 @@ describe("Scheduler", () => {
     expect(bars[16]).toBe(1)
     expect(bars[47]).toBe(2)
     expect(bars[48]).toBe(3)
-    // Slot published with each step: 0, 1, 1, then wraps to 0.
-    const slots = onStep.mock.calls.filter(([step]) => step === 0).map(([, slot]) => slot)
-    expect(slots).toEqual([0, 1, 1, 0])
+    // Slot and bar published with each step: slots 0, 1, 1, then wraps to 0; bars count up.
+    const firstSteps = onStep.mock.calls.filter(([step]) => step === 0)
+    expect(firstSteps.map(([, slot]) => slot)).toEqual([0, 1, 1, 0])
+    expect(firstSteps.map(([, , bar]) => bar)).toEqual([0, 1, 2, 3])
 
     scheduler.reset()
     getPattern.mockClear()

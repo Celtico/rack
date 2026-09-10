@@ -10,18 +10,27 @@ import {
   clamp,
   clampRecord,
   DRUM_LEVELS_DEFAULT,
+  EP_PARAMS_DEFAULT,
+  EP_RANGES,
   FX_DEFAULT,
   FX_RANGES,
   MASTER_DEFAULT,
   MIX_DEFAULT,
   PERC_LEVELS_DEFAULT,
+  POLY_PARAMS_DEFAULT,
+  POLY_RANGES,
+  STRINGS_PARAMS_DEFAULT,
+  STRINGS_RANGES,
   SYNTH_PARAMS_DEFAULT,
   SYNTH_RANGES,
   type BassParams,
   type DrumLevels,
+  type EpParams,
   type FxParams,
   type MixParams,
   type PercLevels,
+  type PolyParams,
+  type StringsParams,
   type SynthParams,
 } from "./params"
 import {
@@ -31,11 +40,13 @@ import {
   toggleBassNote,
   toggleDrumStep,
   togglePercStep,
+  togglePolyNote,
   toggleSynthNote,
   type BassFlag,
   type DrumVoiceId,
   type Pattern,
   type PercVoiceId,
+  type PolyInstrumentId,
 } from "./pattern"
 import { createDefaultBank, MAX_CHAIN, PATTERN_COUNT } from "./patterns"
 import { SONG_VERSION, type Song } from "./song"
@@ -51,6 +62,8 @@ export interface RackState {
   currentStep: number
   /** Bank slot currently sounding, or -1 when stopped. */
   playingPattern: number
+  /** Bars since the transport started, or -1 when stopped. Drives the timeline. */
+  playingBar: number
   masterVolume: number
   /** The bank: PATTERN_COUNT slots. */
   patterns: readonly Pattern[]
@@ -62,19 +75,23 @@ export interface RackState {
   percLevels: PercLevels
   synthParams: SynthParams
   bassParams: BassParams
+  polyParams: PolyParams
+  epParams: EpParams
+  stringsParams: StringsParams
   mix: MixParams
   fx: FxParams
 
   setBpm: (bpm: number) => void
   setSwing: (swing: number) => void
   setPlaying: (playing: boolean) => void
-  setPlayhead: (step: number, patternIndex: number) => void
+  setPlayhead: (step: number, patternIndex: number, bar: number) => void
   setMasterVolume: (level: number) => void
   toggleDrumStep: (voice: DrumVoiceId, step: number) => void
   togglePercStep: (voice: PercVoiceId, step: number) => void
   toggleSynthNote: (step: number, rowIndex: number) => void
   toggleBassNote: (step: number, rowIndex: number) => void
   toggleBassFlag: (step: number, flag: BassFlag) => void
+  togglePolyNote: (instrument: PolyInstrumentId, step: number, rowIndex: number) => void
   setActivePattern: (index: number) => void
   copyActivePatternTo: (index: number) => void
   appendToChain: (index: number) => void
@@ -83,6 +100,9 @@ export interface RackState {
   setPercLevel: (voice: PercVoiceId, level: number) => void
   setSynthParam: <K extends keyof SynthParams>(key: K, value: SynthParams[K]) => void
   setBassParam: <K extends keyof BassParams>(key: K, value: BassParams[K]) => void
+  setPolyParam: <K extends keyof PolyParams>(key: K, value: PolyParams[K]) => void
+  setEpParam: <K extends keyof EpParams>(key: K, value: EpParams[K]) => void
+  setStringsParam: <K extends keyof StringsParams>(key: K, value: StringsParams[K]) => void
   setChannelLevel: (channel: ChannelId, level: number) => void
   setChannelSend: (channel: ChannelId, level: number) => void
   setFxParam: <K extends keyof FxParams>(key: K, value: FxParams[K]) => void
@@ -102,6 +122,21 @@ const updateActive = (state: RackState, fn: (p: Pattern) => Pattern) => ({
   patterns: state.patterns.map((p, i) => (i === state.activePattern ? fn(p) : p)),
 })
 
+type Ranges<T> = { [K in keyof T]?: { min: number; max: number } }
+
+/** Clamp every numeric field of a params object to its declared range. */
+function clampParams<T extends object>(params: T, ranges: Ranges<T>): T {
+  const out = { ...params }
+  for (const key of Object.keys(ranges) as (keyof T)[]) {
+    const range = ranges[key]
+    const value = out[key]
+    if (range && typeof value === "number") {
+      out[key] = clamp(value, range.min, range.max) as T[keyof T]
+    }
+  }
+  return out
+}
+
 /**
  * Pattern bank, tempo, parameters and transport state. Pure state — it never
  * touches the audio engine; the UI forwards changes to the engine itself. The
@@ -114,6 +149,7 @@ export const useRackStore = create<RackState>()((set) => ({
   playing: false,
   currentStep: -1,
   playingPattern: -1,
+  playingBar: -1,
   masterVolume: MASTER_DEFAULT,
   patterns: createDefaultBank(),
   activePattern: 0,
@@ -122,13 +158,17 @@ export const useRackStore = create<RackState>()((set) => ({
   percLevels: PERC_LEVELS_DEFAULT,
   synthParams: SYNTH_PARAMS_DEFAULT,
   bassParams: BASS_PARAMS_DEFAULT,
+  polyParams: POLY_PARAMS_DEFAULT,
+  epParams: EP_PARAMS_DEFAULT,
+  stringsParams: STRINGS_PARAMS_DEFAULT,
   mix: MIX_DEFAULT,
   fx: FX_DEFAULT,
 
   setBpm: (bpm) => set({ bpm: Math.round(clamp(bpm, BPM_MIN, BPM_MAX)) }),
   setSwing: (swing) => set({ swing: clamp(swing, 0, 1) }),
   setPlaying: (playing) => set({ playing }),
-  setPlayhead: (currentStep, playingPattern) => set({ currentStep, playingPattern }),
+  setPlayhead: (currentStep, playingPattern, playingBar) =>
+    set({ currentStep, playingPattern, playingBar }),
   setMasterVolume: (level) => set({ masterVolume: clamp(level, 0, 1) }),
   toggleDrumStep: (voice, step) =>
     set((state) => updateActive(state, (p) => toggleDrumStep(p, voice, step))),
@@ -140,6 +180,8 @@ export const useRackStore = create<RackState>()((set) => ({
     set((state) => updateActive(state, (p) => toggleBassNote(p, step, rowIndex))),
   toggleBassFlag: (step, flag) =>
     set((state) => updateActive(state, (p) => toggleBassFlag(p, step, flag))),
+  togglePolyNote: (instrument, step, rowIndex) =>
+    set((state) => updateActive(state, (p) => togglePolyNote(p, instrument, step, rowIndex))),
   setActivePattern: (index) => set({ activePattern: slot(index) }),
   copyActivePatternTo: (index) =>
     set((state) => {
@@ -163,6 +205,11 @@ export const useRackStore = create<RackState>()((set) => ({
     set((state) => ({ synthParams: { ...state.synthParams, [key]: value } })),
   setBassParam: (key, value) =>
     set((state) => ({ bassParams: { ...state.bassParams, [key]: value } })),
+  setPolyParam: (key, value) =>
+    set((state) => ({ polyParams: { ...state.polyParams, [key]: value } })),
+  setEpParam: (key, value) => set((state) => ({ epParams: { ...state.epParams, [key]: value } })),
+  setStringsParam: (key, value) =>
+    set((state) => ({ stringsParams: { ...state.stringsParams, [key]: value } })),
   setChannelLevel: (channel, level) =>
     set((state) => ({
       mix: { ...state.mix, level: { ...state.mix.level, [channel]: clamp(level, 0, 1) } },
@@ -182,40 +229,16 @@ export const useRackStore = create<RackState>()((set) => ({
       chain: song.chain.slice(0, MAX_CHAIN).map(slot),
       drumLevels: clampRecord(DRUM_VOICES, song.drumLevels, 0, 1),
       percLevels: clampRecord(PERC_VOICES, song.percLevels, 0, 1),
-      synthParams: {
-        waveform: song.synthParams.waveform,
-        cutoff: clamp(song.synthParams.cutoff, SYNTH_RANGES.cutoff.min, SYNTH_RANGES.cutoff.max),
-        resonance: clamp(
-          song.synthParams.resonance,
-          SYNTH_RANGES.resonance.min,
-          SYNTH_RANGES.resonance.max,
-        ),
-        decay: clamp(song.synthParams.decay, SYNTH_RANGES.decay.min, SYNTH_RANGES.decay.max),
-      },
-      bassParams: {
-        waveform: song.bassParams.waveform,
-        cutoff: clamp(song.bassParams.cutoff, BASS_RANGES.cutoff.min, BASS_RANGES.cutoff.max),
-        resonance: clamp(
-          song.bassParams.resonance,
-          BASS_RANGES.resonance.min,
-          BASS_RANGES.resonance.max,
-        ),
-        envMod: clamp(song.bassParams.envMod, BASS_RANGES.envMod.min, BASS_RANGES.envMod.max),
-        decay: clamp(song.bassParams.decay, BASS_RANGES.decay.min, BASS_RANGES.decay.max),
-      },
+      synthParams: clampParams(song.synthParams, SYNTH_RANGES),
+      bassParams: clampParams(song.bassParams, BASS_RANGES),
+      polyParams: clampParams(song.polyParams, POLY_RANGES),
+      epParams: clampParams(song.epParams, EP_RANGES),
+      stringsParams: clampParams(song.stringsParams, STRINGS_RANGES),
       mix: {
         level: clampRecord(CHANNEL_IDS, song.mix.level, 0, 1),
         send: clampRecord(CHANNEL_IDS, song.mix.send, 0, 1),
       },
-      fx: {
-        delayTime: song.fx.delayTime,
-        feedback: clamp(song.fx.feedback, FX_RANGES.feedback.min, FX_RANGES.feedback.max),
-        reverbDecay: clamp(
-          song.fx.reverbDecay,
-          FX_RANGES.reverbDecay.min,
-          FX_RANGES.reverbDecay.max,
-        ),
-      },
+      fx: clampParams(song.fx, FX_RANGES),
     }),
 }))
 
@@ -240,6 +263,11 @@ export function toSong(state: RackState): Song {
       perc: copyRows(PERC_VOICES, p.perc),
       synth: [...p.synth],
       bass: { notes: [...p.bass.notes], accent: [...p.bass.accent], slide: [...p.bass.slide] },
+      poly: {
+        poly: p.poly.poly.map((c) => [...c]),
+        ep: p.poly.ep.map((c) => [...c]),
+        strings: p.poly.strings.map((c) => [...c]),
+      },
     })),
     activePattern: state.activePattern,
     chain: [...state.chain],
@@ -247,6 +275,9 @@ export function toSong(state: RackState): Song {
     percLevels: { ...state.percLevels },
     synthParams: { ...state.synthParams },
     bassParams: { ...state.bassParams },
+    polyParams: { ...state.polyParams },
+    epParams: { ...state.epParams },
+    stringsParams: { ...state.stringsParams },
     mix: { level: { ...state.mix.level }, send: { ...state.mix.send } },
     fx: { ...state.fx },
   }

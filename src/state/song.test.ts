@@ -73,9 +73,13 @@ describe("song save/load", () => {
     for (const p of legacy.patterns) {
       delete p.perc
       delete p.bass
+      delete p.poly
     }
     delete legacy.percLevels
     delete (legacy as Record<string, unknown>).bassParams
+    delete (legacy as Record<string, unknown>).polyParams
+    delete (legacy as Record<string, unknown>).epParams
+    delete (legacy as Record<string, unknown>).stringsParams
     delete legacy.mix.level.perc
     delete legacy.mix.send.perc
     delete legacy.mix.level.bass
@@ -86,6 +90,10 @@ describe("song save/load", () => {
     expect(song.patterns[0]!.bass.notes.every((n) => n === null)).toBe(true)
     expect(song.percLevels.crash).toBe(0.5)
     expect(song.bassParams.waveform).toBe("sawtooth")
+    expect(song.patterns[0]!.poly.ep.every((c) => c.length === 0)).toBe(true)
+    expect(song.polyParams.cutoff).toBe(2200)
+    expect(song.epParams.tone).toBe(2)
+    expect(song.stringsParams.damp).toBe(3200)
     expect(song.mix.level.perc).toBe(0.8)
     expect(song.mix.send.perc).toBe(0.25)
     expect(song.mix.level.bass).toBe(0.85)

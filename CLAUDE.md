@@ -34,8 +34,17 @@ strict build order:
    - ✅ Extra — PERC-6 (`PercKit`, `src/audio/devices/perc.ts`: toms, rim, cowbell, shaker, crash on
      channel `perc`). Kits share the `Kit` interface, `kitRows()` and the generic `KitUnit` UI; songs saved
      without a kit/channel load with empty rows and default levels (`parseNumbers` defaults).
-   - ⏳ Extra machines still to come, one per phase: BASS-2 (303-style, slide/accent), POLY-4
-     (polyphonic grid), SMP-8 (sampler — sample storage to be decided with the user).
+   - ✅ Extra — BASS-2 (`BassVoice`, `src/audio/devices/bass.ts`): 303-style `MonoSynth`; per-step accent
+     (velocity + wider filter sweep) and slide (gate held into the next step, `setNote` glide, no re-attack).
+     The scheduler calls `triggerBass` on *every* step, rests included, so a held slide can release.
+   - ✅ Extra — polyphonic instruments sharing `Pattern.poly[instrument]: number[][16]`, `togglePolyNote`,
+     `PolyGrid` and `PolyInstrument` (`src/audio/devices/polySynths.ts`): POLY-4 (`PolySynth<Synth>` →
+     lowpass, ADSR), EP-1 (`PolySynth<FMSynth>`, tone/bright/decay/release), STR-6 (six `PluckSynth`
+     round-robin — `PluckSynth` is not `Monophonic`, so `PolySynth` cannot host it).
+   - ⏳ Next, in order: SMP-8 sampler (user samples in IndexedDB, song JSON keeps pad params + names),
+     a bar timeline for the chain (`playingBar` is already published), then the visual restyle the user
+     chose — Reason-inspired: wood rails, one finish colour per unit, LCDs, faders, LED meters. No Reason
+     names, logos or layouts.
 
 **The brief is fully implemented.** Anything from here is polish or new scope — confirm with the user first.
 

@@ -25,6 +25,7 @@ describe("<Transport />", () => {
       playing: false,
       currentStep: -1,
       playingPattern: -1,
+      playingBar: -1,
       masterVolume: 0.8,
     })
   })

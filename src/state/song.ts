@@ -3,14 +3,20 @@ import {
   BASS_PARAMS_DEFAULT,
   BASS_WAVEFORMS,
   DELAY_TIMES,
+  EP_PARAMS_DEFAULT,
   MIX_DEFAULT,
   PERC_LEVELS_DEFAULT,
+  POLY_PARAMS_DEFAULT,
+  STRINGS_PARAMS_DEFAULT,
   WAVEFORMS,
   type BassParams,
   type DrumLevels,
+  type EpParams,
   type FxParams,
   type MixParams,
   type PercLevels,
+  type PolyParams,
+  type StringsParams,
   type SynthParams,
 } from "./params"
 import {
@@ -19,11 +25,16 @@ import {
   kitRows,
   noteRow,
   PERC_VOICES,
+  POLY_INSTRUMENTS,
+  POLY_NOTES,
+  polyRow,
   STEP_COUNT,
   SYNTH_NOTES,
   type BassRow,
   type KitRows,
   type Pattern,
+  type PolyInstrumentId,
+  type PolyRow,
   type SynthRow,
 } from "./pattern"
 import { MAX_CHAIN, PATTERN_COUNT } from "./patterns"
@@ -32,8 +43,8 @@ export const SONG_VERSION = 1
 
 /**
  * Everything worth saving. Transport position and playing state are not.
- * Fields added after the first release (swing, perc, bass) are optional on
- * read so older files keep loading.
+ * Fields added after the first release (swing, perc, bass, the poly
+ * instruments) are optional on read so older files keep loading.
  */
 export interface Song {
   version: typeof SONG_VERSION
@@ -47,6 +58,9 @@ export interface Song {
   percLevels: PercLevels
   synthParams: SynthParams
   bassParams: BassParams
+  polyParams: PolyParams
+  epParams: EpParams
+  stringsParams: StringsParams
   mix: MixParams
   fx: FxParams
 }
@@ -89,6 +103,13 @@ const boolRow = (v: unknown, path: string): boolean[] =>
 const monoRow = (v: unknown, path: string, rows: number): SynthRow =>
   list(v, path, STEP_COUNT).map((r, i) => (r === null ? null : int(r, `${path}[${i}]`, rows)))
 
+const chordRow = (v: unknown, path: string, rows: number): PolyRow =>
+  list(v, path, STEP_COUNT).map((column, i) =>
+    [
+      ...new Set(list(column, `${path}[${i}]`).map((r, j) => int(r, `${path}[${i}][${j}]`, rows))),
+    ].sort((a, b) => a - b),
+  )
+
 /** One on/off row per voice. A kit missing from the file (older song) gets empty rows. */
 function parseKitRows<Id extends string>(
   v: unknown,
@@ -114,6 +135,16 @@ function parseBassRow(v: unknown, path: string): BassRow {
   }
 }
 
+function parsePolyRows(v: unknown, path: string): Record<PolyInstrumentId, PolyRow> {
+  const obj = v === undefined ? {} : record(v, path)
+  const out = {} as Record<PolyInstrumentId, PolyRow>
+  for (const id of POLY_INSTRUMENTS) {
+    out[id] =
+      obj[id] === undefined ? polyRow() : chordRow(obj[id], `${path}.${id}`, POLY_NOTES[id].length)
+  }
+  return out
+}
+
 function parsePattern(v: unknown, path: string): Pattern {
   const p = record(v, path)
   return {
@@ -121,6 +152,7 @@ function parsePattern(v: unknown, path: string): Pattern {
     perc: parseKitRows(p.perc, `${path}.perc`, PERC_VOICES),
     synth: monoRow(p.synth, `${path}.synth`, SYNTH_NOTES.length),
     bass: parseBassRow(p.bass, `${path}.bass`),
+    poly: parsePolyRows(p.poly, `${path}.poly`),
   }
 }
 
@@ -141,16 +173,23 @@ function parseNumbers<K extends string>(
   return out
 }
 
-function parseBassParams(v: unknown, path: string): BassParams {
-  if (v === undefined) return { ...BASS_PARAMS_DEFAULT }
-  const b = record(v, path)
-  return {
-    waveform: oneOf(b.waveform, `${path}.waveform`, BASS_WAVEFORMS),
-    cutoff: num(b.cutoff, `${path}.cutoff`),
-    resonance: num(b.resonance, `${path}.resonance`),
-    envMod: num(b.envMod, `${path}.envMod`),
-    decay: num(b.decay, `${path}.decay`),
+/** A params object whose numeric fields are required but that may be absent altogether. */
+function parseParams<T extends object>(
+  v: unknown,
+  path: string,
+  defaults: T,
+  enums: Partial<Record<keyof T, readonly string[]>> = {},
+): T {
+  if (v === undefined) return { ...defaults }
+  const obj = record(v, path)
+  const out = { ...defaults } as Record<string, unknown>
+  for (const key of Object.keys(defaults)) {
+    const options = (enums as Record<string, readonly string[] | undefined>)[key]
+    out[key] = options
+      ? oneOf(obj[key], `${path}.${key}`, options)
+      : num(obj[key], `${path}.${key}`)
   }
+  return out as T
 }
 
 /** Strict on shape, lenient on ranges — the store clamps numbers when it applies the song. */
@@ -188,7 +227,14 @@ export function parseSong(text: string): Song {
       resonance: num(synth.resonance, "song.synthParams.resonance"),
       decay: num(synth.decay, "song.synthParams.decay"),
     },
-    bassParams: parseBassParams(s.bassParams, "song.bassParams"),
+    bassParams: parseParams(s.bassParams, "song.bassParams", BASS_PARAMS_DEFAULT, {
+      waveform: BASS_WAVEFORMS,
+    }),
+    polyParams: parseParams(s.polyParams, "song.polyParams", POLY_PARAMS_DEFAULT, {
+      waveform: WAVEFORMS,
+    }),
+    epParams: parseParams(s.epParams, "song.epParams", EP_PARAMS_DEFAULT),
+    stringsParams: parseParams(s.stringsParams, "song.stringsParams", STRINGS_PARAMS_DEFAULT),
     mix: {
       level: parseNumbers(mix.level, "song.mix.level", CHANNEL_IDS, MIX_DEFAULT.level),
       send: parseNumbers(mix.send, "song.mix.send", CHANNEL_IDS, MIX_DEFAULT.send),

@@ -7,13 +7,23 @@ import {
   type DrumVoiceId,
   type HitVoiceId,
   type PercVoiceId,
+  type PolyInstrumentId,
 } from "../state/pattern"
 import { resolvePlayingPattern } from "../state/patterns"
-import { useRackStore, type BassParams, type FxParams, type SynthParams } from "../state/store"
+import {
+  useRackStore,
+  type BassParams,
+  type EpParams,
+  type FxParams,
+  type PolyParams,
+  type StringsParams,
+  type SynthParams,
+} from "../state/store"
 import { BassVoice } from "./devices/bass"
 import { DrumKit } from "./devices/drums"
 import { MonoVoice } from "./devices/monoSynth"
 import { PercKit } from "./devices/perc"
+import { EPiano, PolyPad, Strings, type PolyInstrument } from "./devices/polySynths"
 import { Scheduler } from "./scheduler"
 import type { Voice } from "./types"
 
@@ -51,6 +61,9 @@ export class AudioEngine {
   private perc: PercKit | null = null
   private synth: MonoVoice | null = null
   private bass: BassVoice | null = null
+  private poly: PolyPad | null = null
+  private ep: EPiano | null = null
+  private strings: Strings | null = null
   private scheduler: Scheduler | null = null
 
   get isBuilt(): boolean {
@@ -84,6 +97,9 @@ export class AudioEngine {
     for (const id of PERC_VOICES) this.voices.set(id, this.perc.voice(id))
     this.synth = new MonoVoice(this.channelInput("synth"), state.synthParams)
     this.bass = new BassVoice(this.channelInput("bass"), state.bassParams)
+    this.poly = new PolyPad(this.channelInput("poly"), state.polyParams)
+    this.ep = new EPiano(this.channelInput("ep"), state.epParams)
+    this.strings = new Strings(this.channelInput("strings"), state.stringsParams)
 
     this.scheduler = new Scheduler({
       getPattern: (bar) => {
@@ -95,7 +111,9 @@ export class AudioEngine {
       trigger: (voice, time) => this.voices.get(voice)?.trigger(time),
       triggerNote: (note, time) => this.synth?.trigger(note, time),
       triggerBass: (event, time, stepSeconds) => this.bass?.play(event, time, stepSeconds),
-      onStep: (step, index) => useRackStore.getState().setPlayhead(step, index),
+      triggerPoly: (instrument, notes, time) =>
+        this.polyInstrument(instrument)?.trigger(notes, time),
+      onStep: (step, index, bar) => useRackStore.getState().setPlayhead(step, index, bar),
     })
 
     this.master = master
@@ -169,6 +187,21 @@ export class AudioEngine {
     this.bass?.set(key, value)
   }
 
+  /** One POLY-4 parameter. */
+  setPolyParam<K extends keyof PolyParams>(key: K, value: PolyParams[K]): void {
+    this.poly?.set(key, value)
+  }
+
+  /** One EP-1 parameter. */
+  setEpParam<K extends keyof EpParams>(key: K, value: EpParams[K]): void {
+    this.ep?.set(key, value)
+  }
+
+  /** One STR-6 parameter. */
+  setStringsParam<K extends keyof StringsParams>(key: K, value: StringsParams[K]): void {
+    this.strings?.set(key, value)
+  }
+
   /**
    * One FX-2 parameter. Delay time and feedback are Signals and ramp; the
    * reverb tail is not automatable — Tone re-renders the impulse response and
@@ -199,18 +232,26 @@ export class AudioEngine {
     this.setMasterVolume(s.masterVolume)
     for (const voice of DRUM_VOICES) this.setDrumLevel(voice, s.drumLevels[voice])
     for (const voice of PERC_VOICES) this.setPercLevel(voice, s.percLevels[voice])
-    for (const key of Object.keys(s.synthParams) as (keyof SynthParams)[]) {
-      this.setSynthParam(key, s.synthParams[key])
-    }
-    for (const key of Object.keys(s.bassParams) as (keyof BassParams)[]) {
-      this.setBassParam(key, s.bassParams[key])
-    }
+    for (const key of keysOf(s.synthParams)) this.setSynthParam(key, s.synthParams[key])
+    for (const key of keysOf(s.bassParams)) this.setBassParam(key, s.bassParams[key])
+    for (const key of keysOf(s.polyParams)) this.setPolyParam(key, s.polyParams[key])
+    for (const key of keysOf(s.epParams)) this.setEpParam(key, s.epParams[key])
+    for (const key of keysOf(s.stringsParams)) this.setStringsParam(key, s.stringsParams[key])
     for (const ch of CHANNEL_IDS) {
       this.setChannelVolume(ch, s.mix.level[ch])
       this.setSend(ch, s.mix.send[ch])
     }
-    for (const key of Object.keys(s.fx) as (keyof FxParams)[]) {
-      this.setFxParam(key, s.fx[key])
+    for (const key of keysOf(s.fx)) this.setFxParam(key, s.fx[key])
+  }
+
+  private polyInstrument(id: PolyInstrumentId): PolyInstrument | null {
+    switch (id) {
+      case "poly":
+        return this.poly
+      case "ep":
+        return this.ep
+      case "strings":
+        return this.strings
     }
   }
 
@@ -237,6 +278,9 @@ export class AudioEngine {
     this.perc?.dispose()
     this.synth?.dispose()
     this.bass?.dispose()
+    this.poly?.dispose()
+    this.ep?.dispose()
+    this.strings?.dispose()
     for (const { input, send } of this.channels.values()) {
       input.dispose()
       send.dispose()
@@ -253,12 +297,17 @@ export class AudioEngine {
     this.perc = null
     this.synth = null
     this.bass = null
+    this.poly = null
+    this.ep = null
+    this.strings = null
     this.fxInput = null
     this.delay = null
     this.reverb = null
     this.master = null
   }
 }
+
+const keysOf = <T extends object>(o: T) => Object.keys(o) as (keyof T)[]
 
 let instance: AudioEngine | null = null
 

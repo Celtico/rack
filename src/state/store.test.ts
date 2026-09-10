@@ -11,6 +11,7 @@ describe("rack store", () => {
       playing: false,
       currentStep: -1,
       playingPattern: -1,
+      playingBar: -1,
       masterVolume: 0.8,
       patterns: [0, 1, 2, 3].map(() => createEmptyPattern()),
       activePattern: 0,
@@ -49,7 +50,7 @@ describe("rack store", () => {
   it("applies transport changes without mutating the previous state", () => {
     const before = useRackStore.getState()
     useRackStore.getState().setPlaying(true)
-    useRackStore.getState().setPlayhead(3, 1)
+    useRackStore.getState().setPlayhead(3, 1, 5)
     const after = useRackStore.getState()
 
     expect(after).not.toBe(before)
@@ -58,6 +59,7 @@ describe("rack store", () => {
     expect(after.playing).toBe(true)
     expect(after.currentStep).toBe(3)
     expect(after.playingPattern).toBe(1)
+    expect(after.playingBar).toBe(5)
   })
 
   it("toggles a drum step in the active pattern without mutating the previous bank", () => {

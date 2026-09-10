@@ -4,11 +4,14 @@ import {
   bassEventAt,
   DRUM_VOICES,
   PERC_VOICES,
+  POLY_INSTRUMENTS,
+  polyNotesAt,
   STEP_COUNT,
   synthNoteAt,
   type BassStepEvent,
   type HitVoiceId,
   type Pattern,
+  type PolyInstrumentId,
   type SynthNote,
 } from "../state/pattern"
 import type { PlayingPattern } from "../state/patterns"
@@ -48,8 +51,10 @@ export interface SchedulerDeps {
   triggerNote: (note: SynthNote, time: number) => void
   /** Drive the bass — every step, rests included, so slides can release. */
   triggerBass: (event: BassStepEvent, time: number, stepSeconds: number) => void
+  /** Sound a chord on a polyphonic instrument. Only called when there are notes. */
+  triggerPoly: (instrument: PolyInstrumentId, notes: string[], time: number) => void
   /** UI-side playhead; invoked through Draw so it lands on the matching frame. */
-  onStep: (step: number, patternIndex: number) => void
+  onStep: (step: number, patternIndex: number, bar: number) => void
 }
 
 /**
@@ -88,7 +93,8 @@ export class Scheduler {
   /** One sixteenth. `time` is the only valid moment to schedule sound — plus swing. */
   readonly tick = (time: number, step: number): void => {
     if (step === 0) this.bar++
-    const { index, pattern } = this.deps.getPattern(Math.max(this.bar, 0))
+    const bar = Math.max(this.bar, 0)
+    const { index, pattern } = this.deps.getPattern(bar)
     const sixteenth = this.deps.sixteenthSeconds()
     const at = time + swingOffset(step, this.deps.getSwing(), sixteenth)
     for (const voice of triggersForStep(pattern, step)) {
@@ -97,6 +103,10 @@ export class Scheduler {
     const note = synthNoteAt(pattern, step)
     if (note) this.deps.triggerNote(note, at)
     this.deps.triggerBass(bassEventAt(pattern, step), at, sixteenth)
-    Tone.getDraw().schedule(() => this.deps.onStep(step, index), at)
+    for (const instrument of POLY_INSTRUMENTS) {
+      const notes = polyNotesAt(pattern, instrument, step)
+      if (notes.length) this.deps.triggerPoly(instrument, notes, at)
+    }
+    Tone.getDraw().schedule(() => this.deps.onStep(step, index, bar), at)
   }
 }
