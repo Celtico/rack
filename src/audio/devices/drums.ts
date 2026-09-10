@@ -2,7 +2,7 @@ import * as Tone from "tone"
 
 import { DRUM_VOICES, type DrumVoiceId } from "../../state/pattern"
 import type { DrumLevels } from "../../state/store"
-import type { Voice } from "../types"
+import type { Kit, Voice } from "../types"
 
 /** Ramp length for level changes. */
 const RAMP = 0.03
@@ -15,7 +15,7 @@ const CLAP_BURSTS = [0, 0.012, 0.024]
  * (the snare adds a short membrane body under the noise). Every voice has its
  * own level gain feeding the drums channel. Nodes are created once, here.
  */
-export class DrumKit {
+export class DrumKit implements Kit<DrumVoiceId> {
   private readonly kick: Tone.MembraneSynth
   private readonly snareNoise: Tone.NoiseSynth
   private readonly snareBody: Tone.MembraneSynth

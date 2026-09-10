@@ -1,6 +1,45 @@
 import { describe, expect, it } from "vitest"
 
-import { createEmptyPattern, synthNoteAt, toggleSynthNote } from "./pattern"
+import {
+  bassEventAt,
+  createEmptyPattern,
+  synthNoteAt,
+  toggleBassFlag,
+  toggleBassNote,
+  togglePercStep,
+  toggleSynthNote,
+} from "./pattern"
+
+describe("BASS-2 row", () => {
+  it("keeps one note per column and flips flags independently", () => {
+    let p = createEmptyPattern()
+    p = toggleBassNote(p, 2, 1)
+    p = toggleBassNote(p, 2, 6)
+    p = toggleBassFlag(p, 2, "slide")
+    expect(p.bass.notes[2]).toBe(6)
+    expect(p.bass.slide[2]).toBe(true)
+    expect(p.bass.accent[2]).toBe(false)
+    expect(bassEventAt(p, 2)).toEqual({ note: "G2", accent: false, slide: true })
+    expect(bassEventAt(p, 3)).toEqual({ note: null, accent: false, slide: false })
+
+    p = toggleBassNote(p, 2, 6)
+    expect(p.bass.notes[2]).toBeNull()
+    // Flags survive clearing the note, so a rest can still be marked.
+    expect(p.bass.slide[2]).toBe(true)
+  })
+})
+
+describe("togglePercStep", () => {
+  it("flips one PERC-6 step without touching other kits or mutating the input", () => {
+    const before = createEmptyPattern()
+    const after = togglePercStep(before, "cowbell", 6)
+    expect(after.perc.cowbell[6]).toBe(true)
+    expect(before.perc.cowbell[6]).toBe(false)
+    expect(after.perc.shaker).toBe(before.perc.shaker)
+    expect(after.drums).toBe(before.drums)
+    expect(togglePercStep(after, "cowbell", 6).perc.cowbell[6]).toBe(false)
+  })
+})
 
 describe("toggleSynthNote", () => {
   it("keeps at most one note per column", () => {

@@ -1,11 +1,19 @@
 import * as Tone from "tone"
 
 import { CHANNEL_IDS, type ChannelId } from "../state/channels"
-import { DRUM_VOICES, type DrumVoiceId } from "../state/pattern"
+import {
+  DRUM_VOICES,
+  PERC_VOICES,
+  type DrumVoiceId,
+  type HitVoiceId,
+  type PercVoiceId,
+} from "../state/pattern"
 import { resolvePlayingPattern } from "../state/patterns"
-import { useRackStore, type FxParams, type SynthParams } from "../state/store"
+import { useRackStore, type BassParams, type FxParams, type SynthParams } from "../state/store"
+import { BassVoice } from "./devices/bass"
 import { DrumKit } from "./devices/drums"
 import { MonoVoice } from "./devices/monoSynth"
+import { PercKit } from "./devices/perc"
 import { Scheduler } from "./scheduler"
 import type { Voice } from "./types"
 
@@ -38,9 +46,11 @@ export class AudioEngine {
   private reverb: Tone.Reverb | null = null
   private reverbDecayTimer: ReturnType<typeof setTimeout> | null = null
   private readonly channels = new Map<ChannelId, Channel>()
-  private readonly voices = new Map<DrumVoiceId, Voice>()
+  private readonly voices = new Map<HitVoiceId, Voice>()
   private drums: DrumKit | null = null
+  private perc: PercKit | null = null
   private synth: MonoVoice | null = null
+  private bass: BassVoice | null = null
   private scheduler: Scheduler | null = null
 
   get isBuilt(): boolean {
@@ -70,7 +80,10 @@ export class AudioEngine {
 
     this.drums = new DrumKit(this.channelInput("drums"), state.drumLevels)
     for (const id of DRUM_VOICES) this.voices.set(id, this.drums.voice(id))
+    this.perc = new PercKit(this.channelInput("perc"), state.percLevels)
+    for (const id of PERC_VOICES) this.voices.set(id, this.perc.voice(id))
     this.synth = new MonoVoice(this.channelInput("synth"), state.synthParams)
+    this.bass = new BassVoice(this.channelInput("bass"), state.bassParams)
 
     this.scheduler = new Scheduler({
       getPattern: (bar) => {
@@ -81,6 +94,7 @@ export class AudioEngine {
       sixteenthSeconds: () => Tone.getTransport().toSeconds("16n"),
       trigger: (voice, time) => this.voices.get(voice)?.trigger(time),
       triggerNote: (note, time) => this.synth?.trigger(note, time),
+      triggerBass: (event, time, stepSeconds) => this.bass?.play(event, time, stepSeconds),
       onStep: (step, index) => useRackStore.getState().setPlayhead(step, index),
     })
 
@@ -103,6 +117,7 @@ export class AudioEngine {
   stop(): void {
     Tone.getTransport().stop()
     this.scheduler?.reset()
+    this.bass?.reset()
   }
 
   setBpm(bpm: number): void {
@@ -134,14 +149,24 @@ export class AudioEngine {
     this.drums?.setLevel(voice, level)
   }
 
-  /** Audition a drum voice now (outside the sequence), e.g. from a pad. Requires build(). */
-  triggerDrum(voice: DrumVoiceId): void {
+  /** Per-voice level on the PERC-6, 0–1. */
+  setPercLevel(voice: PercVoiceId, level: number): void {
+    this.perc?.setLevel(voice, level)
+  }
+
+  /** Audition a one-shot voice now (outside the sequence), e.g. from a pad. Requires build(). */
+  triggerHit(voice: HitVoiceId): void {
     this.voices.get(voice)?.trigger(Tone.now())
   }
 
   /** One MONO-1 parameter. */
   setSynthParam<K extends keyof SynthParams>(key: K, value: SynthParams[K]): void {
     this.synth?.set(key, value)
+  }
+
+  /** One BASS-2 parameter. */
+  setBassParam<K extends keyof BassParams>(key: K, value: BassParams[K]): void {
+    this.bass?.set(key, value)
   }
 
   /**
@@ -173,8 +198,12 @@ export class AudioEngine {
     if (!this.isBuilt) return
     this.setMasterVolume(s.masterVolume)
     for (const voice of DRUM_VOICES) this.setDrumLevel(voice, s.drumLevels[voice])
+    for (const voice of PERC_VOICES) this.setPercLevel(voice, s.percLevels[voice])
     for (const key of Object.keys(s.synthParams) as (keyof SynthParams)[]) {
       this.setSynthParam(key, s.synthParams[key])
+    }
+    for (const key of Object.keys(s.bassParams) as (keyof BassParams)[]) {
+      this.setBassParam(key, s.bassParams[key])
     }
     for (const ch of CHANNEL_IDS) {
       this.setChannelVolume(ch, s.mix.level[ch])
@@ -205,7 +234,9 @@ export class AudioEngine {
     if (this.reverbDecayTimer) clearTimeout(this.reverbDecayTimer)
     this.scheduler?.dispose()
     this.drums?.dispose()
+    this.perc?.dispose()
     this.synth?.dispose()
+    this.bass?.dispose()
     for (const { input, send } of this.channels.values()) {
       input.dispose()
       send.dispose()
@@ -219,7 +250,9 @@ export class AudioEngine {
     this.reverbDecayTimer = null
     this.scheduler = null
     this.drums = null
+    this.perc = null
     this.synth = null
+    this.bass = null
     this.fxInput = null
     this.delay = null
     this.reverb = null

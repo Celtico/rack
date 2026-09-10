@@ -31,6 +31,12 @@ strict build order:
    - ✅ Extra — swing: `swingOffset()` in the scheduler delays odd steps up to ⅓ of a sixteenth (store
      `swing` 0–1, SWING knob on the Transport, saved in the song; older song files default to 0).
 
+   - ✅ Extra — PERC-6 (`PercKit`, `src/audio/devices/perc.ts`: toms, rim, cowbell, shaker, crash on
+     channel `perc`). Kits share the `Kit` interface, `kitRows()` and the generic `KitUnit` UI; songs saved
+     without a kit/channel load with empty rows and default levels (`parseNumbers` defaults).
+   - ⏳ Extra machines still to come, one per phase: BASS-2 (303-style, slide/accent), POLY-4
+     (polyphonic grid), SMP-8 (sampler — sample storage to be decided with the user).
+
 **The brief is fully implemented.** Anything from here is polish or new scope — confirm with the user first.
 
 Read the skills before touching UI or audio: without the Chakra skill loaded, Chakra UI **v2** API gets

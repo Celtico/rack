@@ -1,6 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
-import { createEmptyPattern, toggleDrumStep, toggleSynthNote, type Pattern } from "../state/pattern"
+import {
+  createEmptyPattern,
+  toggleBassFlag,
+  toggleBassNote,
+  toggleDrumStep,
+  togglePercStep,
+  toggleSynthNote,
+  type Pattern,
+} from "../state/pattern"
 import { resolvePlayingPattern } from "../state/patterns"
 import { Scheduler, swingOffset, triggersForStep } from "./scheduler"
 
@@ -50,6 +58,7 @@ function makeScheduler(initial: Pattern, chain: number[] = []) {
   let swing = 0
   const trigger = vi.fn()
   const triggerNote = vi.fn()
+  const triggerBass = vi.fn()
   const onStep = vi.fn()
   const getPattern = vi.fn((bar: number) => resolvePlayingPattern(patterns, active, chain, bar))
   const scheduler = new Scheduler({
@@ -58,12 +67,14 @@ function makeScheduler(initial: Pattern, chain: number[] = []) {
     sixteenthSeconds: () => SIXTEENTH,
     trigger,
     triggerNote,
+    triggerBass,
     onStep,
   })
   return {
     scheduler,
     trigger,
     triggerNote,
+    triggerBass,
     onStep,
     getPattern,
     setPattern: (next: Pattern, slot = 0) => {
@@ -91,6 +102,15 @@ describe("triggersForStep", () => {
     expect(triggersForStep(p, 0)).toEqual(["kick", "hat"])
     expect(triggersForStep(p, 4)).toEqual(["snare"])
     expect(triggersForStep(p, 1)).toEqual([])
+  })
+
+  it("includes PERC-6 voices after the DR-4 ones", () => {
+    let p = createEmptyPattern()
+    p = toggleDrumStep(p, "kick", 0)
+    p = togglePercStep(p, "crash", 0)
+    p = togglePercStep(p, "shaker", 2)
+    expect(triggersForStep(p, 0)).toEqual(["kick", "crash"])
+    expect(triggersForStep(p, 2)).toEqual(["shaker"])
   })
 })
 
@@ -183,6 +203,25 @@ describe("Scheduler", () => {
     setSwing(0)
     seq.callback(5 * SIXTEENTH, 5)
     expect(fake.drawSchedule.mock.calls[4]?.[1]).toBeCloseTo(5 * SIXTEENTH)
+  })
+
+  it("drives the bass every step with note, accent and slide, rests included", () => {
+    let pattern = createEmptyPattern()
+    pattern = toggleBassNote(pattern, 0, 0) // E1
+    pattern = toggleBassFlag(pattern, 0, "accent")
+    pattern = toggleBassFlag(pattern, 0, "slide")
+    pattern = toggleBassNote(pattern, 1, 5) // E2
+
+    const { scheduler, triggerBass } = makeScheduler(pattern)
+    scheduler.start()
+    const seq = fake.sequences[0]!
+    for (let step = 0; step < 3; step++) seq.callback(step * SIXTEENTH, step)
+
+    expect(triggerBass.mock.calls).toEqual([
+      [{ note: "E1", accent: true, slide: true }, 0, SIXTEENTH],
+      [{ note: "E2", accent: false, slide: false }, SIXTEENTH, SIXTEENTH],
+      [{ note: null, accent: false, slide: false }, 2 * SIXTEENTH, SIXTEENTH],
+    ])
   })
 
   it("reads the pattern fresh on every tick, not the one captured at start", () => {

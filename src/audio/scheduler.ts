@@ -1,18 +1,24 @@
 import * as Tone from "tone"
 
 import {
+  bassEventAt,
   DRUM_VOICES,
+  PERC_VOICES,
   STEP_COUNT,
   synthNoteAt,
-  type DrumVoiceId,
+  type BassStepEvent,
+  type HitVoiceId,
   type Pattern,
   type SynthNote,
 } from "../state/pattern"
 import type { PlayingPattern } from "../state/patterns"
 
-/** Which drum voices are on at a given step. Pure, so it can be tested without audio. */
-export function triggersForStep(pattern: Pattern, step: number): DrumVoiceId[] {
-  return DRUM_VOICES.filter((voice) => pattern.drums[voice][step] === true)
+/** Which one-shot voices are on at a given step. Pure, so it can be tested without audio. */
+export function triggersForStep(pattern: Pattern, step: number): HitVoiceId[] {
+  return [
+    ...DRUM_VOICES.filter((voice) => pattern.drums[voice][step] === true),
+    ...PERC_VOICES.filter((voice) => pattern.perc[voice][step] === true),
+  ]
 }
 
 /** At full swing an off-beat sixteenth lands a third late — the triplet feel. */
@@ -36,10 +42,12 @@ export interface SchedulerDeps {
   getSwing: () => number
   /** Length of a sixteenth at the current tempo. */
   sixteenthSeconds: () => number
-  /** Sound a drum voice at the audio-clock time given by the transport callback. */
-  trigger: (voice: DrumVoiceId, time: number) => void
+  /** Sound a one-shot voice at the audio-clock time given by the transport callback. */
+  trigger: (voice: HitVoiceId, time: number) => void
   /** Sound the mono synth. */
   triggerNote: (note: SynthNote, time: number) => void
+  /** Drive the bass — every step, rests included, so slides can release. */
+  triggerBass: (event: BassStepEvent, time: number, stepSeconds: number) => void
   /** UI-side playhead; invoked through Draw so it lands on the matching frame. */
   onStep: (step: number, patternIndex: number) => void
 }
@@ -81,12 +89,14 @@ export class Scheduler {
   readonly tick = (time: number, step: number): void => {
     if (step === 0) this.bar++
     const { index, pattern } = this.deps.getPattern(Math.max(this.bar, 0))
-    const at = time + swingOffset(step, this.deps.getSwing(), this.deps.sixteenthSeconds())
+    const sixteenth = this.deps.sixteenthSeconds()
+    const at = time + swingOffset(step, this.deps.getSwing(), sixteenth)
     for (const voice of triggersForStep(pattern, step)) {
       this.deps.trigger(voice, at)
     }
     const note = synthNoteAt(pattern, step)
     if (note) this.deps.triggerNote(note, at)
+    this.deps.triggerBass(bassEventAt(pattern, step), at, sixteenth)
     Tone.getDraw().schedule(() => this.deps.onStep(step, index), at)
   }
 }

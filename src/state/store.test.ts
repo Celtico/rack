@@ -141,6 +141,19 @@ describe("rack store", () => {
     expect(after.feedback).toBe(before.feedback)
   })
 
+  it("toggles a PERC-6 step in the active pattern and sets a perc level", () => {
+    const store = useRackStore.getState()
+    store.togglePercStep("tomLo", 9)
+    expect(selectPattern(useRackStore.getState()).perc.tomLo[9]).toBe(true)
+
+    const before = useRackStore.getState().percLevels
+    store.setPercLevel("crash", 3)
+    const after = useRackStore.getState().percLevels
+    expect(after).not.toBe(before)
+    expect(after.crash).toBe(1)
+    expect(after.rim).toBe(before.rim)
+  })
+
   it("sets a drum level clamped to 0–1 without mutating the previous levels", () => {
     const before = useRackStore.getState().drumLevels
     useRackStore.getState().setDrumLevel("hat", 1.7)

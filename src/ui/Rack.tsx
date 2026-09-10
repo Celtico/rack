@@ -1,9 +1,11 @@
 import { Box, Container, VStack } from "@chakra-ui/react"
 
+import { BassUnit } from "./BassUnit"
 import { DrumMachine } from "./DrumMachine"
 import { FxUnit } from "./FxUnit"
 import { MonoSynth } from "./MonoSynth"
 import { PatternBank } from "./PatternBank"
+import { PercUnit } from "./PercUnit"
 import { Transport } from "./Transport"
 
 /** The rack itself: two rails with the modules stacked between them. */
@@ -22,6 +24,8 @@ export function Rack() {
           <Transport />
           <PatternBank />
           <DrumMachine />
+          <PercUnit />
+          <BassUnit />
           <MonoSynth />
           <FxUnit />
         </VStack>

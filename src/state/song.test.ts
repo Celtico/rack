@@ -64,6 +64,33 @@ describe("song save/load", () => {
     expect(parseSong(JSON.stringify(legacy)).swing).toBe(0)
   })
 
+  it("loads a song saved before PERC-6 existed with empty perc rows and default levels", () => {
+    const legacy = JSON.parse(serializeSong(toSong(useRackStore.getState()))) as {
+      patterns: Record<string, unknown>[]
+      percLevels?: unknown
+      mix: { level: Record<string, number>; send: Record<string, number> }
+    }
+    for (const p of legacy.patterns) {
+      delete p.perc
+      delete p.bass
+    }
+    delete legacy.percLevels
+    delete (legacy as Record<string, unknown>).bassParams
+    delete legacy.mix.level.perc
+    delete legacy.mix.send.perc
+    delete legacy.mix.level.bass
+    delete legacy.mix.send.bass
+
+    const song = parseSong(JSON.stringify(legacy))
+    expect(song.patterns[0]!.perc.shaker.some(Boolean)).toBe(false)
+    expect(song.patterns[0]!.bass.notes.every((n) => n === null)).toBe(true)
+    expect(song.percLevels.crash).toBe(0.5)
+    expect(song.bassParams.waveform).toBe("sawtooth")
+    expect(song.mix.level.perc).toBe(0.8)
+    expect(song.mix.send.perc).toBe(0.25)
+    expect(song.mix.level.bass).toBe(0.85)
+  })
+
   it("rejects files that are not a song", () => {
     expect(() => parseSong("not json")).toThrow(SongParseError)
     expect(() => parseSong("{}")).toThrow(/song\.version/)
