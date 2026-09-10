@@ -37,9 +37,13 @@ interface Channel {
   input: Tone.Gain
   send: Tone.Gain
   meter: Tone.Meter
+  scope: Tone.Waveform
   level: number
   muted: boolean
 }
+
+/** Samples per oscilloscope frame. */
+const SCOPE_SIZE = 256
 
 /** Where a level meter can look. */
 export type LevelSource = ChannelId | "master"
@@ -109,9 +113,11 @@ export class AudioEngine {
       const input = new Tone.Gain(muted ? 0 : level).connect(master)
       const send = new Tone.Gain(state.mix.send[id]).connect(fxInput)
       const meter = new Tone.Meter({ normalRange: true, smoothing: METER_SMOOTHING })
+      const scope = new Tone.Waveform(SCOPE_SIZE)
       input.connect(send)
       input.connect(meter)
-      this.channels.set(id, { input, send, meter, level, muted })
+      input.connect(scope)
+      this.channels.set(id, { input, send, meter, scope, level, muted })
     }
 
     this.drums = new DrumKit(this.channelInput("drums"), state.drumLevels)
@@ -208,6 +214,14 @@ export class AudioEngine {
     for (const id of CHANNEL_IDS) out[id] = this.readMeter(this.channels.get(id)?.meter)
     out.master = this.readMeter(this.masterMeter)
     return out
+  }
+
+  /**
+   * The last SCOPE_SIZE samples of a channel, −1…1, for drawing. Null before
+   * build(). The array is the analyser's own buffer — read it, don't keep it.
+   */
+  getWaveform(channel: ChannelId): Float32Array | null {
+    return this.channels.get(channel)?.scope.getValue() ?? null
   }
 
   private readMeter(meter: Tone.Meter | null | undefined): number {
@@ -363,10 +377,11 @@ export class AudioEngine {
     this.poly?.dispose()
     this.ep?.dispose()
     this.strings?.dispose()
-    for (const { input, send, meter } of this.channels.values()) {
+    for (const { input, send, meter, scope } of this.channels.values()) {
       input.dispose()
       send.dispose()
       meter.dispose()
+      scope.dispose()
     }
     this.channels.clear()
     this.voices.clear()

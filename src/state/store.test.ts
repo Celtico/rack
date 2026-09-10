@@ -188,11 +188,17 @@ describe("rack store", () => {
     expect(s.mix.mute.drums).toBe(false)
   })
 
-  it("folds and unfolds a unit", () => {
+  it("folds and unfolds a unit, and all units at once", () => {
     useRackStore.getState().toggleFold("DR-4")
     expect(useRackStore.getState().folded["DR-4"]).toBe(true)
     useRackStore.getState().toggleFold("DR-4")
     expect(useRackStore.getState().folded["DR-4"]).toBe(false)
+
+    useRackStore.getState().setFolded(["DR-4", "EP-1"], true)
+    expect(useRackStore.getState().folded).toMatchObject({ "DR-4": true, "EP-1": true })
+    useRackStore.getState().setFolded(["DR-4"], false)
+    expect(useRackStore.getState().folded["DR-4"]).toBe(false)
+    expect(useRackStore.getState().folded["EP-1"]).toBe(true)
   })
 
   it("sets a drum level clamped to 0–1 without mutating the previous levels", () => {

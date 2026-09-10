@@ -125,6 +125,8 @@ export interface RackState {
   setChannelMute: (channel: ChannelId, muted: boolean) => void
   setFxParam: <K extends keyof FxParams>(key: K, value: FxParams[K]) => void
   toggleFold: (unit: string) => void
+  /** Fold or unfold every listed unit at once. */
+  setFolded: (units: readonly string[], folded: boolean) => void
   loadSong: (song: Song) => void
 }
 
@@ -264,6 +266,10 @@ export const useRackStore = create<RackState>()((set) => ({
   setFxParam: (key, value) => set((state) => ({ fx: { ...state.fx, [key]: value } })),
   toggleFold: (unit) =>
     set((state) => ({ folded: { ...state.folded, [unit]: !state.folded[unit] } })),
+  setFolded: (units, folded) =>
+    set((state) => ({
+      folded: { ...state.folded, ...Object.fromEntries(units.map((u) => [u, folded])) },
+    })),
   loadSong: (song) =>
     set({
       bpm: Math.round(clamp(song.bpm, BPM_MIN, BPM_MAX)),

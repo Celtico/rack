@@ -24,14 +24,7 @@ export function EpUnit() {
     }
 
   return (
-    <RackUnit
-      model="EP-1"
-      title="Electric piano"
-      units={3}
-      finish="cream"
-      channel="ep"
-      icon={<LuPiano />}
-    >
+    <RackUnit model="EP-1" title="Piano" units={3} finish="cream" channel="ep" icon={<LuPiano />}>
       <Flex direction={{ base: "column", lg: "row" }} gap={{ base: "5", lg: "8" }} align="stretch">
         <PolyGrid instrument="ep" />
 

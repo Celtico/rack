@@ -57,8 +57,15 @@ strict build order:
      `Display` `tone` variant (amber/red/green/blue). Step grids size cells with
      `minmax(1.25rem, 2.25rem)` and `justifyContent: start`, so they fit before they scroll; rack is `8xl`.
 
-**All extras above are done.** Ideas not started: LCD readouts per synth, drag-reorder on the timeline,
-per-step velocity on the kits.
+   - ✅ Extra — rack layout (`src/state/layout.ts`, zustand `persist` in localStorage as `rack-layout`,
+     UI-only): drag-and-drop reorder (HTML5 DnD armed by the grip button, `moveWithin()` pure), arrow-key
+     nudge, remove (×, hides + mutes the channel) / "Add unit" menu (shows + unmutes), Fold all / Unfold
+     all (`setFolded`). Folded units with a channel show a `Scope` (canvas fed by a `Tone.Waveform` per
+     channel, `engine.getWaveform()`). TRANSPORT is fixed. `RackUnit.model` is typed as `UnitId`.
+
+**All extras above are done.** Not started, discussed: multiple instances of one unit (e.g. two DR-4s) —
+needs instance-keyed patterns, channels and devices, a real refactor. Other ideas: LCD readouts per synth,
+drag-reorder on the timeline, per-step velocity on the kits.
 
 **The brief is fully implemented.** Anything from here is polish or new scope — confirm with the user first.
 

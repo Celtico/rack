@@ -4,8 +4,9 @@ A browser-based hardware rack: a drum machine (**DR-4**), a percussion kit (**PE
 for your own files (**SMP-8**), an acid bass (**BASS-2**), a mono synth (**MONO-1**), a poly pad
 (**POLY-4**), an FM electric piano (**EP-1**), plucked strings (**STR-6**), an FX unit (**FX-2**),
 a four-slot pattern bank, a **SONG** timeline that lays the patterns out bar by bar, and a
-transport with tempo and swing — built with Tone.js and Chakra UI v3. Every unit can be folded and
-muted from its header; the FX-2 mixer has a fader and LED meter per module.
+transport with tempo and swing — built with Tone.js and Chakra UI v3. Every unit can be folded
+(showing its waveform), muted, taken out of the rack and put back, and dragged into any order; the
+FX-2 mixer has a fader and LED meter per module. The arrangement is remembered by the browser.
 
 Live: https://rack.serverscel.com/
 

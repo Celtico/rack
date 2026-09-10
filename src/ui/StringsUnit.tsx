@@ -31,7 +31,7 @@ export function StringsUnit() {
   return (
     <RackUnit
       model="STR-6"
-      title="Plucked strings"
+      title="Guitar"
       units={3}
       finish="wood"
       channel="strings"
