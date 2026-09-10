@@ -48,18 +48,18 @@ ESLint + Prettier · **pnpm**
 
 ## Commands
 
-Once scaffolded (Prompt 1), the expected commands are:
-
 ```
-pnpm dev            # Vite dev server
-pnpm build          # production build
+pnpm dev            # Vite dev server (http://localhost:5173)
+pnpm build          # tsc -b && vite build
 pnpm lint           # ESLint
-pnpm test           # Vitest
+pnpm test           # Vitest, single run
 pnpm test <path>    # single test file
 pnpm test -t "name" # single test by name
+pnpm test:watch     # Vitest, watch mode
+pnpm format         # Prettier --write
 ```
 
-Verify actual script names in `package.json` once it exists.
+Deploy: `docker compose up -d --build` (nginx on host port 7273). Production: https://rack.serverscel.com/
 
 ## Architecture
 
