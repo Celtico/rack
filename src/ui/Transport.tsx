@@ -1,5 +1,5 @@
 import { Flex, HStack, IconButton, Text, VStack } from "@chakra-ui/react"
-import { LuPlay, LuSquare } from "react-icons/lu"
+import { LuPlay, LuSquare, LuTimer } from "react-icons/lu"
 
 import { getEngine } from "../audio/engine"
 import { STEP_COUNT } from "../state/pattern"
@@ -48,7 +48,7 @@ export function Transport() {
   }
 
   return (
-    <RackUnit model="TRANSPORT" title="Clock · Master">
+    <RackUnit model="TRANSPORT" title="Clock · Master" icon={<LuTimer />}>
       <Flex wrap="wrap" align="flex-end" gap={{ base: "5", md: "8" }}>
         <HStack gap="3" align="flex-end">
           <IconButton

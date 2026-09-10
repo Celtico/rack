@@ -1,5 +1,7 @@
 import { Flex, HStack, Text, VStack } from "@chakra-ui/react"
 
+import type { ReactNode } from "react"
+
 import type { ChannelId } from "../state/channels"
 import type { KitRows } from "../state/pattern"
 import type { Finish } from "../theme/recipes/rackUnit"
@@ -12,6 +14,7 @@ export interface KitUnitProps<Id extends string> {
   title: string
   finish: Finish
   channel: ChannelId
+  icon: ReactNode
   voices: readonly Id[]
   labels: Readonly<Record<Id, string>>
   rows: KitRows<Id>
@@ -30,6 +33,7 @@ export function KitUnit<Id extends string>({
   title,
   finish,
   channel,
+  icon,
   voices,
   labels,
   rows,
@@ -42,7 +46,7 @@ export function KitUnit<Id extends string>({
   const gridRows = voices.map((id) => ({ id, label: labels[id], steps: rows[id] }))
 
   return (
-    <RackUnit model={model} title={title} units={2} finish={finish} channel={channel}>
+    <RackUnit model={model} title={title} units={2} finish={finish} channel={channel} icon={icon}>
       <Flex direction={{ base: "column", lg: "row" }} gap={{ base: "5", lg: "8" }} align="stretch">
         <StepGrid rows={gridRows} currentStep={currentStep} onToggle={onToggle} />
 

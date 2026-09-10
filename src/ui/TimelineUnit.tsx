@@ -1,5 +1,5 @@
 import { Button, chakra, HStack, Text, useSlotRecipe, VStack } from "@chakra-ui/react"
-import { LuEraser, LuPlus } from "react-icons/lu"
+import { LuEraser, LuListMusic, LuPlus } from "react-icons/lu"
 
 import { STEP_COUNT } from "../state/pattern"
 import { MAX_CHAIN, PATTERN_COUNT } from "../state/patterns"
@@ -24,7 +24,7 @@ export function TimelineUnit() {
   const progress = currentStep >= 0 ? ((currentStep + 1) / STEP_COUNT) * 100 : 0
 
   return (
-    <RackUnit model="SONG" title="Timeline">
+    <RackUnit model="SONG" title="Timeline" icon={<LuListMusic />}>
       <VStack gap="3" align="stretch">
         <chakra.div css={styles.root}>
           <chakra.div css={styles.ruler} aria-hidden="true">

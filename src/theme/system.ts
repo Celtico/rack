@@ -5,7 +5,6 @@ import { knobRecipe } from "./recipes/knob"
 import { ledRecipe } from "./recipes/led"
 import { meterRecipe } from "./recipes/meter"
 import { rackUnitRecipe } from "./recipes/rackUnit"
-import { railRecipe } from "./recipes/rail"
 import { stepGridRecipe } from "./recipes/stepGrid"
 import { timelineRecipe } from "./recipes/timeline"
 
@@ -245,7 +244,6 @@ const config = defineConfig({
       knob: knobRecipe,
       display: displayRecipe,
       led: ledRecipe,
-      rail: railRecipe,
     },
     slotRecipes: {
       rackUnit: rackUnitRecipe,

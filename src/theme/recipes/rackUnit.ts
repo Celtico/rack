@@ -36,7 +36,7 @@ const finish = (name: Finish) => ({
  */
 export const rackUnitRecipe = defineSlotRecipe({
   className: "rack-unit",
-  slots: ["root", "header", "model", "title", "controls", "body", "screw"],
+  slots: ["root", "header", "icon", "model", "title", "controls", "body", "screw"],
   base: {
     root: {
       position: "relative",
@@ -61,6 +61,13 @@ export const rackUnitRecipe = defineSlotRecipe({
       mb: "4",
       mx: "4",
       "[data-folded] &": { borderBottomWidth: "0", pb: "0", mb: "0" },
+    },
+    icon: {
+      display: "inline-flex",
+      alignItems: "center",
+      color: "rack.silkscreen",
+      fontSize: "2xl",
+      opacity: 0.9,
     },
     model: {
       textStyle: "silkscreen",

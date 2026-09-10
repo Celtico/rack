@@ -1,4 +1,5 @@
 import { Flex, HStack, VStack } from "@chakra-ui/react"
+import { LuPiano } from "react-icons/lu"
 
 import { getEngine } from "../audio/engine"
 import { EP_PARAMS_DEFAULT, EP_RANGES, useRackStore, type EpParams } from "../state/store"
@@ -23,7 +24,14 @@ export function EpUnit() {
     }
 
   return (
-    <RackUnit model="EP-1" title="Electric piano" units={3} finish="cream" channel="ep">
+    <RackUnit
+      model="EP-1"
+      title="Electric piano"
+      units={3}
+      finish="cream"
+      channel="ep"
+      icon={<LuPiano />}
+    >
       <Flex direction={{ base: "column", lg: "row" }} gap={{ base: "5", lg: "8" }} align="stretch">
         <PolyGrid instrument="ep" />
 

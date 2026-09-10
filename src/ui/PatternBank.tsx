@@ -1,6 +1,6 @@
 import { Button, chakra, Flex, HStack, Text, VStack } from "@chakra-ui/react"
 import { useRef, type ChangeEvent, type ReactNode } from "react"
-import { LuCopy, LuDownload, LuUpload } from "react-icons/lu"
+import { LuCopy, LuDownload, LuLayoutGrid, LuUpload } from "react-icons/lu"
 
 import { getEngine } from "../audio/engine"
 import { toaster } from "../components/ui/toaster"
@@ -59,7 +59,7 @@ export function PatternBank() {
   }
 
   return (
-    <RackUnit model="PATTERN" title="Bank · File">
+    <RackUnit model="PATTERN" title="Bank · File" icon={<LuLayoutGrid />}>
       <Flex wrap="wrap" gap={{ base: "5", md: "8" }} align="flex-start">
         <Section title="Bank">
           <HStack gap="2" align="flex-end">

@@ -16,12 +16,14 @@ export interface RackUnitProps extends RackUnitVariants {
   title?: string
   /** Mixer channel this unit feeds — gives it a mute button. */
   channel?: ChannelId
+  /** Pictogram of what the unit is, before the model name. */
+  icon?: ReactNode
   children?: ReactNode
 }
 
 const CORNERS = ["tl", "tr", "bl", "br"] as const
 
-export function RackUnit({ model, title, channel, units, finish, children }: RackUnitProps) {
+export function RackUnit({ model, title, channel, icon, units, finish, children }: RackUnitProps) {
   const recipe = useSlotRecipe({ key: "rackUnit" })
   const styles = recipe({ units, finish })
   const folded = useRackStore((s) => s.folded[model] === true)
@@ -44,6 +46,11 @@ export function RackUnit({ model, title, channel, units, finish, children }: Rac
         <chakra.span key={corner} css={styles.screw} data-corner={corner} aria-hidden="true" />
       ))}
       <chakra.header css={styles.header}>
+        {icon && (
+          <chakra.span css={styles.icon} aria-hidden="true">
+            {icon}
+          </chakra.span>
+        )}
         <chakra.h2 css={styles.model}>{model}</chakra.h2>
         {title && <chakra.span css={styles.title}>{title}</chakra.span>}
         <chakra.div css={styles.controls}>

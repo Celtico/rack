@@ -1,5 +1,6 @@
 import { Flex, HStack, SegmentGroup, Separator, Text, VStack } from "@chakra-ui/react"
 import type { ReactNode } from "react"
+import { LuSlidersHorizontal } from "react-icons/lu"
 
 import { getEngine } from "../audio/engine"
 import { CHANNEL_IDS, CHANNEL_LABELS, type ChannelId } from "../state/channels"
@@ -90,7 +91,12 @@ export function FxUnit() {
     }
 
   return (
-    <RackUnit model="FX-2" title="Mix · Echo · Reverb" finish="yellow">
+    <RackUnit
+      model="FX-2"
+      title="Mix · Echo · Reverb"
+      finish="yellow"
+      icon={<LuSlidersHorizontal />}
+    >
       <VStack gap="6" align="stretch">
         <Flex wrap="wrap" gap={{ base: "4", md: "6" }} align="flex-end">
           {CHANNEL_IDS.map((channel) => (

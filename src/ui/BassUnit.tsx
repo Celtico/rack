@@ -1,4 +1,5 @@
 import { Flex, HStack, SegmentGroup, Text, VStack } from "@chakra-ui/react"
+import { LuZap } from "react-icons/lu"
 
 import { getEngine } from "../audio/engine"
 import { BASS_NOTES, type BassFlag, type BassNote } from "../state/pattern"
@@ -59,7 +60,14 @@ export function BassUnit() {
     }
 
   return (
-    <RackUnit model="BASS-2" title="Acid bass" units={3} finish="silver" channel="bass">
+    <RackUnit
+      model="BASS-2"
+      title="Acid bass"
+      units={3}
+      finish="silver"
+      channel="bass"
+      icon={<LuZap />}
+    >
       <Flex direction={{ base: "column", lg: "row" }} gap={{ base: "5", lg: "8" }} align="stretch">
         <StepGrid rows={rows} currentStep={currentStep} onToggle={onToggle} />
 

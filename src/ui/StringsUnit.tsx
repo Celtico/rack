@@ -1,4 +1,5 @@
 import { Flex, HStack, VStack } from "@chakra-ui/react"
+import { LuGuitar } from "react-icons/lu"
 
 import { getEngine } from "../audio/engine"
 import {
@@ -28,7 +29,14 @@ export function StringsUnit() {
     }
 
   return (
-    <RackUnit model="STR-6" title="Plucked strings" units={3} finish="wood" channel="strings">
+    <RackUnit
+      model="STR-6"
+      title="Plucked strings"
+      units={3}
+      finish="wood"
+      channel="strings"
+      icon={<LuGuitar />}
+    >
       <Flex direction={{ base: "column", lg: "row" }} gap={{ base: "5", lg: "8" }} align="stretch">
         <PolyGrid instrument="strings" />
 

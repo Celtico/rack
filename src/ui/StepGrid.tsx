@@ -18,6 +18,12 @@ export interface StepGridProps<Id extends string> {
 const STEPS = Array.from({ length: STEP_COUNT }, (_, i) => i)
 
 /**
+ * Grid column of a step: column 1 is the label and a gutter track follows
+ * every beat of four, so cells skip one column per beat boundary passed.
+ */
+const columnOf = (step: number) => 2 + step + Math.floor(step / 4)
+
+/**
  * One toggle button per (row, step). The viewport scrolls horizontally on
  * narrow screens; row labels stay pinned. Accents mark the first step of each
  * beat and the playhead follows `currentStep`.
@@ -41,6 +47,7 @@ export function StepGrid<Id extends string>({ rows, currentStep, onToggle }: Ste
                 aria-pressed={row.steps[step] === true}
                 data-accent={step % 4 === 0 ? "" : undefined}
                 data-playing={step === currentStep ? "" : undefined}
+                style={{ gridColumn: columnOf(step) }}
                 onClick={() => onToggle(row.id, step)}
               />
             ))}

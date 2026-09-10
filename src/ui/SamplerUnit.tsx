@@ -1,6 +1,6 @@
 import { Button, chakra, Flex, HStack, Text, VStack } from "@chakra-ui/react"
 import { useRef, type ChangeEvent } from "react"
-import { LuEraser, LuUpload } from "react-icons/lu"
+import { LuAudioWaveform, LuEraser, LuUpload } from "react-icons/lu"
 
 import { getEngine } from "../audio/engine"
 import { toaster } from "../components/ui/toaster"
@@ -83,7 +83,14 @@ export function SamplerUnit() {
   }
 
   return (
-    <RackUnit model="SMP-8" title="Sampler" units={2} finish="teal" channel="sampler">
+    <RackUnit
+      model="SMP-8"
+      title="Sampler"
+      units={2}
+      finish="teal"
+      channel="sampler"
+      icon={<LuAudioWaveform />}
+    >
       <Flex direction={{ base: "column", xl: "row" }} gap={{ base: "5", xl: "8" }} align="stretch">
         <StepGrid rows={rows} currentStep={currentStep} onToggle={toggleSampleStep} />
 

@@ -1,3 +1,5 @@
+import { LuDrum } from "react-icons/lu"
+
 import { getEngine } from "../audio/engine"
 import { DRUM_VOICES, type DrumVoiceId } from "../state/pattern"
 import { DRUM_LEVELS_DEFAULT, selectPattern, useRackStore } from "../state/store"
@@ -28,6 +30,7 @@ export function DrumMachine() {
       title="Drum machine"
       finish="red"
       channel="drums"
+      icon={<LuDrum />}
       voices={DRUM_VOICES}
       labels={VOICE_LABELS}
       rows={drums}

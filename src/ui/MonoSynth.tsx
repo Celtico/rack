@@ -1,4 +1,5 @@
 import { Flex, HStack, SegmentGroup, Text, VStack } from "@chakra-ui/react"
+import { LuWaves } from "react-icons/lu"
 
 import { getEngine } from "../audio/engine"
 import { SYNTH_NOTES, type SynthNote } from "../state/pattern"
@@ -54,7 +55,14 @@ export function MonoSynth() {
     }
 
   return (
-    <RackUnit model="MONO-1" title="Mono synth" units={3} finish="blue" channel="synth">
+    <RackUnit
+      model="MONO-1"
+      title="Mono synth"
+      units={3}
+      finish="blue"
+      channel="synth"
+      icon={<LuWaves />}
+    >
       <Flex direction={{ base: "column", lg: "row" }} gap={{ base: "5", lg: "8" }} align="stretch">
         <StepGrid rows={rows} currentStep={currentStep} onToggle={onToggle} />
 

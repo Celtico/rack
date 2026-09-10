@@ -1,3 +1,5 @@
+import { LuBellRing } from "react-icons/lu"
+
 import { getEngine } from "../audio/engine"
 import { PERC_VOICES, type PercVoiceId } from "../state/pattern"
 import { PERC_LEVELS_DEFAULT, selectPattern, useRackStore } from "../state/store"
@@ -30,6 +32,7 @@ export function PercUnit() {
       title="Percussion"
       finish="rust"
       channel="perc"
+      icon={<LuBellRing />}
       voices={PERC_VOICES}
       labels={VOICE_LABELS}
       rows={perc}

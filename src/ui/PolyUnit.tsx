@@ -1,4 +1,5 @@
 import { Flex, HStack, SegmentGroup, Text, VStack } from "@chakra-ui/react"
+import { LuLayers } from "react-icons/lu"
 
 import { getEngine } from "../audio/engine"
 import {
@@ -39,7 +40,14 @@ export function PolyUnit() {
     }
 
   return (
-    <RackUnit model="POLY-4" title="Poly pad" units={3} finish="purple" channel="poly">
+    <RackUnit
+      model="POLY-4"
+      title="Poly pad"
+      units={3}
+      finish="purple"
+      channel="poly"
+      icon={<LuLayers />}
+    >
       <Flex direction={{ base: "column", lg: "row" }} gap={{ base: "5", lg: "8" }} align="stretch">
         <PolyGrid instrument="poly" />
 
