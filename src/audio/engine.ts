@@ -97,7 +97,8 @@ export class AudioEngine {
     this.scheduler = new Scheduler({
       getPattern: (bar) => {
         const s = useRackStore.getState()
-        return resolvePlayingPattern(s.patterns, s.activePattern, s.chain, bar)
+        // A slot picked from the bank loops on its own until the song is resumed.
+        return resolvePlayingPattern(s.patterns, s.activePattern, s.followSong ? s.chain : [], bar)
       },
       getSwing: () => useRackStore.getState().swing,
       sixteenthSeconds: () => Tone.getTransport().toSeconds("16n"),

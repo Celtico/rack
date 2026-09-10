@@ -10,7 +10,7 @@ import {
   SYNTH_NOTES,
   type Track,
 } from "../state/pattern"
-import { selectTrack, useRackStore } from "../state/store"
+import { useRackStore, type RackState } from "../state/store"
 
 /** One boolean row per line of the thumbnail, top row first. */
 function rowsFor(track: Track): boolean[][] {
@@ -81,9 +81,15 @@ function MiniPlayhead({ styles }: { styles: Styles }) {
   )
 }
 
-/** The pattern of one instance in miniature, playhead included — for a folded unit's header. */
+/** The track being heard: the slot the song is playing, or the one on screen when stopped. */
+const selectSoundingTrack = (s: RackState, id: string) =>
+  (s.patterns[s.playingPattern >= 0 ? s.playingPattern : s.activePattern] ?? s.patterns[0])?.tracks[
+    id
+  ]
+
+/** The pattern an instance is playing, in miniature with the playhead — for a folded unit's header. */
 export function MiniGrid({ id, label }: { id: string; label: string }) {
-  const track = useRackStore((s) => selectTrack(s, id))
+  const track = useRackStore((s) => selectSoundingTrack(s, id))
   const recipe = useSlotRecipe({ key: "miniGrid" })
   const styles = useMemo(() => recipe(), [recipe])
   const rows = useMemo(() => (track ? rowsFor(track) : []), [track])

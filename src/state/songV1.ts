@@ -44,8 +44,8 @@ import {
   type SynthRow,
   type Track,
 } from "./pattern"
-import { MAX_CHAIN, PATTERN_COUNT } from "./patterns"
-import { SongParseError, type Song } from "./song"
+import { MAX_CHAIN, padBank, PATTERN_COUNT } from "./patterns"
+import { bank, SongParseError, type Song } from "./song"
 
 /** The mixer channels a version-1 file could name. */
 const V1_CHANNELS = ["drums", "perc", "sampler", "synth", "bass", "poly", "ep", "strings"] as const
@@ -267,9 +267,7 @@ export function parseSongV1(s: Record<string, unknown>): Song {
   const mix = record(s.mix, "song.mix")
   const fx = record(s.fx, "song.fx")
 
-  const patterns = list(s.patterns, "song.patterns", PATTERN_COUNT).map((p, i) =>
-    parsePattern(p, `song.patterns[${i}]`),
-  )
+  const patterns = bank(s.patterns).map((p, i) => parsePattern(p, `song.patterns[${i}]`))
   const level = parseNumbers(mix.level, "song.mix.level", V1_CHANNELS, V1_MIX_LEVEL)
   const send = parseNumbers(mix.send, "song.mix.send", V1_CHANNELS, V1_MIX_SEND)
   const mute = parseMutes(mix.mute, "song.mix.mute")
@@ -334,7 +332,7 @@ export function parseSongV1(s: Record<string, unknown>): Song {
     swing: num(s.swing ?? 0, "song.swing"),
     masterVolume: num(s.masterVolume, "song.masterVolume"),
     instances,
-    patterns: lifted,
+    patterns: padBank(lifted, instances),
     activePattern: int(s.activePattern, "song.activePattern", PATTERN_COUNT),
     chain: list(s.chain, "song.chain")
       .slice(0, MAX_CHAIN)

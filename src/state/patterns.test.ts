@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest"
 
 import { defaultInstances } from "./instances"
 import { createEmptyPattern, rowsOf, toggleKitStep, withTrack, type KitTrack } from "./pattern"
-import { createDefaultBank, resolvePlayingPattern } from "./patterns"
+import { createDefaultBank, PATTERN_COUNT, resolvePlayingPattern } from "./patterns"
 
 const OWNERS = [{ id: "drums-1", kind: "drums" as const }]
 
@@ -37,10 +37,10 @@ describe("resolvePlayingPattern", () => {
 })
 
 describe("createDefaultBank", () => {
-  it("has four slots with the groove in the first, for every default instance", () => {
+  it("has PATTERN_COUNT slots with the groove in the first, for every default instance", () => {
     const instances = defaultInstances()
     const b = createDefaultBank(instances)
-    expect(b).toHaveLength(4)
+    expect(b).toHaveLength(PATTERN_COUNT)
     const first = b[0]!.tracks["drums-1"] as KitTrack
     const second = b[1]!.tracks["drums-1"] as KitTrack
     expect(rowsOf(first).kick![0]).toBe(true)

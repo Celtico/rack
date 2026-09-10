@@ -15,6 +15,7 @@ describe("<MiniGrid />", () => {
       patterns: createDefaultBank(instances),
       activePattern: 0,
       currentStep: -1,
+      playingPattern: -1,
     })
   })
 
@@ -47,6 +48,21 @@ describe("<MiniGrid />", () => {
     const playhead = grid.querySelector("[data-step]")
     expect(playhead).toHaveAttribute("data-step", "5")
     expect(playhead).toHaveStyle({ left: "32px" })
+  })
+
+  it("follows the slot the song is playing, not the one being edited", () => {
+    // Slot 3 gets a kick on step 1; the song is on slot 3 while slot 1 is on screen.
+    useRackStore.getState().setActivePattern(2)
+    useRackStore.getState().toggleStep("drums-1", "clap", 0)
+    useRackStore.getState().setActivePattern(0)
+    useRackStore.getState().setPlayhead(0, 2, 6)
+    renderWithChakra(<MiniGrid id="drums-1" label="DR-4" />)
+
+    const cells = screen
+      .getByRole("img", { name: "DR-4 pattern" })
+      .querySelectorAll("span:not([data-step])")
+    // Clap is the third row of DR-4.
+    expect(cells[2 * 16]).toHaveAttribute("data-on")
   })
 
   it("renders nothing for an instance that is not in the pattern", () => {

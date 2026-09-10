@@ -1,16 +1,21 @@
 import { createEmptyPattern, createStarterPattern, type Pattern, type TrackOwner } from "./pattern"
 
-export const PATTERN_COUNT = 4
+export const PATTERN_COUNT = 16
 export const MAX_CHAIN = 16
 
 /** Slot 1 carries the starter groove; the rest are empty. */
 export function createDefaultBank(instances: readonly TrackOwner[]): Pattern[] {
   return [
     createStarterPattern(instances),
-    createEmptyPattern(instances),
-    createEmptyPattern(instances),
-    createEmptyPattern(instances),
+    ...Array.from({ length: PATTERN_COUNT - 1 }, () => createEmptyPattern(instances)),
   ]
+}
+
+/** `patterns` topped up with empty slots to PATTERN_COUNT — files from a 4-slot bank still load. */
+export function padBank(patterns: readonly Pattern[], instances: readonly TrackOwner[]): Pattern[] {
+  const out = [...patterns]
+  while (out.length < PATTERN_COUNT) out.push(createEmptyPattern(instances))
+  return out
 }
 
 export interface PlayingPattern {

@@ -1,0 +1,2077 @@
+{
+  "version": 2,
+  "bpm": 103,
+  "swing": 1,
+  "masterVolume": 0.8,
+  "instances": [
+    {
+      "id": "drums-1",
+      "kind": "drums",
+      "params": {
+        "kick": 0.9,
+        "snare": 0.7,
+        "clap": 0.6,
+        "hat": 0.5
+      },
+      "level": 0.32,
+      "send": 0.47,
+      "mute": false
+    },
+    {
+      "id": "synth-1",
+      "kind": "synth",
+      "params": {
+        "waveform": "sawtooth",
+        "cutoff": 178,
+        "resonance": 3.6,
+        "decay": 0.02
+      },
+      "level": 0.61,
+      "send": 0.63,
+      "mute": false
+    },
+    {
+      "id": "strings-1",
+      "kind": "strings",
+      "params": {
+        "damp": 1057,
+        "sustain": 0.962,
+        "release": 3
+      },
+      "level": 0.7,
+      "send": 0.3,
+      "mute": false
+    }
+  ],
+  "patterns": [
+    {
+      "tracks": {
+        "drums-1": {
+          "kind": "drums",
+          "rows": {
+            "kick": [
+              true,
+              false,
+              false,
+              false,
+              true,
+              false,
+              false,
+              false,
+              true,
+              false,
+              false,
+              false,
+              true,
+              false,
+              false,
+              false
+            ],
+            "snare": [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            "clap": [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            "hat": [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ]
+          }
+        },
+        "synth-1": {
+          "kind": "synth",
+          "notes": [
+            0,
+            null,
+            null,
+            null,
+            0,
+            null,
+            null,
+            null,
+            0,
+            null,
+            null,
+            null,
+            0,
+            null,
+            null,
+            null
+          ]
+        },
+        "strings-1": {
+          "kind": "strings",
+          "chords": [
+            [
+              7
+            ],
+            [],
+            [],
+            [
+              7
+            ],
+            [],
+            [],
+            [],
+            [
+              6
+            ],
+            [],
+            [
+              4
+            ],
+            [],
+            [
+              5
+            ],
+            [],
+            [],
+            [
+              6
+            ],
+            []
+          ]
+        }
+      }
+    },
+    {
+      "tracks": {
+        "drums-1": {
+          "kind": "drums",
+          "rows": {
+            "kick": [
+              true,
+              false,
+              false,
+              false,
+              true,
+              false,
+              false,
+              false,
+              true,
+              false,
+              false,
+              false,
+              true,
+              false,
+              false,
+              false
+            ],
+            "snare": [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            "clap": [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            "hat": [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ]
+          }
+        },
+        "synth-1": {
+          "kind": "synth",
+          "notes": [
+            0,
+            null,
+            null,
+            null,
+            0,
+            null,
+            null,
+            null,
+            0,
+            null,
+            null,
+            null,
+            0,
+            null,
+            null,
+            null
+          ]
+        },
+        "strings-1": {
+          "kind": "strings",
+          "chords": [
+            [
+              7
+            ],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [
+              5
+            ],
+            [],
+            [],
+            [],
+            [],
+            [
+              5
+            ],
+            [],
+            [],
+            [
+              6
+            ],
+            []
+          ]
+        }
+      }
+    },
+    {
+      "tracks": {
+        "drums-1": {
+          "kind": "drums",
+          "rows": {
+            "kick": [
+              true,
+              false,
+              false,
+              false,
+              true,
+              false,
+              false,
+              false,
+              true,
+              false,
+              false,
+              false,
+              true,
+              false,
+              false,
+              false
+            ],
+            "snare": [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            "clap": [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            "hat": [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ]
+          }
+        },
+        "synth-1": {
+          "kind": "synth",
+          "notes": [
+            0,
+            null,
+            null,
+            null,
+            0,
+            null,
+            null,
+            null,
+            0,
+            null,
+            null,
+            null,
+            0,
+            null,
+            null,
+            null
+          ]
+        },
+        "strings-1": {
+          "kind": "strings",
+          "chords": [
+            [
+              7
+            ],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [
+              6
+            ],
+            [],
+            [],
+            [
+              6
+            ],
+            [],
+            [
+              6
+            ],
+            [],
+            [],
+            []
+          ]
+        }
+      }
+    },
+    {
+      "tracks": {
+        "drums-1": {
+          "kind": "drums",
+          "rows": {
+            "kick": [
+              true,
+              false,
+              false,
+              false,
+              true,
+              false,
+              false,
+              false,
+              true,
+              false,
+              false,
+              false,
+              true,
+              false,
+              false,
+              false
+            ],
+            "snare": [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            "clap": [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            "hat": [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ]
+          }
+        },
+        "synth-1": {
+          "kind": "synth",
+          "notes": [
+            0,
+            null,
+            null,
+            null,
+            0,
+            null,
+            null,
+            null,
+            0,
+            null,
+            null,
+            null,
+            0,
+            null,
+            null,
+            null
+          ]
+        },
+        "strings-1": {
+          "kind": "strings",
+          "chords": [
+            [
+              7
+            ],
+            [],
+            [],
+            [
+              7
+            ],
+            [],
+            [],
+            [
+              5
+            ],
+            [],
+            [],
+            [],
+            [],
+            [
+              5
+            ],
+            [],
+            [],
+            [
+              6
+            ],
+            []
+          ]
+        }
+      }
+    },
+    {
+      "tracks": {
+        "drums-1": {
+          "kind": "drums",
+          "rows": {
+            "kick": [
+              true,
+              false,
+              false,
+              false,
+              true,
+              false,
+              false,
+              false,
+              true,
+              false,
+              false,
+              false,
+              true,
+              false,
+              false,
+              false
+            ],
+            "snare": [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            "clap": [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            "hat": [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ]
+          }
+        },
+        "synth-1": {
+          "kind": "synth",
+          "notes": [
+            0,
+            null,
+            null,
+            null,
+            0,
+            null,
+            null,
+            null,
+            0,
+            null,
+            null,
+            null,
+            0,
+            null,
+            null,
+            null
+          ]
+        },
+        "strings-1": {
+          "kind": "strings",
+          "chords": [
+            [
+              7
+            ],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [
+              5
+            ],
+            [],
+            [],
+            [],
+            [],
+            [
+              5
+            ],
+            [],
+            [],
+            [
+              6
+            ],
+            []
+          ]
+        }
+      }
+    },
+    {
+      "tracks": {
+        "drums-1": {
+          "kind": "drums",
+          "rows": {
+            "kick": [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            "snare": [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            "clap": [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            "hat": [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ]
+          }
+        },
+        "synth-1": {
+          "kind": "synth",
+          "notes": [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ]
+        },
+        "strings-1": {
+          "kind": "strings",
+          "chords": [
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            []
+          ]
+        }
+      }
+    },
+    {
+      "tracks": {
+        "drums-1": {
+          "kind": "drums",
+          "rows": {
+            "kick": [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            "snare": [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            "clap": [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            "hat": [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ]
+          }
+        },
+        "synth-1": {
+          "kind": "synth",
+          "notes": [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ]
+        },
+        "strings-1": {
+          "kind": "strings",
+          "chords": [
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            []
+          ]
+        }
+      }
+    },
+    {
+      "tracks": {
+        "drums-1": {
+          "kind": "drums",
+          "rows": {
+            "kick": [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            "snare": [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            "clap": [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            "hat": [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ]
+          }
+        },
+        "synth-1": {
+          "kind": "synth",
+          "notes": [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ]
+        },
+        "strings-1": {
+          "kind": "strings",
+          "chords": [
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            []
+          ]
+        }
+      }
+    },
+    {
+      "tracks": {
+        "drums-1": {
+          "kind": "drums",
+          "rows": {
+            "kick": [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            "snare": [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            "clap": [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            "hat": [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ]
+          }
+        },
+        "synth-1": {
+          "kind": "synth",
+          "notes": [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ]
+        },
+        "strings-1": {
+          "kind": "strings",
+          "chords": [
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            []
+          ]
+        }
+      }
+    },
+    {
+      "tracks": {
+        "drums-1": {
+          "kind": "drums",
+          "rows": {
+            "kick": [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            "snare": [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            "clap": [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            "hat": [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ]
+          }
+        },
+        "synth-1": {
+          "kind": "synth",
+          "notes": [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ]
+        },
+        "strings-1": {
+          "kind": "strings",
+          "chords": [
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            []
+          ]
+        }
+      }
+    },
+    {
+      "tracks": {
+        "drums-1": {
+          "kind": "drums",
+          "rows": {
+            "kick": [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            "snare": [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            "clap": [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            "hat": [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ]
+          }
+        },
+        "synth-1": {
+          "kind": "synth",
+          "notes": [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ]
+        },
+        "strings-1": {
+          "kind": "strings",
+          "chords": [
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            []
+          ]
+        }
+      }
+    },
+    {
+      "tracks": {
+        "drums-1": {
+          "kind": "drums",
+          "rows": {
+            "kick": [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            "snare": [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            "clap": [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            "hat": [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ]
+          }
+        },
+        "synth-1": {
+          "kind": "synth",
+          "notes": [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ]
+        },
+        "strings-1": {
+          "kind": "strings",
+          "chords": [
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            []
+          ]
+        }
+      }
+    },
+    {
+      "tracks": {
+        "drums-1": {
+          "kind": "drums",
+          "rows": {
+            "kick": [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            "snare": [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            "clap": [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            "hat": [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ]
+          }
+        },
+        "synth-1": {
+          "kind": "synth",
+          "notes": [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ]
+        },
+        "strings-1": {
+          "kind": "strings",
+          "chords": [
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            []
+          ]
+        }
+      }
+    },
+    {
+      "tracks": {
+        "drums-1": {
+          "kind": "drums",
+          "rows": {
+            "kick": [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            "snare": [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            "clap": [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            "hat": [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ]
+          }
+        },
+        "synth-1": {
+          "kind": "synth",
+          "notes": [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ]
+        },
+        "strings-1": {
+          "kind": "strings",
+          "chords": [
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            []
+          ]
+        }
+      }
+    },
+    {
+      "tracks": {
+        "drums-1": {
+          "kind": "drums",
+          "rows": {
+            "kick": [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            "snare": [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            "clap": [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            "hat": [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ]
+          }
+        },
+        "synth-1": {
+          "kind": "synth",
+          "notes": [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ]
+        },
+        "strings-1": {
+          "kind": "strings",
+          "chords": [
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            []
+          ]
+        }
+      }
+    },
+    {
+      "tracks": {
+        "drums-1": {
+          "kind": "drums",
+          "rows": {
+            "kick": [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            "snare": [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            "clap": [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            "hat": [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ]
+          }
+        },
+        "synth-1": {
+          "kind": "synth",
+          "notes": [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ]
+        },
+        "strings-1": {
+          "kind": "strings",
+          "chords": [
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            []
+          ]
+        }
+      }
+    }
+  ],
+  "activePattern": 2,
+  "chain": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    4,
+    4
+  ],
+  "fx": {
+    "delayTime": "8n",
+    "feedback": 0.63,
+    "reverbDecay": 1.7
+  }
+}

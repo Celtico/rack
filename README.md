@@ -3,10 +3,10 @@
 A browser-based hardware rack: a drum machine (**DR-4**), a percussion kit (**PERC-6**), a sampler
 for your own files (**SMP-8**), an acid bass (**BASS-2**), a mono synth (**MONO-1**), a poly pad
 (**POLY-4**), an FM electric piano (**EP-1**), plucked strings (**STR-6**), an FX unit (**FX-2**),
-a four-slot pattern bank, a **SONG** timeline that lays the patterns out bar by bar, and a
+a sixteen-slot pattern bank, a **SONG** timeline that lays the patterns out bar by bar, and a
 transport with tempo and swing — built with Tone.js and Chakra UI v3. **Add unit** puts any number
 of each machine in the rack (two DR-4s, three samplers…), each with its own patterns, mixer strip
-and settings. Every unit can be folded (machines show their pattern in miniature, the transport its output meter, FX-2 every level, SONG the bars), muted, removed (with
+and settings. The transport, pattern bank and song timeline share a fixed top panel (each section folds on its own) and the rack starts playing by itself. Every machine can be folded (showing its pattern in miniature; FX-2 shows every level), muted, removed (with
 Undo) and dragged into any order; the FX-2 mixer has a fader and LED meter per machine. The
 arrangement is remembered by the browser.
 

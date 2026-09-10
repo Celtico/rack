@@ -23,9 +23,12 @@ strict build order:
    - ✅ Phase 4 — FX-2: `mix` (level + send per channel, `src/state/channels.ts`) and `fx` (delay time in
      transport notation, feedback, reverb decay) in the store; `engine.setFxParam()` ramps the Signals and
      **debounces** `reverb.decay` (Tone re-renders the IR). `FxUnit` UI. Master stays on the Transport.
-   - ✅ Phase 5 — bank of 4 (`patterns` + `activePattern`, `selectPattern()` for the one on screen), `chain`
+   - ✅ Phase 5 — bank of 4, since raised to 16 (`PATTERN_COUNT`; shorter banks in old files are `padBank`ed on load; slots 5–16
+     use half-tone colours generated between the previous ones, `slotColours` in the timeline recipe) (`patterns` + `activePattern`, `selectPattern()` for the one on screen), `chain`
      walked one slot per bar by the scheduler's bar counter (`resolvePlayingPattern`, `src/state/patterns.ts`),
-     `playingPattern` published via Draw. Save/load: `toSong` / `parseSong` (`src/state/song.ts`, strict
+     `playingPattern` published via Draw; while a chain plays, `setPlayhead` also moves `activePattern` to the sounding slot so open
+     grids (and the bank) follow the song. Picking a bank slot sets `followSong: false` — that slot loops (the
+     engine resolves with an empty chain) until "Play song" (`setFollowSong(true)`) or a bar is appended. Save/load: `toSong` / `parseSong` (`src/state/song.ts`, strict
      shape, clamped ranges) + `engine.syncFromStore()` after a load. `PatternBank` unit; toaster snippet.
 
    - ✅ Extra — swing: `swingOffset()` in the scheduler delays odd steps up to ⅓ of a sixteenth (store
@@ -64,14 +67,19 @@ strict build order:
      unit" menu (new machine of any kind, or put a hidden fixed unit back), Fold all / Unfold all
      (`setFolded`). Folded instances show a `MiniGrid` on the right of the header: the instance's pattern in
      miniature (one dot per step, playhead column lit; `miniGrid` slot recipe). Fixed units pass their own
-     `RackUnit.preview`: TRANSPORT the master meter, FX-2 one meter per machine (`LevelMeter orientation="horizontal"`),
-     SONG the chain and PATTERN the bank as small squares (`songTimeline` `mini` slots; the bank's big slots reuse
-     `block` too — grey, lit while sounding, `data-active` outline on the slot being edited). TRANSPORT is fixed.
+     `RackUnit.preview`: FX-2 one meter per machine (`LevelMeter orientation="horizontal"`). The bank's slots reuse the
+     timeline `block` — grey, lit while sounding, `data-active` outline on the slot being edited. TRANSPORT is fixed.
 
    - ✅ Extra — factory song: `App` calls `loadDefaultSong()` (`src/ui/defaultSong.ts`) once on mount, which
      fetches `public/-rack-song.json`, `loadSong`s it and `engine.syncFromStore()`s; a missing/broken file leaves
      the coded starter groove (`starterTrack`) in place. The rack starts with every unit folded
      (`foldedAll`, also re-applied after the factory song loads); a user-loaded song unfolds its machines.
+   - ✅ Extra — top panel: `MasterUnit` (id `TRANSPORT`, `RackUnit fixed` — no grip, fold or remove, never in the
+     reorderable stack) holds `Transport`, `PatternBank` and `TimelineUnit` as `MasterSection`s with their own fold
+     toggles (`MASTER_SECTIONS` in the store: CLOCK, PATTERN, SONG; Fold all / Unfold all include them; PATTERN and
+     SONG start folded). `FIXED_UNITS` is now just `FX-2`; `rack-layout` persist version 3 drops the old ids.
+     `autoplay()` (`src/ui/transportControl.ts`) starts the clock after the factory song loads and re-tries on the
+     first pointer/key, since browsers keep audio suspended until a gesture.
    - ✅ Extra — **instances** (any number of each machine, e.g. two DR-4s). `src/state/instances.ts`:
      `Instance { id: "${kind}-${n}", kind, params, level, send, mute }` (discriminated by `Kind`, one
      `KindParams` per kind, `clampParams`, `instanceLabel` → "DR-4" or "DR-4 #2"). `Pattern.tracks` is

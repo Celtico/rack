@@ -1,12 +1,15 @@
 import { create } from "zustand"
 import { persist } from "zustand/middleware"
 
-/** Units that are not machines: exactly one of each, always present in the rack. */
-export const FIXED_UNITS = ["TRANSPORT", "PATTERN", "SONG", "FX-2"] as const
+/**
+ * Units that are not machines and take part in the reorderable stack. The top
+ * panel (transport, bank, song) is not one of them: it sits above the stack.
+ */
+export const FIXED_UNITS = ["FX-2"] as const
 export type FixedUnitId = (typeof FIXED_UNITS)[number]
 
 /** Fixed units that can be taken out of view (instances are removed instead). */
-export const HIDEABLE_UNITS: readonly FixedUnitId[] = ["PATTERN", "SONG", "FX-2"]
+export const HIDEABLE_UNITS: readonly FixedUnitId[] = ["FX-2"]
 
 export const isFixedUnit = (id: string): id is FixedUnitId =>
   (FIXED_UNITS as readonly string[]).includes(id)
@@ -47,7 +50,7 @@ export function ensureOrder(order: readonly string[], ids: readonly string[]): s
   return out
 }
 
-const DEFAULT_ORDER: readonly string[] = ["TRANSPORT", "PATTERN", "SONG"]
+const DEFAULT_ORDER: readonly string[] = ["FX-2"]
 
 /**
  * How the rack is arranged on screen — order and which fixed units are out.
@@ -88,10 +91,12 @@ export const useLayoutStore = create<LayoutState>()(
     }),
     {
       name: "rack-layout",
-      version: 2,
+      version: 3,
       merge: (persisted, current) => {
         const saved = (persisted as Partial<LayoutState> | undefined) ?? {}
-        const order = (saved.order ?? []).filter((id): id is string => typeof id === "string")
+        const order = (saved.order ?? []).filter(
+          (id): id is string => typeof id === "string" && (isFixedUnit(id) || id.includes("-")),
+        )
         for (const id of DEFAULT_ORDER) if (!order.includes(id)) order.push(id)
         const hidden = (saved.hidden ?? []).filter(
           (id): id is FixedUnitId => isFixedUnit(id) && HIDEABLE_UNITS.includes(id),

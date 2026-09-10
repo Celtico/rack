@@ -54,7 +54,7 @@ export const rackUnitRecipe = defineSlotRecipe({
       bg: "finish.graphite.panel",
       // Plain graphite with a soft glow of the finish colour falling from the top-left corner.
       bgImage:
-        "radial-gradient(ellipse 40px 10px at 0px 0px, {colors.rack.panel} 0%, transparent 100px)",
+        "radial-gradient(ellipse 0px 0px at 0px 0px, {colors.rack.panel} 0%, transparent 100px)",
       color: "rack.silkscreen",
       borderWidth: "1px",
       borderColor: "rack.panel.edge",
@@ -112,10 +112,14 @@ export const rackUnitRecipe = defineSlotRecipe({
       fontWeight: "bold",
       fontSize: "sm",
       color: "rack.silkscreen",
+      // "FX-2" must not break into two lines on a phone.
+      whiteSpace: "nowrap",
     },
     title: {
       textStyle: "silkscreen",
       color: "rack.silkscreen.muted",
+      // On a phone the model name is enough; the description would wrap under it.
+      hideBelow: "sm",
     },
     controls: {
       display: "flex",

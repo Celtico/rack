@@ -28,7 +28,8 @@ describe("loadDefaultSong", () => {
     expect(syncFromStore).toHaveBeenCalledOnce()
     // Everything starts folded, machines of the song included.
     const folded = useRackStore.getState().folded
-    expect(folded.TRANSPORT).toBe(true)
+    expect(folded["FX-2"]).toBe(true)
+    expect(folded.SONG).toBe(true)
     for (const inst of useRackStore.getState().instances) expect(folded[inst.id]).toBe(true)
   })
 

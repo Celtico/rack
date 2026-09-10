@@ -20,15 +20,15 @@ describe("ensureOrder", () => {
   it("keeps known ids in place, drops unknown ones and appends new ones", () => {
     expect(
       ensureOrder(
-        ["SONG", "drums-1", "gone", "TRANSPORT"],
-        ["TRANSPORT", "SONG", "drums-1", "drums-2"],
+        ["synth-1", "drums-1", "gone", "FX-2"],
+        ["FX-2", "synth-1", "drums-1", "drums-2"],
       ),
-    ).toEqual(["SONG", "drums-1", "TRANSPORT", "drums-2"])
+    ).toEqual(["synth-1", "drums-1", "FX-2", "drums-2"])
   })
 })
 
 describe("layout store", () => {
-  const ORDER = ["TRANSPORT", "PATTERN", "SONG", "drums-1", "synth-1", "FX-2"]
+  const ORDER = ["FX-2", "drums-1", "synth-1", "bass-1"]
 
   beforeEach(() => {
     useLayoutStore.setState({ order: [...ORDER], hidden: [] })
@@ -36,25 +36,21 @@ describe("layout store", () => {
 
   it("nudges a unit up and down within bounds", () => {
     const s = useLayoutStore.getState()
-    s.nudgeUnit("drums-1", -1)
-    expect(useLayoutStore.getState().order.slice(0, 4)).toEqual([
-      "TRANSPORT",
-      "PATTERN",
-      "drums-1",
-      "SONG",
-    ])
-    s.nudgeUnit("TRANSPORT", -1)
-    expect(useLayoutStore.getState().order[0]).toBe("TRANSPORT")
+    s.nudgeUnit("synth-1", -1)
+    expect(useLayoutStore.getState().order).toEqual(["FX-2", "synth-1", "drums-1", "bass-1"])
+    s.nudgeUnit("FX-2", -1)
+    expect(useLayoutStore.getState().order[0]).toBe("FX-2")
+    s.nudgeUnit("bass-1", 1)
+    expect(useLayoutStore.getState().order.at(-1)).toBe("bass-1")
   })
 
-  it("hides and shows hideable fixed units, never the transport or an instance", () => {
+  it("hides and shows FX-2, never an instance", () => {
     const s = useLayoutStore.getState()
-    s.hideUnit("SONG")
-    s.hideUnit("SONG")
-    s.hideUnit("TRANSPORT")
+    s.hideUnit("FX-2")
+    s.hideUnit("FX-2")
     s.hideUnit("drums-1")
-    expect(useLayoutStore.getState().hidden).toEqual(["SONG"])
-    s.showUnit("SONG")
+    expect(useLayoutStore.getState().hidden).toEqual(["FX-2"])
+    s.showUnit("FX-2")
     expect(useLayoutStore.getState().hidden).toEqual([])
   })
 
@@ -64,14 +60,7 @@ describe("layout store", () => {
     s.syncUnits(ORDER)
     expect(useLayoutStore.getState().order).toBe(before)
 
-    s.syncUnits(["TRANSPORT", "PATTERN", "SONG", "FX-2", "synth-1", "drums-2"])
-    expect(useLayoutStore.getState().order).toEqual([
-      "TRANSPORT",
-      "PATTERN",
-      "SONG",
-      "synth-1",
-      "FX-2",
-      "drums-2",
-    ])
+    s.syncUnits(["FX-2", "synth-1", "drums-2"])
+    expect(useLayoutStore.getState().order).toEqual(["FX-2", "synth-1", "drums-2"])
   })
 })

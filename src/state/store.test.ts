@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest"
 
 import { defaultInstances, type InstanceOf } from "./instances"
 import { rowsOf, type KitTrack } from "./pattern"
-import { createDefaultBank } from "./patterns"
+import { createDefaultBank, PATTERN_COUNT } from "./patterns"
 import { BPM_MAX, BPM_MIN, selectInstance, selectPattern, selectTrack, useRackStore } from "./store"
 
 const kit = (id: string) => rowsOf(selectTrack(useRackStore.getState(), id) as KitTrack)
@@ -23,6 +23,7 @@ describe("rack store", () => {
       patterns: createDefaultBank(instances).map((_, i, bank) => (i === 0 ? bank[1]! : bank[i]!)),
       activePattern: 0,
       chain: [],
+      followSong: true,
       instances,
       selectedPad: {},
       folded: {},
@@ -70,6 +71,39 @@ describe("rack store", () => {
     expect(after.currentStep).toBe(3)
     expect(after.playingPattern).toBe(1)
     expect(after.playingBar).toBe(5)
+  })
+
+  it("follows the sounding slot while a song plays, and stays put without a chain", () => {
+    const store = useRackStore.getState()
+    store.setPlayhead(0, 2, 0)
+    expect(useRackStore.getState().activePattern).toBe(0)
+
+    store.appendToChain(0)
+    store.appendToChain(2)
+    store.setPlayhead(0, 2, 1)
+    expect(useRackStore.getState().activePattern).toBe(2)
+    store.setPlayhead(-1, -1, -1)
+    expect(useRackStore.getState().activePattern).toBe(2)
+  })
+
+  it("lets a slot picked from the bank loop over the song until the song is resumed", () => {
+    const store = useRackStore.getState()
+    store.appendToChain(0)
+    store.appendToChain(1)
+    expect(useRackStore.getState().followSong).toBe(true)
+
+    store.setActivePattern(5)
+    expect(useRackStore.getState().followSong).toBe(false)
+    store.setPlayhead(0, 5, 3)
+    expect(useRackStore.getState().activePattern).toBe(5)
+
+    store.setFollowSong(true)
+    store.setPlayhead(0, 1, 4)
+    expect(useRackStore.getState().activePattern).toBe(1)
+    // Adding a bar means "build the song": it resumes too.
+    store.setActivePattern(3)
+    store.appendToChain(3)
+    expect(useRackStore.getState().followSong).toBe(true)
   })
 
   it("toggles a step of one instance in the active pattern without mutating the previous bank", () => {
@@ -129,10 +163,10 @@ describe("rack store", () => {
     const store = useRackStore.getState()
     const before = useRackStore.getState().chain
     store.appendToChain(1)
-    store.appendToChain(9)
+    store.appendToChain(99)
     const mid = useRackStore.getState().chain
     expect(mid).not.toBe(before)
-    expect(mid).toEqual([1, 3])
+    expect(mid).toEqual([1, PATTERN_COUNT - 1])
     expect(before).toEqual([])
 
     for (let i = 0; i < 30; i++) store.appendToChain(0)
@@ -149,12 +183,13 @@ describe("rack store", () => {
     store.appendToChain(2)
     store.setChainSlot(1, 3)
     expect(useRackStore.getState().chain).toEqual([0, 3, 2])
-    store.setChainSlot(1, 7)
-    expect(useRackStore.getState().chain).toEqual([0, 3, 2])
+    // Out-of-range slots clamp to the last one.
+    store.setChainSlot(1, 99)
+    expect(useRackStore.getState().chain).toEqual([0, PATTERN_COUNT - 1, 2])
     store.removeChainSlot(0)
-    expect(useRackStore.getState().chain).toEqual([3, 2])
-    store.removeChainSlot(9)
-    expect(useRackStore.getState().chain).toEqual([3, 2])
+    expect(useRackStore.getState().chain).toEqual([PATTERN_COUNT - 1, 2])
+    store.removeChainSlot(99)
+    expect(useRackStore.getState().chain).toEqual([PATTERN_COUNT - 1, 2])
   })
 
   it("sets an instance's level, send and mute clamped, without mutating the previous list", () => {

@@ -1,8 +1,25 @@
 import { defineSlotRecipe } from "@chakra-ui/react"
 
+import { PATTERN_COUNT } from "../../state/patterns"
+
+/** Slots whose colour is light enough to want dark ink on top. */
+const DARK_INK = new Set([1, 4, 5, 6, 9, 10, 11])
+const SLOTS = Array.from({ length: PATTERN_COUNT }, (_, i) => i + 1)
+
+/** `data-playing` + `data-pattern="n"` → the slot's colour (and, for blocks, a readable ink). */
+const slotColours = (withInk: boolean) =>
+  Object.fromEntries(
+    SLOTS.map((n) => [
+      `&[data-playing][data-pattern='${n}']`,
+      withInk
+        ? { bg: `rack.pattern.${n}`, color: DARK_INK.has(n) ? "ink.900" : "cream.100" }
+        : { bg: `rack.pattern.${n}` },
+    ]),
+  )
+
 /**
  * The song timeline: one grey block per bar of the chain; the bar being played
- * (`data-playing`) lights up in its bank slot's colour (`data-pattern="1".."4"`)
+ * (`data-playing`) lights up in its bank slot's colour (`data-pattern="1".."16"`)
  * with a progress bar that fills across the 16 steps.
  */
 export const timelineRecipe = defineSlotRecipe({
@@ -63,11 +80,8 @@ export const timelineRecipe = defineSlotRecipe({
       transitionDuration: "fast",
       _motionReduce: { transition: "none" },
       _focusVisible: { outline: "2px solid", outlineColor: "rack.led.on", outlineOffset: "1px" },
-      "&[data-playing][data-pattern='1']": { bg: "rack.pattern.1", color: "ink.900" },
-      "&[data-playing][data-pattern='2']": { bg: "rack.pattern.2", color: "cream.100" },
-      "&[data-playing][data-pattern='3']": { bg: "rack.pattern.3", color: "cream.100" },
-      "&[data-playing][data-pattern='4']": { bg: "rack.pattern.4", color: "cream.100" },
       "&[data-playing]": { borderColor: "rack.step.playing", shadow: "stepPlaying" },
+      ...slotColours(true),
       // The bank's slot being edited.
       "&[data-active]": { borderColor: "rack.led.on", boxShadow: "0 0 0 1px {colors.rack.led.on}" },
     },
@@ -86,15 +100,12 @@ export const timelineRecipe = defineSlotRecipe({
       rounded: "xs",
       bg: "rack.step.off",
       "&[data-active]": { outline: "1px solid", outlineColor: "rack.led.on", outlineOffset: "1px" },
-      "&[data-playing][data-pattern='1']": { bg: "rack.pattern.1" },
-      "&[data-playing][data-pattern='2']": { bg: "rack.pattern.2" },
-      "&[data-playing][data-pattern='3']": { bg: "rack.pattern.3" },
-      "&[data-playing][data-pattern='4']": { bg: "rack.pattern.4" },
       "&[data-playing]": {
         outline: "1px solid",
         outlineColor: "rack.step.playing",
         outlineOffset: "1px",
       },
+      ...slotColours(false),
     },
     progress: {
       position: "absolute",

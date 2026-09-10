@@ -59,10 +59,16 @@ export interface RackState {
   masterVolume: number
   /** The bank: PATTERN_COUNT slots. */
   patterns: readonly Pattern[]
-  /** Slot being edited — and played, when there is no chain. */
+  /** Slot being edited — and played, when there is no chain. With a chain playing, it follows the sounding bar. */
   activePattern: number
   /** Slots to play in order, one per bar; empty means loop the active one. */
   chain: readonly number[]
+  /**
+   * True: the chain plays and the active slot follows it. False: the active
+   * slot loops on its own (picked from the bank while the song ran) until the
+   * song is resumed. UI-only.
+   */
+  followSong: boolean
   /** The machines in the rack, in creation order. */
   instances: readonly Instance[]
   /** Pad whose controls each SMP-8 shows, by instance id. */
@@ -82,7 +88,9 @@ export interface RackState {
   toggleNote: (id: string, step: number, rowIndex: number) => void
   /** Flip a BASS-2 accent or slide. */
   toggleFlag: (id: string, step: number, flag: BassFlag) => void
+  /** Pick a slot to edit — and to loop, taking over from the song while it plays. */
   setActivePattern: (index: number) => void
+  setFollowSong: (follow: boolean) => void
   copyActivePatternTo: (index: number) => void
   appendToChain: (index: number) => void
   setChainSlot: (bar: number, index: number) => void
@@ -149,9 +157,15 @@ const clampInstance = (inst: Instance): Instance =>
 
 const initialInstances = defaultInstances()
 
+/** Fold keys of the top panel's sections — they take part in Fold all / Unfold all. */
+export const MASTER_SECTIONS = ["CLOCK", "PATTERN", "SONG"] as const
+export type MasterSectionId = (typeof MASTER_SECTIONS)[number]
+/** The ones that start folded; the clock itself stays open. */
+const MASTER_FOLDABLE: readonly MasterSectionId[] = ["PATTERN", "SONG"]
+
 /** Every unit folded — the rack opens as a compact stack of headers. */
 export const foldedAll = (ids: readonly string[]): Record<string, boolean> =>
-  Object.fromEntries([...FIXED_UNITS, ...ids].map((id) => [id, true]))
+  Object.fromEntries([...MASTER_FOLDABLE, ...FIXED_UNITS, ...ids].map((id) => [id, true]))
 
 /**
  * Pattern bank, tempo, instances and transport state. Pure state — it never
@@ -170,6 +184,7 @@ export const useRackStore = create<RackState>()((set, get) => ({
   patterns: createDefaultBank(initialInstances),
   activePattern: 0,
   chain: [],
+  followSong: true,
   instances: initialInstances,
   selectedPad: {},
   fx: FX_DEFAULT,
@@ -179,7 +194,15 @@ export const useRackStore = create<RackState>()((set, get) => ({
   setSwing: (swing) => set({ swing: clamp(swing, 0, 1) }),
   setPlaying: (playing) => set({ playing }),
   setPlayhead: (currentStep, playingPattern, playingBar) =>
-    set({ currentStep, playingPattern, playingBar }),
+    set((state) => ({
+      currentStep,
+      playingPattern,
+      playingBar,
+      // While a song plays, the grids follow the bar being heard: the slot on screen is the sounding one.
+      ...(playingPattern >= 0 && state.followSong && state.chain.length > 0
+        ? { activePattern: playingPattern }
+        : {}),
+    })),
   setMasterVolume: (level) => set({ masterVolume: clamp(level, 0, 1) }),
 
   toggleStep: (id, voice, step) =>
@@ -191,7 +214,8 @@ export const useRackStore = create<RackState>()((set, get) => ({
   toggleFlag: (id, step, flag) =>
     set((state) => editActiveTrack(state, id, (t) => toggleBassFlag(t, step, flag))),
 
-  setActivePattern: (index) => set({ activePattern: slot(index) }),
+  setActivePattern: (index) => set({ activePattern: slot(index), followSong: false }),
+  setFollowSong: (followSong) => set({ followSong }),
   copyActivePatternTo: (index) =>
     set((state) => {
       const target = slot(index)
@@ -203,7 +227,9 @@ export const useRackStore = create<RackState>()((set, get) => ({
     }),
   appendToChain: (index) =>
     set((state) =>
-      state.chain.length >= MAX_CHAIN ? state : { chain: [...state.chain, slot(index)] },
+      state.chain.length >= MAX_CHAIN
+        ? state
+        : { chain: [...state.chain, slot(index)], followSong: true },
     ),
   setChainSlot: (bar, index) =>
     set((state) => ({ chain: state.chain.map((p, i) => (i === bar ? slot(index) : p)) })),

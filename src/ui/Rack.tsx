@@ -1,40 +1,24 @@
 import { Box, Button, Container, HStack, Menu, Portal, VStack } from "@chakra-ui/react"
 import { useEffect, type ReactNode } from "react"
-import {
-  LuChevronsDownUp,
-  LuChevronsUpDown,
-  LuLayoutGrid,
-  LuListMusic,
-  LuPlus,
-  LuSlidersHorizontal,
-  LuTimer,
-} from "react-icons/lu"
+import { LuChevronsDownUp, LuChevronsUpDown, LuPlus, LuSlidersHorizontal } from "react-icons/lu"
 
 import { getEngine } from "../audio/engine"
 import { KIND_MODEL, KIND_TITLE } from "../state/instances"
 import { FIXED_UNITS, isFixedUnit, useLayoutStore, type FixedUnitId } from "../state/layout"
 import { KINDS, type Kind } from "../state/pattern"
-import { useRackStore } from "../state/store"
+import { MASTER_SECTIONS, useRackStore } from "../state/store"
 import type { Finish } from "../theme/recipes/rackUnit"
 import { FxUnit } from "./FxUnit"
 import { InstanceUnit } from "./InstanceUnit"
-import { PatternBank } from "./PatternBank"
-import { TimelineUnit } from "./TimelineUnit"
-import { Transport } from "./Transport"
+import { MasterUnit } from "./MasterUnit"
 import { KIND_FINISH, kindIcon } from "./unitMeta"
 
 const FIXED: Record<FixedUnitId, ReactNode> = {
-  TRANSPORT: <Transport />,
-  PATTERN: <PatternBank />,
-  SONG: <TimelineUnit />,
   "FX-2": <FxUnit />,
 }
 
 /** Same pictograms the fixed units wear in their headers. */
 const FIXED_ICON: Record<FixedUnitId, ReactNode> = {
-  TRANSPORT: <LuTimer />,
-  PATTERN: <LuLayoutGrid />,
-  SONG: <LuListMusic />,
   "FX-2": <LuSlidersHorizontal />,
 }
 
@@ -89,10 +73,20 @@ export function Rack() {
   return (
     <Container as="main" maxW="8xl" px={{ base: "2", md: "6" }} py={{ base: "4", md: "8" }}>
       <HStack gap="2" mb="3" justify="flex-end" wrap="wrap">
-        <Button size="xs" variant="subtle" rounded="sm" onClick={() => setFolded(visible, true)}>
+        <Button
+          size="xs"
+          variant="subtle"
+          rounded="sm"
+          onClick={() => setFolded([...MASTER_SECTIONS, ...visible], true)}
+        >
           <LuChevronsDownUp /> Fold all
         </Button>
-        <Button size="xs" variant="subtle" rounded="sm" onClick={() => setFolded(visible, false)}>
+        <Button
+          size="xs"
+          variant="subtle"
+          rounded="sm"
+          onClick={() => setFolded([...MASTER_SECTIONS, ...visible], false)}
+        >
           <LuChevronsUpDown /> Unfold all
         </Button>
         <Menu.Root onSelect={(details) => onAdd(details.value)}>
@@ -147,6 +141,7 @@ export function Rack() {
         shadow="panel"
       >
         <VStack gap={{ base: "2", md: "3" }} align="stretch">
+          <MasterUnit />
           {visible.map((id) => (
             <Box key={id}>
               {isFixedUnit(id) ? FIXED[id] : <InstanceUnit id={id} kind={kindOf.get(id)!} />}

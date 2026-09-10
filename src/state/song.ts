@@ -20,7 +20,7 @@ import {
   type SynthRow,
   type Track,
 } from "./pattern"
-import { MAX_CHAIN, PATTERN_COUNT } from "./patterns"
+import { MAX_CHAIN, padBank, PATTERN_COUNT } from "./patterns"
 import { parseSongV1 } from "./songV1"
 
 export const SONG_VERSION = 2
@@ -75,6 +75,14 @@ const list = (v: unknown, path: string, length?: number): unknown[] => {
   if (!Array.isArray(v)) return fail(path, "an array")
   if (length !== undefined && v.length !== length) return fail(path, `${length} items`)
   return v
+}
+
+/** Between one and PATTERN_COUNT patterns; shorter banks are padded by the caller. */
+export const bank = (v: unknown): unknown[] => {
+  const items = list(v, "song.patterns")
+  if (items.length < 1 || items.length > PATTERN_COUNT)
+    fail("song.patterns", `1 to ${PATTERN_COUNT} items`)
+  return items
 }
 
 const boolRow = (v: unknown, path: string): boolean[] =>
@@ -189,17 +197,20 @@ function parseSongV2(s: Record<string, unknown>): Song {
     swing: num(s.swing ?? 0, "song.swing"),
     masterVolume: num(s.masterVolume, "song.masterVolume"),
     instances,
-    patterns: list(s.patterns, "song.patterns", PATTERN_COUNT).map((p, n) => {
-      const tracks = record(record(p, `song.patterns[${n}]`).tracks, `song.patterns[${n}].tracks`)
-      return {
-        tracks: Object.fromEntries(
-          instances.map((i) => [
-            i.id,
-            parseTrack(tracks[i.id], `song.patterns[${n}].tracks.${i.id}`, i.kind),
-          ]),
-        ),
-      }
-    }),
+    patterns: padBank(
+      bank(s.patterns).map((p, n) => {
+        const tracks = record(record(p, `song.patterns[${n}]`).tracks, `song.patterns[${n}].tracks`)
+        return {
+          tracks: Object.fromEntries(
+            instances.map((i) => [
+              i.id,
+              parseTrack(tracks[i.id], `song.patterns[${n}].tracks.${i.id}`, i.kind),
+            ]),
+          ),
+        }
+      }),
+      instances,
+    ),
     activePattern: int(s.activePattern, "song.activePattern", PATTERN_COUNT),
     chain: list(s.chain, "song.chain")
       .slice(0, MAX_CHAIN)

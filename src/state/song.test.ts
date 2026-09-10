@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest"
 
 import { defaultInstances, type Instance, type InstanceOf } from "./instances"
 import { rowsOf, type Kind, type KitTrack, type PolyTrack } from "./pattern"
-import { createDefaultBank } from "./patterns"
+import { createDefaultBank, PATTERN_COUNT } from "./patterns"
 import { parseSong, serializeSong, SongParseError, type Song } from "./song"
 import { toSong, useRackStore } from "./store"
 import rackSongText from "../../docs/rack-song.json?raw"
@@ -167,10 +167,24 @@ describe("song save/load", () => {
     for (const text of files) {
       const song = parseSong(text)
       expect(song.version).toBe(2)
-      expect(song.patterns).toHaveLength(4)
+      // Old four-slot files are topped up to a full bank.
+      expect(song.patterns).toHaveLength(PATTERN_COUNT)
       // Round-trips through the new format unchanged.
       expect(parseSong(serializeSong(song))).toEqual(song)
     }
+  })
+
+  it("pads a shorter bank with silent slots and refuses a longer one", () => {
+    const song = toSong(useRackStore.getState())
+    const short = JSON.parse(serializeSong(song)) as { patterns: unknown[] }
+    short.patterns = short.patterns.slice(0, 4)
+    const parsed = parseSong(JSON.stringify(short))
+    expect(parsed.patterns).toHaveLength(PATTERN_COUNT)
+    expect(kitOf(parsed, 7, "drums-1").kick!.some(Boolean)).toBe(false)
+
+    const long = JSON.parse(serializeSong(song)) as { patterns: unknown[] }
+    long.patterns.push(long.patterns[0])
+    expect(() => parseSong(JSON.stringify(long))).toThrow(/song\.patterns/)
   })
 
   it("rejects files that are not a song", () => {

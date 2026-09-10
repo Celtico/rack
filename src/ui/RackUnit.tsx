@@ -31,6 +31,8 @@ export interface RackUnitProps extends RackUnitVariants {
   icon?: ReactNode
   /** What the header shows while folded. Machines default to their pattern thumbnail. */
   preview?: ReactNode
+  /** Always there: no grip, no fold, no remove. */
+  fixed?: boolean
   children?: ReactNode
 }
 
@@ -44,20 +46,21 @@ export function RackUnit({
   instance = false,
   icon,
   preview,
+  fixed = false,
   units,
   finish,
   children,
 }: RackUnitProps) {
   const recipe = useSlotRecipe({ key: "rackUnit" })
   const styles = recipe({ units, finish })
-  const folded = useRackStore((s) => s.folded[id] === true)
+  const folded = useRackStore((s) => !fixed && s.folded[id] === true)
   const muted = useRackStore((s) => s.instances.find((i) => i.id === id)?.mute ?? false)
   const { toggleFold, setInstanceMute, removeInstance, restoreInstance } = useRackStore.getState()
   const { moveUnit, nudgeUnit, hideUnit } = useLayoutStore.getState()
   // The grip arms dragging; the whole panel is only draggable while it is held.
   const [armed, setArmed] = useState(false)
   const [over, setOver] = useState(false)
-  const removable = instance || (isFixedUnit(id) && HIDEABLE_UNITS.includes(id))
+  const removable = !fixed && (instance || (isFixedUnit(id) && HIDEABLE_UNITS.includes(id)))
 
   const setMute = (next: boolean) => {
     setInstanceMute(id, next)
@@ -119,9 +122,9 @@ export function RackUnit({
       draggable={armed}
       onDragStart={onDragStart}
       onDragEnd={() => setArmed(false)}
-      onDragOver={onDragOver}
+      onDragOver={fixed ? undefined : onDragOver}
       onDragLeave={() => setOver(false)}
-      onDrop={onDrop}
+      onDrop={fixed ? undefined : onDrop}
     >
       {CORNERS.map((corner) => (
         <chakra.span key={corner} css={styles.screw} data-corner={corner} aria-hidden="true" />
@@ -153,18 +156,20 @@ export function RackUnit({
               {muted ? <LuVolumeX /> : <LuVolume2 />}
             </IconButton>
           )}
-          <IconButton
-            size="xs"
-            variant="ghost"
-            color="inherit"
-            aria-label={folded ? `Expand ${model}` : `Fold ${model}`}
-            aria-expanded={!folded}
-            // Chakra's ghost button paints a box while "expanded"; on a light finish it reads as a black square.
-            _expanded={{ bg: "transparent" }}
-            onClick={() => toggleFold(id)}
-          >
-            {folded ? <LuChevronDown /> : <LuChevronUp />}
-          </IconButton>
+          {!fixed && (
+            <IconButton
+              size="xs"
+              variant="ghost"
+              color="inherit"
+              aria-label={folded ? `Expand ${model}` : `Fold ${model}`}
+              aria-expanded={!folded}
+              // Chakra's ghost button paints a box while "expanded"; on a light finish it reads as a black square.
+              _expanded={{ bg: "transparent" }}
+              onClick={() => toggleFold(id)}
+            >
+              {folded ? <LuChevronDown /> : <LuChevronUp />}
+            </IconButton>
+          )}
           {removable && (
             <IconButton
               size="xs"
@@ -177,16 +182,18 @@ export function RackUnit({
             </IconButton>
           )}
         </chakra.div>
-        <chakra.button
-          type="button"
-          css={styles.grip}
-          aria-label={`Move ${model} (drag, or arrow keys)`}
-          onPointerDown={() => setArmed(true)}
-          onPointerUp={() => setArmed(false)}
-          onKeyDown={onGripKey}
-        >
-          <LuGripVertical />
-        </chakra.button>
+        {!fixed && (
+          <chakra.button
+            type="button"
+            css={styles.grip}
+            aria-label={`Move ${model} (drag, or arrow keys)`}
+            onPointerDown={() => setArmed(true)}
+            onPointerUp={() => setArmed(false)}
+            onKeyDown={onGripKey}
+          >
+            <LuGripVertical />
+          </chakra.button>
+        )}
       </chakra.header>
       <chakra.div css={styles.body} hidden={folded}>
         {children}
