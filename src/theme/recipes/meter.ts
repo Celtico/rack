@@ -36,6 +36,17 @@ export const meterRecipe = defineSlotRecipe({
       sm: { segment: { w: "2.5", h: "1" } },
       md: {},
     },
+    orientation: {
+      vertical: {},
+      // Lit from the left — for a folded header, where there is width but no height.
+      horizontal: {
+        root: { flexDirection: "row" },
+        segment: { w: "1.5", h: "3" },
+      },
+    },
   },
-  defaultVariants: { size: "md" },
+  compoundVariants: [
+    { size: "sm", orientation: "horizontal", css: { segment: { w: "1", h: "2.5" } } },
+  ],
+  defaultVariants: { size: "md", orientation: "vertical" },
 })

@@ -1,11 +1,16 @@
-import { createDefaultPattern, createEmptyPattern, type Pattern } from "./pattern"
+import { createEmptyPattern, createStarterPattern, type Pattern, type TrackOwner } from "./pattern"
 
 export const PATTERN_COUNT = 4
 export const MAX_CHAIN = 16
 
 /** Slot 1 carries the starter groove; the rest are empty. */
-export function createDefaultBank(): Pattern[] {
-  return [createDefaultPattern(), createEmptyPattern(), createEmptyPattern(), createEmptyPattern()]
+export function createDefaultBank(instances: readonly TrackOwner[]): Pattern[] {
+  return [
+    createStarterPattern(instances),
+    createEmptyPattern(instances),
+    createEmptyPattern(instances),
+    createEmptyPattern(instances),
+  ]
 }
 
 export interface PlayingPattern {

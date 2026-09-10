@@ -3,99 +3,155 @@ import { describe, expect, it } from "vitest"
 import {
   bassEventAt,
   createEmptyPattern,
+  emptyTrack,
+  hitsAt,
   polyNotesAt,
+  rowsOf,
   synthNoteAt,
   toggleBassFlag,
-  toggleBassNote,
-  togglePercStep,
-  togglePolyNote,
-  toggleSynthNote,
+  toggleKitStep,
+  toggleTrackNote,
+  withoutTrack,
+  withTrack,
+  type KitTrack,
+  type PolyTrack,
+  type Track,
 } from "./pattern"
 
-describe("togglePolyNote", () => {
-  it("adds and removes notes of a chord, keeping the column sorted and other instruments untouched", () => {
-    let p = createEmptyPattern()
-    p = togglePolyNote(p, "ep", 4, 5)
-    p = togglePolyNote(p, "ep", 4, 1)
-    p = togglePolyNote(p, "ep", 4, 3)
-    expect(p.poly.ep[4]).toEqual([1, 3, 5])
-    expect(polyNotesAt(p, "ep", 4)).toEqual(["E3", "B3", "E4"])
-    expect(polyNotesAt(p, "poly", 4)).toEqual([])
+const bass = (t: Track) => (t.kind === "bass" ? t.bass : null)!
+const notes = (t: Track) => (t.kind === "synth" ? t.notes : null)!
+const chords = (t: Track) => (t as PolyTrack).chords
 
-    const before = p
-    p = togglePolyNote(p, "ep", 4, 3)
-    expect(p.poly.ep[4]).toEqual([1, 5])
-    expect(before.poly.ep[4]).toEqual([1, 3, 5])
-    expect(p.poly.strings).toBe(before.poly.strings)
+describe("kit tracks", () => {
+  it("flips one step of one voice without touching other rows or mutating the input", () => {
+    const before = emptyTrack("perc") as KitTrack
+    const after = toggleKitStep(before, "cowbell", 6)
+    expect(rowsOf(after).cowbell![6]).toBe(true)
+    expect(rowsOf(before).cowbell![6]).toBe(false)
+    expect(rowsOf(after).shaker).toBe(rowsOf(before).shaker)
+    expect(rowsOf(toggleKitStep(after, "cowbell", 6)).cowbell![6]).toBe(false)
+  })
+
+  it("ignores voices the kit does not have", () => {
+    const track = emptyTrack("drums") as KitTrack
+    expect(toggleKitStep(track, "cowbell", 0)).toBe(track)
+  })
+
+  it("lists the voices on at a step in voice order", () => {
+    let t = emptyTrack("drums") as KitTrack
+    t = toggleKitStep(t, "hat", 0)
+    t = toggleKitStep(t, "kick", 0)
+    t = toggleKitStep(t, "snare", 4)
+    expect(hitsAt(t, 0)).toEqual(["kick", "hat"])
+    expect(hitsAt(t, 4)).toEqual(["snare"])
+    expect(hitsAt(t, 1)).toEqual([])
   })
 })
 
-describe("BASS-2 row", () => {
-  it("keeps one note per column and flips flags independently", () => {
-    let p = createEmptyPattern()
-    p = toggleBassNote(p, 2, 1)
-    p = toggleBassNote(p, 2, 6)
-    p = toggleBassFlag(p, 2, "slide")
-    expect(p.bass.notes[2]).toBe(6)
-    expect(p.bass.slide[2]).toBe(true)
-    expect(p.bass.accent[2]).toBe(false)
-    expect(bassEventAt(p, 2)).toEqual({ note: "G2", accent: false, slide: true })
-    expect(bassEventAt(p, 3)).toEqual({ note: null, accent: false, slide: false })
-
-    p = toggleBassNote(p, 2, 6)
-    expect(p.bass.notes[2]).toBeNull()
-    // Flags survive clearing the note, so a rest can still be marked.
-    expect(p.bass.slide[2]).toBe(true)
-  })
-})
-
-describe("togglePercStep", () => {
-  it("flips one PERC-6 step without touching other kits or mutating the input", () => {
-    const before = createEmptyPattern()
-    const after = togglePercStep(before, "cowbell", 6)
-    expect(after.perc.cowbell[6]).toBe(true)
-    expect(before.perc.cowbell[6]).toBe(false)
-    expect(after.perc.shaker).toBe(before.perc.shaker)
-    expect(after.drums).toBe(before.drums)
-    expect(togglePercStep(after, "cowbell", 6).perc.cowbell[6]).toBe(false)
-  })
-})
-
-describe("toggleSynthNote", () => {
-  it("keeps at most one note per column", () => {
-    let p = createEmptyPattern()
-    p = toggleSynthNote(p, 4, 2)
-    expect(p.synth[4]).toBe(2)
-
-    p = toggleSynthNote(p, 4, 6)
-    expect(p.synth[4]).toBe(6)
-    expect(p.synth.filter((r) => r !== null)).toHaveLength(1)
-  })
-
-  it("clears the column when the same row is set again", () => {
-    let p = createEmptyPattern()
-    p = toggleSynthNote(p, 0, 3)
-    p = toggleSynthNote(p, 0, 3)
-    expect(p.synth[0]).toBeNull()
+describe("MONO-1 track", () => {
+  it("keeps at most one note per column and clears it when set again", () => {
+    let t = emptyTrack("synth")
+    t = toggleTrackNote(t, 4, 2)
+    expect(notes(t)[4]).toBe(2)
+    t = toggleTrackNote(t, 4, 6)
+    expect(notes(t)[4]).toBe(6)
+    expect(notes(t).filter((r) => r !== null)).toHaveLength(1)
+    t = toggleTrackNote(t, 4, 6)
+    expect(notes(t)[4]).toBeNull()
   })
 
   it("never mutates the input", () => {
-    const before = createEmptyPattern()
-    const after = toggleSynthNote(before, 1, 1)
+    const before = emptyTrack("synth")
+    const after = toggleTrackNote(before, 1, 1)
     expect(after).not.toBe(before)
-    expect(after.synth).not.toBe(before.synth)
-    expect(before.synth[1]).toBeNull()
-    expect(after.drums).toBe(before.drums)
+    expect(notes(before)[1]).toBeNull()
+    expect(notes(after)[1]).toBe(1)
+  })
+
+  it("maps row indices to note names and rests to null", () => {
+    let t = emptyTrack("synth")
+    t = toggleTrackNote(t, 2, 0)
+    t = toggleTrackNote(t, 3, 7)
+    expect(synthNoteAt(notes(t), 2)).toBe("C2")
+    expect(synthNoteAt(notes(t), 3)).toBe("C3")
+    expect(synthNoteAt(notes(t), 4)).toBeNull()
   })
 })
 
-describe("synthNoteAt", () => {
-  it("maps row indices to note names and rests to null", () => {
-    let p = createEmptyPattern()
-    p = toggleSynthNote(p, 2, 0)
-    p = toggleSynthNote(p, 3, 7)
-    expect(synthNoteAt(p, 2)).toBe("C2")
-    expect(synthNoteAt(p, 3)).toBe("C3")
-    expect(synthNoteAt(p, 4)).toBeNull()
+describe("BASS-2 track", () => {
+  it("keeps one note per column and flips flags independently", () => {
+    let t = emptyTrack("bass")
+    t = toggleTrackNote(t, 2, 1)
+    t = toggleTrackNote(t, 2, 6)
+    t = toggleBassFlag(t, 2, "slide")
+    expect(bass(t).notes[2]).toBe(6)
+    expect(bass(t).slide[2]).toBe(true)
+    expect(bass(t).accent[2]).toBe(false)
+    expect(bassEventAt(bass(t), 2)).toEqual({ note: "G2", accent: false, slide: true })
+    expect(bassEventAt(bass(t), 3)).toEqual({ note: null, accent: false, slide: false })
+
+    t = toggleTrackNote(t, 2, 6)
+    expect(bass(t).notes[2]).toBeNull()
+    // Flags survive clearing the note, so a rest can still be marked.
+    expect(bass(t).slide[2]).toBe(true)
+  })
+
+  it("leaves other kinds alone when asked for a flag", () => {
+    const t = emptyTrack("drums")
+    expect(toggleBassFlag(t, 0, "accent")).toBe(t)
+  })
+})
+
+describe("polyphonic tracks", () => {
+  it("adds and removes notes of a chord, keeping the column sorted", () => {
+    let t = emptyTrack("ep")
+    t = toggleTrackNote(t, 4, 5)
+    t = toggleTrackNote(t, 4, 1)
+    t = toggleTrackNote(t, 4, 3)
+    expect(chords(t)[4]).toEqual([1, 3, 5])
+    expect(polyNotesAt(t as PolyTrack, 4)).toEqual(["E3", "B3", "E4"])
+    expect(polyNotesAt(t as PolyTrack, 5)).toEqual([])
+
+    const before = t
+    t = toggleTrackNote(t, 4, 3)
+    expect(chords(t)[4]).toEqual([1, 5])
+    expect(chords(before)[4]).toEqual([1, 3, 5])
+    expect(chords(t)[0]).toBe(chords(before)[0])
+  })
+
+  it("uses each kind's own note names", () => {
+    const strings = toggleTrackNote(emptyTrack("strings"), 0, 7) as PolyTrack
+    const poly = toggleTrackNote(emptyTrack("poly"), 0, 0) as PolyTrack
+    expect(polyNotesAt(strings, 0)).toEqual(["B3"])
+    expect(polyNotesAt(poly, 0)).toEqual(["C3"])
+  })
+})
+
+describe("patterns", () => {
+  const owners = [
+    { id: "drums-1", kind: "drums" as const },
+    { id: "drums-2", kind: "drums" as const },
+    { id: "bass-1", kind: "bass" as const },
+  ]
+
+  it("holds one empty track per instance, keyed by id", () => {
+    const p = createEmptyPattern(owners)
+    expect(Object.keys(p.tracks)).toEqual(["drums-1", "drums-2", "bass-1"])
+    expect(p.tracks["drums-2"]!.kind).toBe("drums")
+    expect(p.tracks["bass-1"]!.kind).toBe("bass")
+  })
+
+  it("replaces and removes tracks without mutating", () => {
+    const p = createEmptyPattern(owners)
+    const kicked = toggleKitStep(p.tracks["drums-2"] as KitTrack, "kick", 0)
+    const q = withTrack(p, "drums-2", kicked)
+    expect(q).not.toBe(p)
+    expect(q.tracks["drums-2"]).toBe(kicked)
+    expect(q.tracks["drums-1"]).toBe(p.tracks["drums-1"])
+    expect(hitsAt(p.tracks["drums-2"] as KitTrack, 0)).toEqual([])
+
+    const r = withoutTrack(q, "drums-1")
+    expect(Object.keys(r.tracks)).toEqual(["drums-2", "bass-1"])
+    expect(Object.keys(q.tracks)).toHaveLength(3)
   })
 })

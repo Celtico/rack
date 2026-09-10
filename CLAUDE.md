@@ -44,11 +44,12 @@ strict build order:
    - ✅ Extra — SMP-8 (`SamplerKit`, `src/audio/devices/sampler.ts`): eight `Player`s; sample bytes live in
      IndexedDB (`src/audio/sampleStore.ts`), the song keeps only name/pitch/decay/level per pad.
      `engine.importSample()` persists first, decodes if the graph exists; `build()` reloads from storage.
-   - ✅ Extra — per-unit **finish** (slot-recipe variant that overrides the `rack.panel` / `rack.silkscreen`
+   - ✅ Extra — per-unit **finish** (vivid dark tints of one lightness with the graphite ink; the root is `finish.graphite.panel` with a soft radial glow of the tint in the top-left corner over
+     `finish.graphite.panel`; slot-recipe variant that overrides the `rack.panel` / `rack.silkscreen`
      CSS variables on the unit root, tokens under `colors.finish.*`), **fold** (store `folded`, UI-only) and
      **mute** (`mix.mute`, saved; engine keeps level and mute separately) buttons in every `RackUnit` header.
    - ✅ Extra — SONG timeline (`TimelineUnit`, slot recipe registered as `songTimeline` because Chakra's own
-     Timeline component owns the `timeline` key): the chain as coloured bar blocks (`colors.pattern.*`),
+     Timeline component owns the `timeline` key): the chain as grey bar blocks — only the sounding bar lights in its pattern colour (`colors.pattern.*`),
      click cycles the pattern, × removes, + appends the active one; the sounding bar (`playingBar % length`)
      is outlined with a 16-step progress bar. The old +1…+4 chain buttons are gone from PATTERN.
    - ✅ Extra — restyle: wooden `rail` recipe either side of the rack (holes every 44px), `LevelMeter`
@@ -59,20 +60,47 @@ strict build order:
 
    - ✅ Extra — rack layout (`src/state/layout.ts`, zustand `persist` in localStorage as `rack-layout`,
      UI-only): drag-and-drop reorder (HTML5 DnD armed by the grip button, `moveWithin()` pure), arrow-key
-     nudge, remove (×, hides + mutes the channel) / "Add unit" menu (shows + unmutes), Fold all / Unfold
-     all (`setFolded`). Folded units with a channel show a `Scope` (canvas fed by a `Tone.Waveform` per
-     channel, `engine.getWaveform()`). TRANSPORT is fixed. `RackUnit.model` is typed as `UnitId`.
+     nudge, remove (× — instances are removed with an Undo toast, PATTERN/SONG/FX-2 are hidden) / "Add
+     unit" menu (new machine of any kind, or put a hidden fixed unit back), Fold all / Unfold all
+     (`setFolded`). Folded instances show a `MiniGrid` on the right of the header: the instance's pattern in
+     miniature (one dot per step, playhead column lit; `miniGrid` slot recipe). Fixed units pass their own
+     `RackUnit.preview`: TRANSPORT the master meter, FX-2 one meter per machine (`LevelMeter orientation="horizontal"`),
+     SONG the chain and PATTERN the bank as small squares (`songTimeline` `mini` slots; the bank's big slots reuse
+     `block` too — grey, lit while sounding, `data-active` outline on the slot being edited). TRANSPORT is fixed.
 
-**All extras above are done.** Not started, discussed: multiple instances of one unit (e.g. two DR-4s) —
-needs instance-keyed patterns, channels and devices, a real refactor. Other ideas: LCD readouts per synth,
-drag-reorder on the timeline, per-step velocity on the kits.
+   - ✅ Extra — factory song: `App` calls `loadDefaultSong()` (`src/ui/defaultSong.ts`) once on mount, which
+     fetches `public/-rack-song.json`, `loadSong`s it and `engine.syncFromStore()`s; a missing/broken file leaves
+     the coded starter groove (`starterTrack`) in place. The rack starts with every unit folded
+     (`foldedAll`, also re-applied after the factory song loads); a user-loaded song unfolds its machines.
+   - ✅ Extra — **instances** (any number of each machine, e.g. two DR-4s). `src/state/instances.ts`:
+     `Instance { id: "${kind}-${n}", kind, params, level, send, mute }` (discriminated by `Kind`, one
+     `KindParams` per kind, `clampParams`, `instanceLabel` → "DR-4" or "DR-4 #2"). `Pattern.tracks` is
+     keyed by instance id (`Track` union per kind; `emptyTrack` / `starterTrack`, `toggleKitStep` /
+     `toggleTrackNote` / `toggleBassFlag`, `rowsOf()` for string-keyed kit rows). Store actions take the
+     instance id (`toggleStep`, `toggleNote`, `toggleFlag`, `setInstanceParams/Level/Send/Mute`,
+     `addInstance`, `removeInstance` → `RemovedInstance` for `restoreInstance` — the × button's Undo toast).
+     Engine keeps a `Strip` (input, send, meter, device) per id; `addInstance` / `removeInstance` build
+     and dispose devices live; `syncFromStore()` reconciles after a load. Sample keys are `${id}:${pad}`.
+     `Rack` renders `layout.order` (fixed units + instance ids, `syncUnits`); its "Add unit" menu dims kinds absent
+     from the rack, shows ×count for present ones and colours icons by finish. `InstanceUnit` picks the panel
+     by kind; per-kind finish/icon/labels live in `src/ui/unitMeta.tsx`. Song is **version 2**
+     (`instances` + `patterns[].tracks`); `src/state/songV1.ts` lifts v1 files (each channel the file names → `${kind}-1`; unnamed ones are not created).
+     Zustand selectors must return stored values — a `.map()` in a selector loops React (`FxUnit`).
+   - ✅ Extra — playhead performance: nothing but the moving parts subscribes to `currentStep`. `StepGrid` reads
+     it itself and its `StepCell`s are `memo`ised (two cells per row re-render per step); `MiniGrid` draws a
+     separate `MiniPlayhead` bar over memoised cells; Transport's `StepReadout` and SONG's `BarProgress` are
+     their own components. Meters share one rAF loop (`src/ui/levels.ts`, `subscribeLevels`). Recipe results
+     are `useMemo`d so memoised children keep the same `css` object.
+
+**All extras above are done.** Other ideas: LCD readouts per synth, drag-reorder on the timeline, per-step
+velocity on the kits.
 
 **The brief is fully implemented.** Anything from here is polish or new scope — confirm with the user first.
 
 Read the skills before touching UI or audio: without the Chakra skill loaded, Chakra UI **v2** API gets
 written from memory, and v3 is a different library.
 
-Chakra CLI snippets (`provider`, `color-mode`) live in `src/components/ui/` — that is where the CLI writes
+Chakra CLI snippets (`provider`, `toaster`) live in `src/components/ui/` — that is where the CLI writes
 them; they are generated code, not ours.
 
 ## What this project is
@@ -136,8 +164,8 @@ All UI goes through Chakra. No loose CSS files, no styled-components.
 - Compound components use named parts (`Dialog.Root` / `Dialog.Trigger` / `Dialog.Content`, same for Select,
   Menu, Popover, Accordion, Slider, Field, Tabs). Install snippets with `npx @chakra-ui/cli snippet add <name>`
   rather than reimplementing them.
-- **Banned v2 API:** `extendTheme`, `theme={}` on the provider, Chakra's `useColorMode` (color mode comes from
-  `next-themes`/the `ColorModeProvider` snippet), `Stack spacing` (now `gap`), `isDisabled`/`isOpen`/`isChecked`
+- **Banned v2 API:** `extendTheme`, `theme={}` on the provider, Chakra's `useColorMode` (the rack is
+  always dark: `index.html` carries `class="dark"`, there is no colour-mode provider), `Stack spacing` (now `gap`), `isDisabled`/`isOpen`/`isChecked`
   (now `disabled`/`open`/`checked`), flat `Modal`/`Drawer`/`FormControl` (now `Dialog.*`/`Field.*`),
   `@chakra-ui/icons` (use `react-icons` or own SVGs), arbitrary pixel values instead of space tokens.
 - When unsure, check https://chakra-ui.com/llms.txt and `npm ls @chakra-ui/react` — do not trust remembered examples.

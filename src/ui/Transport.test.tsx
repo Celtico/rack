@@ -28,6 +28,7 @@ describe("<Transport />", () => {
       playingPattern: -1,
       playingBar: -1,
       masterVolume: 0.8,
+      folded: {},
     })
   })
 

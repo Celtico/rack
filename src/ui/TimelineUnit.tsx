@@ -1,10 +1,25 @@
-import { Button, chakra, HStack, Text, useSlotRecipe, VStack } from "@chakra-ui/react"
+import {
+  Button,
+  chakra,
+  HStack,
+  Text,
+  useSlotRecipe,
+  VStack,
+  type SystemStyleObject,
+} from "@chakra-ui/react"
 import { LuEraser, LuListMusic, LuPlus } from "react-icons/lu"
 
 import { STEP_COUNT } from "../state/pattern"
 import { MAX_CHAIN, PATTERN_COUNT } from "../state/patterns"
 import { useRackStore } from "../state/store"
 import { RackUnit } from "./RackUnit"
+
+/** The fill across the sounding bar's 16 steps; only this re-renders per step. */
+function BarProgress({ css }: { css: SystemStyleObject | undefined }) {
+  const currentStep = useRackStore((s) => s.currentStep)
+  const progress = currentStep >= 0 ? ((currentStep + 1) / STEP_COUNT) * 100 : 0
+  return <chakra.span css={css} style={{ width: `${progress}%` }} />
+}
 
 /**
  * SONG: the chain laid out as bars. Click a bar to cycle its pattern, × to
@@ -17,14 +32,31 @@ export function TimelineUnit() {
   const chain = useRackStore((s) => s.chain)
   const activePattern = useRackStore((s) => s.activePattern)
   const playingBar = useRackStore((s) => s.playingBar)
-  const currentStep = useRackStore((s) => s.currentStep)
   const { appendToChain, setChainSlot, removeChainSlot, clearChain } = useRackStore.getState()
 
   const playingIndex = playingBar >= 0 && chain.length > 0 ? playingBar % chain.length : -1
-  const progress = currentStep >= 0 ? ((currentStep + 1) / STEP_COUNT) * 100 : 0
 
   return (
-    <RackUnit model="SONG" title="Timeline" icon={<LuListMusic />}>
+    <RackUnit
+      id="SONG"
+      model="SONG"
+      title="Timeline"
+      icon={<LuListMusic />}
+      preview={
+        chain.length > 0 && (
+          <chakra.div css={styles.mini} role="img" aria-label={`Song: ${chain.length} bars`}>
+            {chain.map((pattern, bar) => (
+              <chakra.span
+                key={bar}
+                css={styles.miniBlock}
+                data-pattern={pattern + 1}
+                data-playing={bar === playingIndex ? "" : undefined}
+              />
+            ))}
+          </chakra.div>
+        )
+      }
+    >
       <VStack gap="3" align="stretch">
         <chakra.div css={styles.root}>
           <chakra.div css={styles.ruler} aria-hidden="true">
@@ -54,9 +86,7 @@ export function TimelineUnit() {
                 }}
               >
                 <chakra.span css={styles.number}>{pattern + 1}</chakra.span>
-                {bar === playingIndex && (
-                  <chakra.span css={styles.progress} style={{ width: `${progress}%` }} />
-                )}
+                {bar === playingIndex && <BarProgress css={styles.progress} />}
                 <chakra.button
                   type="button"
                   css={styles.remove}

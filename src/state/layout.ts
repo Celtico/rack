@@ -1,38 +1,30 @@
 import { create } from "zustand"
 import { persist } from "zustand/middleware"
 
-/** Every unit in the rack, in factory order. Ids are the model names on the panels. */
-export const UNIT_IDS = [
-  "TRANSPORT",
-  "PATTERN",
-  "SONG",
-  "DR-4",
-  "PERC-6",
-  "SMP-8",
-  "BASS-2",
-  "MONO-1",
-  "POLY-4",
-  "EP-1",
-  "STR-6",
-  "FX-2",
-] as const
-export type UnitId = (typeof UNIT_IDS)[number]
+/** Units that are not machines: exactly one of each, always present in the rack. */
+export const FIXED_UNITS = ["TRANSPORT", "PATTERN", "SONG", "FX-2"] as const
+export type FixedUnitId = (typeof FIXED_UNITS)[number]
 
-/** Units that cannot be taken out of the rack. */
-export const FIXED_UNITS: readonly UnitId[] = ["TRANSPORT"]
+/** Fixed units that can be taken out of view (instances are removed instead). */
+export const HIDEABLE_UNITS: readonly FixedUnitId[] = ["PATTERN", "SONG", "FX-2"]
+
+export const isFixedUnit = (id: string): id is FixedUnitId =>
+  (FIXED_UNITS as readonly string[]).includes(id)
 
 export interface LayoutState {
-  /** Visible order of the units. */
-  order: readonly UnitId[]
-  /** Units taken out of the rack (still exist, just not shown). */
-  hidden: readonly UnitId[]
+  /** Visible order of unit ids — fixed units and instance ids mixed. */
+  order: readonly string[]
+  /** Fixed units taken out of view. */
+  hidden: readonly FixedUnitId[]
 
   /** Put `id` where `target` is; `target` shifts to make room. */
-  moveUnit: (id: UnitId, target: UnitId) => void
+  moveUnit: (id: string, target: string) => void
   /** Move one place up or down. */
-  nudgeUnit: (id: UnitId, direction: -1 | 1) => void
-  hideUnit: (id: UnitId) => void
-  showUnit: (id: UnitId) => void
+  nudgeUnit: (id: string, direction: -1 | 1) => void
+  hideUnit: (id: string) => void
+  showUnit: (id: string) => void
+  /** Make sure every id is in the order (appended) and nothing else is. */
+  syncUnits: (ids: readonly string[]) => void
 }
 
 /** Reorders `order` so that `id` lands at `target`'s index. Pure. */
@@ -47,14 +39,25 @@ export function moveWithin<T>(order: readonly T[], id: T, target: T): T[] {
   return without
 }
 
+/** `order` restricted to `ids`, with any id it lacks appended in `ids` order. Pure. */
+export function ensureOrder(order: readonly string[], ids: readonly string[]): string[] {
+  const known = new Set(ids)
+  const out = order.filter((id) => known.has(id))
+  for (const id of ids) if (!out.includes(id)) out.push(id)
+  return out
+}
+
+const DEFAULT_ORDER: readonly string[] = ["TRANSPORT", "PATTERN", "SONG"]
+
 /**
- * How the rack is arranged on screen — order and which units are out. UI
- * preference, kept in the browser rather than in the song.
+ * How the rack is arranged on screen — order and which fixed units are out.
+ * UI preference, kept in the browser rather than in the song. Instance ids
+ * are appended as instances appear (see `syncUnits`).
  */
 export const useLayoutStore = create<LayoutState>()(
   persist(
     (set) => ({
-      order: [...UNIT_IDS],
+      order: [...DEFAULT_ORDER],
       hidden: [],
 
       moveUnit: (id, target) => set((s) => ({ order: moveWithin(s.order, id, target) })),
@@ -70,20 +73,28 @@ export const useLayoutStore = create<LayoutState>()(
         }),
       hideUnit: (id) =>
         set((s) =>
-          FIXED_UNITS.includes(id) || s.hidden.includes(id) ? s : { hidden: [...s.hidden, id] },
+          isFixedUnit(id) && HIDEABLE_UNITS.includes(id) && !s.hidden.includes(id)
+            ? { hidden: [...s.hidden, id] }
+            : s,
         ),
       showUnit: (id) => set((s) => ({ hidden: s.hidden.filter((x) => x !== id) })),
+      syncUnits: (ids) =>
+        set((s) => {
+          const order = ensureOrder(s.order, ids)
+          return order.length === s.order.length && order.every((id, i) => id === s.order[i])
+            ? s
+            : { order }
+        }),
     }),
     {
       name: "rack-layout",
-      version: 1,
-      // Units added in later versions must still appear: append anything the saved order lacks.
+      version: 2,
       merge: (persisted, current) => {
         const saved = (persisted as Partial<LayoutState> | undefined) ?? {}
-        const order = [...(saved.order ?? []).filter((id): id is UnitId => UNIT_IDS.includes(id))]
-        for (const id of UNIT_IDS) if (!order.includes(id)) order.push(id)
+        const order = (saved.order ?? []).filter((id): id is string => typeof id === "string")
+        for (const id of DEFAULT_ORDER) if (!order.includes(id)) order.push(id)
         const hidden = (saved.hidden ?? []).filter(
-          (id): id is UnitId => UNIT_IDS.includes(id) && !FIXED_UNITS.includes(id),
+          (id): id is FixedUnitId => isFixedUnit(id) && HIDEABLE_UNITS.includes(id),
         )
         return { ...current, order, hidden }
       },

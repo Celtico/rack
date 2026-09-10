@@ -1,9 +1,15 @@
 import { describe, expect, it } from "vitest"
 
-import { createEmptyPattern, toggleDrumStep } from "./pattern"
+import { defaultInstances } from "./instances"
+import { createEmptyPattern, rowsOf, toggleKitStep, withTrack, type KitTrack } from "./pattern"
 import { createDefaultBank, resolvePlayingPattern } from "./patterns"
 
-const bank = [0, 1, 2, 3].map((i) => toggleDrumStep(createEmptyPattern(), "kick", i))
+const OWNERS = [{ id: "drums-1", kind: "drums" as const }]
+
+const bank = [0, 1, 2, 3].map((i) => {
+  const p = createEmptyPattern(OWNERS)
+  return withTrack(p, "drums-1", toggleKitStep(p.tracks["drums-1"] as KitTrack, "kick", i))
+})
 
 describe("resolvePlayingPattern", () => {
   it("loops the active pattern when there is no chain", () => {
@@ -31,10 +37,14 @@ describe("resolvePlayingPattern", () => {
 })
 
 describe("createDefaultBank", () => {
-  it("has four slots with the groove in the first", () => {
-    const b = createDefaultBank()
+  it("has four slots with the groove in the first, for every default instance", () => {
+    const instances = defaultInstances()
+    const b = createDefaultBank(instances)
     expect(b).toHaveLength(4)
-    expect(b[0]!.drums.kick[0]).toBe(true)
-    expect(b[1]!.drums.kick.some(Boolean)).toBe(false)
+    const first = b[0]!.tracks["drums-1"] as KitTrack
+    const second = b[1]!.tracks["drums-1"] as KitTrack
+    expect(rowsOf(first).kick![0]).toBe(true)
+    expect(rowsOf(second).kick!.some(Boolean)).toBe(false)
+    for (const p of b) expect(Object.keys(p.tracks)).toEqual(instances.map((i) => i.id))
   })
 })

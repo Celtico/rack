@@ -2,7 +2,7 @@ import * as Tone from "tone"
 
 import type { PadParams } from "../../state/params"
 import { PAD_IDS, type PadId } from "../../state/pattern"
-import { getAllSamples } from "../sampleStore"
+import { getAllSamples, sampleKey } from "../sampleStore"
 import type { Kit, Voice } from "../types"
 
 /** Ramp length for level changes. */
@@ -14,14 +14,20 @@ const FADE_OUT = 0.02
  * SMP-8: eight pads, each a `Player` with its own level gain. Pitch is a
  * playback-rate change and decay a scheduled stop, both read from the pad's
  * params at trigger time. Samples arrive decoded from the engine; an empty pad
- * is silent.
+ * is silent. Each instance keeps its samples under its own storage keys.
  */
 export class SamplerKit implements Kit<PadId> {
   private readonly players: Record<PadId, Tone.Player>
   private readonly levels: Record<PadId, Tone.Gain>
   private params: Readonly<Record<PadId, PadParams>>
+  private readonly instanceId: string
 
-  constructor(output: Tone.ToneAudioNode, params: Readonly<Record<PadId, PadParams>>) {
+  constructor(
+    output: Tone.ToneAudioNode,
+    instanceId: string,
+    params: Readonly<Record<PadId, PadParams>>,
+  ) {
+    this.instanceId = instanceId
     this.params = params
     this.levels = {} as Record<PadId, Tone.Gain>
     this.players = {} as Record<PadId, Tone.Player>
@@ -31,12 +37,12 @@ export class SamplerKit implements Kit<PadId> {
     }
   }
 
-  /** Bring back whatever the browser has kept for each pad. */
+  /** Bring back whatever the browser has kept for this instance's pads. */
   async loadStored(): Promise<void> {
     const stored = await getAllSamples()
     await Promise.all(
       PAD_IDS.map(async (id) => {
-        const sample = stored[id]
+        const sample = stored[sampleKey(this.instanceId, id)]
         if (sample) await this.setSample(id, sample.data)
       }),
     )

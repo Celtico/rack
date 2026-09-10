@@ -36,11 +36,25 @@ const finish = (name: Finish) => ({
  */
 export const rackUnitRecipe = defineSlotRecipe({
   className: "rack-unit",
-  slots: ["root", "header", "grip", "icon", "model", "title", "scope", "controls", "body", "screw"],
+  slots: [
+    "root",
+    "header",
+    "grip",
+    "icon",
+    "model",
+    "title",
+    "preview",
+    "controls",
+    "body",
+    "screw",
+  ],
   base: {
     root: {
       position: "relative",
-      bg: "rack.panel",
+      bg: "finish.graphite.panel",
+      // Plain graphite with a soft glow of the finish colour falling from the top-left corner.
+      bgImage:
+        "radial-gradient(ellipse 40px 10px at 0px 0px, {colors.rack.panel} 0%, transparent 100px)",
       color: "rack.silkscreen",
       borderWidth: "1px",
       borderColor: "rack.panel.edge",
@@ -67,10 +81,13 @@ export const rackUnitRecipe = defineSlotRecipe({
       _hover: { color: "rack.silkscreen" },
       _focusVisible: { outline: "2px solid", outlineColor: "rack.led.on", outlineOffset: "2px" },
     },
-    scope: {
+    preview: {
       display: "inline-flex",
-      ml: "2",
-      "[data-folded] &": { display: "inline-flex" },
+      // Sits on the free side of the header, right before the controls.
+      ml: "auto",
+      mr: "2",
+      minW: "0",
+      overflow: "hidden",
     },
     header: {
       display: "flex",
@@ -105,7 +122,10 @@ export const rackUnitRecipe = defineSlotRecipe({
       alignItems: "center",
       gap: "1",
       ml: "auto",
+      flexShrink: 0,
       color: "rack.silkscreen.muted",
+      // Only when a preview sits before them does it take the free space instead.
+      "[data-part=preview] + &": { ml: "0" },
     },
     body: {
       mx: "4",

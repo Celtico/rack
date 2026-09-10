@@ -1,90 +1,70 @@
 import * as Tone from "tone"
 
-import { CHANNEL_IDS, type ChannelId } from "../state/channels"
-import {
-  DRUM_VOICES,
-  PAD_IDS,
-  PERC_VOICES,
-  type DrumVoiceId,
-  type HitVoiceId,
-  type PadId,
-  type PercVoiceId,
-  type PolyInstrumentId,
-} from "../state/pattern"
+import type { Instance, KindParams } from "../state/instances"
+import { PAD_IDS, type Kind, type PadId } from "../state/pattern"
 import { resolvePlayingPattern } from "../state/patterns"
-import {
-  useRackStore,
-  type BassParams,
-  type EpParams,
-  type FxParams,
-  type PadParams,
-  type PolyParams,
-  type StringsParams,
-  type SynthParams,
-} from "../state/store"
+import { useRackStore, type FxParams, type PadParams } from "../state/store"
 import { BassVoice } from "./devices/bass"
 import { DrumKit } from "./devices/drums"
 import { MonoVoice } from "./devices/monoSynth"
 import { PercKit } from "./devices/perc"
-import { EPiano, PolyPad, Strings, type PolyInstrument } from "./devices/polySynths"
+import { EPiano, PolyPad, Strings } from "./devices/polySynths"
 import { SamplerKit } from "./devices/sampler"
-import { deleteSample, putSample } from "./sampleStore"
+import { deleteSample, putSample, sampleKey } from "./sampleStore"
 import { Scheduler } from "./scheduler"
-import type { Voice } from "./types"
 
-/** A mixer channel: level into the master bus plus a send into the FX bus. */
-interface Channel {
+/** The sound-making object behind one instance. */
+type Device =
+  | { kind: "drums"; kit: DrumKit }
+  | { kind: "perc"; kit: PercKit }
+  | { kind: "sampler"; kit: SamplerKit }
+  | { kind: "synth"; voice: MonoVoice }
+  | { kind: "bass"; voice: BassVoice }
+  | { kind: "poly"; poly: PolyPad }
+  | { kind: "ep"; poly: EPiano }
+  | { kind: "strings"; poly: Strings }
+
+/** One instance in the graph: its mixer strip, analysers and device. */
+interface Strip {
   input: Tone.Gain
   send: Tone.Gain
   meter: Tone.Meter
-  scope: Tone.Waveform
   level: number
   muted: boolean
+  device: Device
 }
 
-/** Samples per oscilloscope frame. */
-const SCOPE_SIZE = 256
-
-/** Where a level meter can look. */
-export type LevelSource = ChannelId | "master"
+/** Where a level meter can look: an instance id, or the master. */
+export type LevelSource = string
 export type Levels = Readonly<Record<LevelSource, number>>
-
-/** Meter ballistics: enough smoothing to read, little enough to bounce. */
-const METER_SMOOTHING = 0.85
 
 /** Ramp length for parameter changes — long enough to avoid clicks, short enough to feel direct. */
 const RAMP = 0.03
 /** Changing the reverb tail re-renders its impulse response; coalesce knob drags. */
 const REVERB_DEBOUNCE_MS = 150
+/** Meter ballistics: enough smoothing to read, little enough to bounce. */
+const METER_SMOOTHING = 0.85
 
 /**
  * The single audio engine. Owns every Tone node; React never creates one.
  *
- * Signal flow:
+ * Signal flow, per instance:
  *
- *   voice ─▶ channel.input ─┬─▶ master ─▶ destination
- *                           └─▶ channel.send ─▶ fx.input ─▶ delay ─▶ reverb ─▶ master
+ *   device ─▶ strip.input ─┬─▶ master ─▶ destination
+ *                          └─▶ strip.send ─▶ fx.input ─▶ delay ─▶ reverb ─▶ master
  *
  * `build()` runs behind a user gesture (`Tone.start()`), is idempotent and
- * always leaves the same node graph in place.
+ * always leaves the same node graph in place. Instances added or removed
+ * afterwards are wired in and out live.
  */
 export class AudioEngine {
   private master: Tone.Gain | null = null
+  private masterMeter: Tone.Meter | null = null
   private fxInput: Tone.Gain | null = null
   private delay: Tone.FeedbackDelay | null = null
   private reverb: Tone.Reverb | null = null
   private reverbDecayTimer: ReturnType<typeof setTimeout> | null = null
-  private masterMeter: Tone.Meter | null = null
-  private readonly channels = new Map<ChannelId, Channel>()
-  private readonly voices = new Map<HitVoiceId, Voice>()
-  private drums: DrumKit | null = null
-  private perc: PercKit | null = null
-  private sampler: SamplerKit | null = null
-  private synth: MonoVoice | null = null
-  private bass: BassVoice | null = null
-  private poly: PolyPad | null = null
-  private ep: EPiano | null = null
-  private strings: Strings | null = null
+  private readonly strips = new Map<string, Strip>()
   private scheduler: Scheduler | null = null
 
   get isBuilt(): boolean {
@@ -107,31 +87,12 @@ export class AudioEngine {
     }).connect(reverb)
     const fxInput = new Tone.Gain(1).connect(delay)
 
-    for (const id of CHANNEL_IDS) {
-      const level = state.mix.level[id]
-      const muted = state.mix.mute[id]
-      const input = new Tone.Gain(muted ? 0 : level).connect(master)
-      const send = new Tone.Gain(state.mix.send[id]).connect(fxInput)
-      const meter = new Tone.Meter({ normalRange: true, smoothing: METER_SMOOTHING })
-      const scope = new Tone.Waveform(SCOPE_SIZE)
-      input.connect(send)
-      input.connect(meter)
-      input.connect(scope)
-      this.channels.set(id, { input, send, meter, scope, level, muted })
-    }
+    this.master = master
+    this.reverb = reverb
+    this.delay = delay
+    this.fxInput = fxInput
 
-    this.drums = new DrumKit(this.channelInput("drums"), state.drumLevels)
-    for (const id of DRUM_VOICES) this.voices.set(id, this.drums.voice(id))
-    this.perc = new PercKit(this.channelInput("perc"), state.percLevels)
-    for (const id of PERC_VOICES) this.voices.set(id, this.perc.voice(id))
-    this.sampler = new SamplerKit(this.channelInput("sampler"), state.pads)
-    for (const id of PAD_IDS) this.voices.set(id, this.sampler.voice(id))
-    void this.sampler.loadStored()
-    this.synth = new MonoVoice(this.channelInput("synth"), state.synthParams)
-    this.bass = new BassVoice(this.channelInput("bass"), state.bassParams)
-    this.poly = new PolyPad(this.channelInput("poly"), state.polyParams)
-    this.ep = new EPiano(this.channelInput("ep"), state.epParams)
-    this.strings = new Strings(this.channelInput("strings"), state.stringsParams)
+    for (const inst of state.instances) this.addInstance(inst)
 
     this.scheduler = new Scheduler({
       getPattern: (bar) => {
@@ -140,19 +101,81 @@ export class AudioEngine {
       },
       getSwing: () => useRackStore.getState().swing,
       sixteenthSeconds: () => Tone.getTransport().toSeconds("16n"),
-      trigger: (voice, time) => this.voices.get(voice)?.trigger(time),
-      triggerNote: (note, time) => this.synth?.trigger(note, time),
-      triggerBass: (event, time, stepSeconds) => this.bass?.play(event, time, stepSeconds),
-      triggerPoly: (instrument, notes, time) =>
-        this.polyInstrument(instrument)?.trigger(notes, time),
+      trigger: (id, voice, time) => this.hit(id, voice, time),
+      triggerNote: (id, note, time) => {
+        const d = this.strips.get(id)?.device
+        if (d?.kind === "synth") d.voice.trigger(note, time)
+      },
+      triggerBass: (id, event, time, stepSeconds) => {
+        const d = this.strips.get(id)?.device
+        if (d?.kind === "bass") d.voice.play(event, time, stepSeconds)
+      },
+      triggerPoly: (id, notes, time) => {
+        const d = this.strips.get(id)?.device
+        if (d && "poly" in d) d.poly.trigger(notes, time)
+      },
       onStep: (step, index, bar) => useRackStore.getState().setPlayhead(step, index, bar),
     })
-
-    this.master = master
-    this.reverb = reverb
-    this.delay = delay
-    this.fxInput = fxInput
     return this
+  }
+
+  /** Wire a new instance into the graph. No-op before build() — build() reads the store itself. */
+  addInstance(inst: Instance): void {
+    if (!this.master || !this.fxInput || this.strips.has(inst.id)) return
+    const input = new Tone.Gain(inst.mute ? 0 : inst.level).connect(this.master)
+    const send = new Tone.Gain(inst.send).connect(this.fxInput)
+    const meter = new Tone.Meter({ normalRange: true, smoothing: METER_SMOOTHING })
+    input.connect(send)
+    input.connect(meter)
+    this.strips.set(inst.id, {
+      input,
+      send,
+      meter,
+      level: inst.level,
+      muted: inst.mute,
+      device: this.createDevice(inst, input),
+    })
+  }
+
+  private createDevice(inst: Instance, output: Tone.ToneAudioNode): Device {
+    switch (inst.kind) {
+      case "drums":
+        return { kind: inst.kind, kit: new DrumKit(output, inst.params) }
+      case "perc":
+        return { kind: inst.kind, kit: new PercKit(output, inst.params) }
+      case "sampler": {
+        const kit = new SamplerKit(output, inst.id, inst.params)
+        void kit.loadStored()
+        return { kind: inst.kind, kit }
+      }
+      case "synth":
+        return { kind: inst.kind, voice: new MonoVoice(output, inst.params) }
+      case "bass":
+        return { kind: inst.kind, voice: new BassVoice(output, inst.params) }
+      case "poly":
+        return { kind: inst.kind, poly: new PolyPad(output, inst.params) }
+      case "ep":
+        return { kind: inst.kind, poly: new EPiano(output, inst.params) }
+      case "strings":
+        return { kind: inst.kind, poly: new Strings(output, inst.params) }
+    }
+  }
+
+  /** Take an instance out of the graph and free its nodes. */
+  removeInstance(id: string): void {
+    const strip = this.strips.get(id)
+    if (!strip) return
+    this.strips.delete(id)
+    this.disposeDevice(strip.device)
+    strip.input.dispose()
+    strip.send.dispose()
+    strip.meter.dispose()
+  }
+
+  private disposeDevice(device: Device): void {
+    if ("kit" in device) device.kit.dispose()
+    else if ("voice" in device) device.voice.dispose()
+    else device.poly.dispose()
   }
 
   /** Unlock the audio context (must be called from a user gesture) and start the transport. */
@@ -167,7 +190,9 @@ export class AudioEngine {
   stop(): void {
     Tone.getTransport().stop()
     this.scheduler?.reset()
-    this.bass?.reset()
+    for (const { device } of this.strips.values()) {
+      if (device.kind === "bass") device.voice.reset()
+    }
   }
 
   setBpm(bpm: number): void {
@@ -184,115 +209,96 @@ export class AudioEngine {
     this.master?.gain.rampTo(level, RAMP)
   }
 
-  /** Channel level into the master bus, 0–1. */
-  setChannelVolume(channel: ChannelId, level: number): void {
-    const ch = this.channels.get(channel)
-    if (!ch) return
-    ch.level = level
-    this.applyChannelGain(ch)
+  /** Instance level into the master bus, 0–1. */
+  setInstanceLevel(id: string, level: number): void {
+    const strip = this.strips.get(id)
+    if (!strip) return
+    strip.level = level
+    this.applyGain(strip)
   }
 
-  /** Silence a channel without losing its level. */
-  setChannelMute(channel: ChannelId, muted: boolean): void {
-    const ch = this.channels.get(channel)
-    if (!ch) return
-    ch.muted = muted
-    this.applyChannelGain(ch)
+  /** Silence an instance without losing its level. */
+  setInstanceMute(id: string, muted: boolean): void {
+    const strip = this.strips.get(id)
+    if (!strip) return
+    strip.muted = muted
+    this.applyGain(strip)
   }
 
-  private applyChannelGain(ch: Channel): void {
-    ch.input.gain.rampTo(ch.muted ? 0 : ch.level, RAMP)
+  private applyGain(strip: Strip): void {
+    strip.input.gain.rampTo(strip.muted ? 0 : strip.level, RAMP)
   }
 
-  /**
-   * Current signal level of every channel and the master, 0–1 linear amplitude
-   * (RMS, smoothed). Zeros before build(). Read from a UI animation frame — it
-   * allocates nothing.
-   */
-  getLevels(): Levels {
-    const out = {} as Record<LevelSource, number>
-    for (const id of CHANNEL_IDS) out[id] = this.readMeter(this.channels.get(id)?.meter)
-    out.master = this.readMeter(this.masterMeter)
-    return out
+  /** How much of an instance goes to the FX bus, 0–1. */
+  setInstanceSend(id: string, level: number): void {
+    this.strips.get(id)?.send.gain.rampTo(level, RAMP)
   }
 
   /**
-   * The last SCOPE_SIZE samples of a channel, −1…1, for drawing. Null before
-   * build(). The array is the analyser's own buffer — read it, don't keep it.
+   * Apply (part of) an instance's params. Kits take a levels record, the
+   * sampler a pads record, the synths key/value pairs — each device decides
+   * what ramps and what is a plain setter.
    */
-  getWaveform(channel: ChannelId): Float32Array | null {
-    return this.channels.get(channel)?.scope.getValue() ?? null
-  }
-
-  private readMeter(meter: Tone.Meter | null | undefined): number {
-    if (!meter) return 0
-    const value = meter.getValue()
-    return typeof value === "number" ? value : (value[0] ?? 0)
-  }
-
-  /** How much of a channel goes to the FX bus, 0–1. */
-  setSend(channel: ChannelId, level: number): void {
-    this.channels.get(channel)?.send.gain.rampTo(level, RAMP)
-  }
-
-  /** Per-voice level on the DR-4, 0–1. */
-  setDrumLevel(voice: DrumVoiceId, level: number): void {
-    this.drums?.setLevel(voice, level)
-  }
-
-  /** Per-voice level on the PERC-6, 0–1. */
-  setPercLevel(voice: PercVoiceId, level: number): void {
-    this.perc?.setLevel(voice, level)
-  }
-
-  /** Pitch, decay and level of one SMP-8 pad. */
-  setPadParams(pad: PadId, params: PadParams): void {
-    this.sampler?.setParams(pad, params)
+  setInstanceParams(id: string, patch: Partial<KindParams[Kind]>): void {
+    const device = this.strips.get(id)?.device
+    if (!device) return
+    const entries = Object.entries(patch as Record<string, unknown>)
+    switch (device.kind) {
+      case "drums":
+      case "perc":
+        for (const [voice, level] of entries) {
+          if (typeof level === "number") device.kit.setLevel(voice as never, level)
+        }
+        break
+      case "sampler":
+        for (const [pad, params] of entries) {
+          if (PAD_IDS.includes(pad as PadId))
+            device.kit.setParams(pad as PadId, params as PadParams)
+        }
+        break
+      case "synth":
+        for (const [key, value] of entries) device.voice.set(key as never, value as never)
+        break
+      case "bass":
+        for (const [key, value] of entries) device.voice.set(key as never, value as never)
+        break
+      case "poly":
+        for (const [key, value] of entries) device.poly.set(key as never, value as never)
+        break
+      case "ep":
+        for (const [key, value] of entries) device.poly.set(key as never, value as never)
+        break
+      case "strings":
+        for (const [key, value] of entries) device.poly.set(key as never, value as never)
+        break
+    }
   }
 
   /**
-   * Put a file on a pad: persist the bytes in the browser first, then — if
-   * the graph exists — decode them into the player. Before the first Play the
-   * sampler picks them up from storage when it is built.
+   * Put a file on a sampler pad: persist the bytes in the browser first, then
+   * — if the device exists — decode them into the player. Before the first
+   * Play the sampler picks them up from storage when it is built.
    */
-  async importSample(pad: PadId, name: string, data: ArrayBuffer): Promise<void> {
-    await putSample(pad, { name, data })
-    if (this.sampler) await this.sampler.setSample(pad, data)
+  async importSample(id: string, pad: PadId, name: string, data: ArrayBuffer): Promise<void> {
+    await putSample(sampleKey(id, pad), { name, data })
+    const device = this.strips.get(id)?.device
+    if (device?.kind === "sampler") await device.kit.setSample(pad, data)
   }
 
-  async clearSample(pad: PadId): Promise<void> {
-    await deleteSample(pad)
-    this.sampler?.clearSample(pad)
+  async clearSample(id: string, pad: PadId): Promise<void> {
+    await deleteSample(sampleKey(id, pad))
+    const device = this.strips.get(id)?.device
+    if (device?.kind === "sampler") device.kit.clearSample(pad)
   }
 
-  /** Audition a one-shot voice now (outside the sequence), e.g. from a pad. Requires build(). */
-  triggerHit(voice: HitVoiceId): void {
-    this.voices.get(voice)?.trigger(Tone.now())
+  private hit(id: string, voice: string, time: number): void {
+    const device = this.strips.get(id)?.device
+    if (device && "kit" in device) device.kit.voice(voice as never).trigger(time)
   }
 
-  /** One MONO-1 parameter. */
-  setSynthParam<K extends keyof SynthParams>(key: K, value: SynthParams[K]): void {
-    this.synth?.set(key, value)
-  }
-
-  /** One BASS-2 parameter. */
-  setBassParam<K extends keyof BassParams>(key: K, value: BassParams[K]): void {
-    this.bass?.set(key, value)
-  }
-
-  /** One POLY-4 parameter. */
-  setPolyParam<K extends keyof PolyParams>(key: K, value: PolyParams[K]): void {
-    this.poly?.set(key, value)
-  }
-
-  /** One EP-1 parameter. */
-  setEpParam<K extends keyof EpParams>(key: K, value: EpParams[K]): void {
-    this.ep?.set(key, value)
-  }
-
-  /** One STR-6 parameter. */
-  setStringsParam<K extends keyof StringsParams>(key: K, value: StringsParams[K]): void {
-    this.strings?.set(key, value)
+  /** Audition one voice of a kit instance now (outside the sequence). Requires build(). */
+  triggerHit(id: string, voice: string): void {
+    this.hit(id, voice, Tone.now())
   }
 
   /**
@@ -315,7 +321,25 @@ export class AudioEngine {
   }
 
   /**
-   * Push every parameter from the store into the graph — after loading a song.
+   * Current signal level of every instance and the master, 0–1 linear
+   * amplitude (RMS, smoothed). Zeros before build(). Read from a UI animation
+   * frame — it allocates one small object.
+   */
+  getLevels(): Levels {
+    const out: Record<string, number> = { master: this.readMeter(this.masterMeter) }
+    for (const [id, strip] of this.strips) out[id] = this.readMeter(strip.meter)
+    return out
+  }
+
+  private readMeter(meter: Tone.Meter | null | undefined): number {
+    if (!meter) return 0
+    const value = meter.getValue()
+    return typeof value === "number" ? value : (value[0] ?? 0)
+  }
+
+  /**
+   * Make the graph match the store — after loading a song. Instances that
+   * vanished are torn down, new ones built, the rest get their params pushed.
    * Before build() only the tempo matters; the rest is read at build time.
    */
   syncFromStore(): void {
@@ -323,31 +347,21 @@ export class AudioEngine {
     this.setBpm(s.bpm)
     if (!this.isBuilt) return
     this.setMasterVolume(s.masterVolume)
-    for (const voice of DRUM_VOICES) this.setDrumLevel(voice, s.drumLevels[voice])
-    for (const voice of PERC_VOICES) this.setPercLevel(voice, s.percLevels[voice])
-    for (const pad of PAD_IDS) this.setPadParams(pad, s.pads[pad])
-    for (const key of keysOf(s.synthParams)) this.setSynthParam(key, s.synthParams[key])
-    for (const key of keysOf(s.bassParams)) this.setBassParam(key, s.bassParams[key])
-    for (const key of keysOf(s.polyParams)) this.setPolyParam(key, s.polyParams[key])
-    for (const key of keysOf(s.epParams)) this.setEpParam(key, s.epParams[key])
-    for (const key of keysOf(s.stringsParams)) this.setStringsParam(key, s.stringsParams[key])
-    for (const ch of CHANNEL_IDS) {
-      this.setChannelVolume(ch, s.mix.level[ch])
-      this.setChannelMute(ch, s.mix.mute[ch])
-      this.setSend(ch, s.mix.send[ch])
+    const wanted = new Set(s.instances.map((i) => i.id))
+    for (const id of [...this.strips.keys()]) if (!wanted.has(id)) this.removeInstance(id)
+    for (const inst of s.instances) {
+      const strip = this.strips.get(inst.id)
+      if (!strip || strip.device.kind !== inst.kind) {
+        this.removeInstance(inst.id)
+        this.addInstance(inst)
+        continue
+      }
+      this.setInstanceLevel(inst.id, inst.level)
+      this.setInstanceMute(inst.id, inst.mute)
+      this.setInstanceSend(inst.id, inst.send)
+      this.setInstanceParams(inst.id, inst.params)
     }
-    for (const key of keysOf(s.fx)) this.setFxParam(key, s.fx[key])
-  }
-
-  private polyInstrument(id: PolyInstrumentId): PolyInstrument | null {
-    switch (id) {
-      case "poly":
-        return this.poly
-      case "ep":
-        return this.ep
-      case "strings":
-        return this.strings
-    }
+    for (const key of Object.keys(s.fx) as (keyof FxParams)[]) this.setFxParam(key, s.fx[key])
   }
 
   private setReverbDecay(seconds: number): void {
@@ -358,57 +372,25 @@ export class AudioEngine {
     }, REVERB_DEBOUNCE_MS)
   }
 
-  /** Input node for a device that belongs to `channel`. Only valid after build(). */
-  private channelInput(channel: ChannelId): Tone.Gain {
-    const ch = this.channels.get(channel)
-    if (!ch) throw new Error(`AudioEngine: channel "${channel}" requested before build()`)
-    return ch.input
-  }
-
   /** Tear everything down. Only used when the whole rack goes away. */
   dispose(): void {
     if (this.reverbDecayTimer) clearTimeout(this.reverbDecayTimer)
     this.scheduler?.dispose()
-    this.drums?.dispose()
-    this.perc?.dispose()
-    this.sampler?.dispose()
-    this.synth?.dispose()
-    this.bass?.dispose()
-    this.poly?.dispose()
-    this.ep?.dispose()
-    this.strings?.dispose()
-    for (const { input, send, meter, scope } of this.channels.values()) {
-      input.dispose()
-      send.dispose()
-      meter.dispose()
-      scope.dispose()
-    }
-    this.channels.clear()
-    this.voices.clear()
+    for (const id of [...this.strips.keys()]) this.removeInstance(id)
     this.masterMeter?.dispose()
-    this.masterMeter = null
     this.fxInput?.dispose()
     this.delay?.dispose()
     this.reverb?.dispose()
     this.master?.dispose()
     this.reverbDecayTimer = null
     this.scheduler = null
-    this.drums = null
-    this.perc = null
-    this.sampler = null
-    this.synth = null
-    this.bass = null
-    this.poly = null
-    this.ep = null
-    this.strings = null
+    this.masterMeter = null
     this.fxInput = null
     this.delay = null
     this.reverb = null
     this.master = null
   }
 }
-
-const keysOf = <T extends object>(o: T) => Object.keys(o) as (keyof T)[]
 
 let instance: AudioEngine | null = null
 

@@ -49,7 +49,8 @@ export const stepGridRecipe = defineSlotRecipe({
       zIndex: "1",
       textStyle: "silkscreen",
       color: "rack.silkscreen.muted",
-      bg: "rack.panel",
+      // No flat fill (the panel is a gradient); cells scrolling underneath are blurred out instead.
+      backdropFilter: "blur(6px)",
       pr: "3",
       minW: "12",
       whiteSpace: "nowrap",

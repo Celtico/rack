@@ -10,56 +10,84 @@ import {
 } from "react-icons/lu"
 
 import { getEngine } from "../audio/engine"
-import type { ChannelId } from "../state/channels"
-import { FIXED_UNITS, useLayoutStore, UNIT_IDS, type UnitId } from "../state/layout"
+import { toaster } from "../components/ui/toaster"
+import { HIDEABLE_UNITS, isFixedUnit, useLayoutStore } from "../state/layout"
 import { useRackStore } from "../state/store"
 import type { rackUnitRecipe } from "../theme/recipes/rackUnit"
-import { Scope } from "./Scope"
+import { MiniGrid } from "./MiniGrid"
 
 type RackUnitVariants = RecipeVariantProps<typeof rackUnitRecipe>
 
 export interface RackUnitProps extends RackUnitVariants {
-  /** Model name on the silkscreen, e.g. "DR-4". Also the unit's id for fold, order and removal. */
-  model: UnitId
+  /** Unit id: a fixed unit name or an instance id. Keys fold state, order and removal. */
+  id: string
+  /** Model name on the silkscreen, e.g. "DR-4 #2". */
+  model: string
   /** Short description next to the model, e.g. "Drum machine". */
   title?: string
-  /** Mixer channel this unit feeds — gives it a mute button and a scope when folded. */
-  channel?: ChannelId
+  /** True for machines: gives the header a mute button and a pattern thumbnail when folded. */
+  instance?: boolean
   /** Pictogram of what the unit is, before the model name. */
   icon?: ReactNode
+  /** What the header shows while folded. Machines default to their pattern thumbnail. */
+  preview?: ReactNode
   children?: ReactNode
 }
 
 const CORNERS = ["tl", "tr", "bl", "br"] as const
 const DRAG_TYPE = "application/x-rack-unit"
 
-const isUnitId = (v: string): v is UnitId => UNIT_IDS.includes(v as UnitId)
-
-export function RackUnit({ model, title, channel, icon, units, finish, children }: RackUnitProps) {
+export function RackUnit({
+  id,
+  model,
+  title,
+  instance = false,
+  icon,
+  preview,
+  units,
+  finish,
+  children,
+}: RackUnitProps) {
   const recipe = useSlotRecipe({ key: "rackUnit" })
   const styles = recipe({ units, finish })
-  const folded = useRackStore((s) => s.folded[model] === true)
-  const muted = useRackStore((s) => (channel ? s.mix.mute[channel] : false))
-  const { toggleFold, setChannelMute } = useRackStore.getState()
+  const folded = useRackStore((s) => s.folded[id] === true)
+  const muted = useRackStore((s) => s.instances.find((i) => i.id === id)?.mute ?? false)
+  const { toggleFold, setInstanceMute, removeInstance, restoreInstance } = useRackStore.getState()
   const { moveUnit, nudgeUnit, hideUnit } = useLayoutStore.getState()
   // The grip arms dragging; the whole panel is only draggable while it is held.
   const [armed, setArmed] = useState(false)
   const [over, setOver] = useState(false)
-  const removable = !FIXED_UNITS.includes(model)
+  const removable = instance || (isFixedUnit(id) && HIDEABLE_UNITS.includes(id))
 
   const setMute = (next: boolean) => {
-    if (!channel) return
-    setChannelMute(channel, next)
-    getEngine().setChannelMute(channel, next)
+    setInstanceMute(id, next)
+    getEngine().setInstanceMute(id, next)
   }
 
   const remove = () => {
-    setMute(true)
-    hideUnit(model)
+    if (!instance) {
+      hideUnit(id)
+      return
+    }
+    const removed = removeInstance(id)
+    if (!removed) return
+    getEngine().removeInstance(id)
+    toaster.create({
+      type: "info",
+      title: `${model} removed`,
+      description: "Its patterns went with it.",
+      action: {
+        label: "Undo",
+        onClick: () => {
+          restoreInstance(removed)
+          getEngine().addInstance(removed.instance)
+        },
+      },
+    })
   }
 
   const onDragStart = (e: DragEvent) => {
-    e.dataTransfer.setData(DRAG_TYPE, model)
+    e.dataTransfer.setData(DRAG_TYPE, id)
     e.dataTransfer.effectAllowed = "move"
   }
   const onDragOver = (e: DragEvent) => {
@@ -71,13 +99,13 @@ export function RackUnit({ model, title, channel, icon, units, finish, children 
   const onDrop = (e: DragEvent) => {
     const source = e.dataTransfer.getData(DRAG_TYPE)
     setOver(false)
-    if (!isUnitId(source) || source === model) return
+    if (!source || source === id) return
     e.preventDefault()
-    moveUnit(source, model)
+    moveUnit(source, id)
   }
   const onGripKey = (e: KeyboardEvent) => {
-    if (e.key === "ArrowUp") nudgeUnit(model, -1)
-    else if (e.key === "ArrowDown") nudgeUnit(model, 1)
+    if (e.key === "ArrowUp") nudgeUnit(id, -1)
+    else if (e.key === "ArrowDown") nudgeUnit(id, 1)
     else return
     e.preventDefault()
   }
@@ -99,16 +127,6 @@ export function RackUnit({ model, title, channel, icon, units, finish, children 
         <chakra.span key={corner} css={styles.screw} data-corner={corner} aria-hidden="true" />
       ))}
       <chakra.header css={styles.header}>
-        <chakra.button
-          type="button"
-          css={styles.grip}
-          aria-label={`Move ${model} (drag, or arrow keys)`}
-          onPointerDown={() => setArmed(true)}
-          onPointerUp={() => setArmed(false)}
-          onKeyDown={onGripKey}
-        >
-          <LuGripVertical />
-        </chakra.button>
         {icon && (
           <chakra.span css={styles.icon} aria-hidden="true">
             {icon}
@@ -116,13 +134,13 @@ export function RackUnit({ model, title, channel, icon, units, finish, children 
         )}
         <chakra.h2 css={styles.model}>{model}</chakra.h2>
         {title && <chakra.span css={styles.title}>{title}</chakra.span>}
-        {folded && channel && (
-          <chakra.span css={styles.scope}>
-            <Scope channel={channel} />
+        {folded && (preview || instance) && (
+          <chakra.span css={styles.preview} data-part="preview">
+            {preview ?? <MiniGrid id={id} label={model} />}
           </chakra.span>
         )}
         <chakra.div css={styles.controls}>
-          {channel && (
+          {instance && (
             <IconButton
               size="xs"
               variant="ghost"
@@ -141,7 +159,9 @@ export function RackUnit({ model, title, channel, icon, units, finish, children 
             color="inherit"
             aria-label={folded ? `Expand ${model}` : `Fold ${model}`}
             aria-expanded={!folded}
-            onClick={() => toggleFold(model)}
+            // Chakra's ghost button paints a box while "expanded"; on a light finish it reads as a black square.
+            _expanded={{ bg: "transparent" }}
+            onClick={() => toggleFold(id)}
           >
             {folded ? <LuChevronDown /> : <LuChevronUp />}
           </IconButton>
@@ -157,6 +177,16 @@ export function RackUnit({ model, title, channel, icon, units, finish, children 
             </IconButton>
           )}
         </chakra.div>
+        <chakra.button
+          type="button"
+          css={styles.grip}
+          aria-label={`Move ${model} (drag, or arrow keys)`}
+          onPointerDown={() => setArmed(true)}
+          onPointerUp={() => setArmed(false)}
+          onKeyDown={onGripKey}
+        >
+          <LuGripVertical />
+        </chakra.button>
       </chakra.header>
       <chakra.div css={styles.body} hidden={folded}>
         {children}

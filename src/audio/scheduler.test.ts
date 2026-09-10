@@ -3,16 +3,16 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 import {
   createEmptyPattern,
   toggleBassFlag,
-  toggleBassNote,
-  toggleDrumStep,
-  togglePercStep,
-  togglePolyNote,
-  toggleSampleStep,
-  toggleSynthNote,
+  toggleKitStep,
+  toggleTrackNote,
+  withTrack,
+  type BassFlag,
+  type KitTrack,
   type Pattern,
+  type TrackOwner,
 } from "../state/pattern"
 import { resolvePlayingPattern } from "../state/patterns"
-import { Scheduler, swingOffset, triggersForStep } from "./scheduler"
+import { hitsForStep, Scheduler, swingOffset } from "./scheduler"
 
 // A mocked transport: Sequence captures its callback so the test can fire ticks
 // by hand, Draw runs its callback immediately. Hoisted so vi.mock can see it.
@@ -51,11 +51,31 @@ vi.mock("tone", () => ({
   getDraw: () => ({ schedule: fake.drawSchedule }),
 }))
 
+/** A rack with two DR-4s, so instance routing is exercised. */
+const OWNERS: TrackOwner[] = [
+  { id: "drums-1", kind: "drums" },
+  { id: "drums-2", kind: "drums" },
+  { id: "perc-1", kind: "perc" },
+  { id: "sampler-1", kind: "sampler" },
+  { id: "synth-1", kind: "synth" },
+  { id: "bass-1", kind: "bass" },
+  { id: "poly-1", kind: "poly" },
+  { id: "strings-1", kind: "strings" },
+]
+const empty = () => createEmptyPattern(OWNERS)
+
+const hit = (p: Pattern, id: string, voice: string, step: number) =>
+  withTrack(p, id, toggleKitStep(p.tracks[id] as KitTrack, voice, step))
+const note = (p: Pattern, id: string, step: number, row: number) =>
+  withTrack(p, id, toggleTrackNote(p.tracks[id]!, step, row))
+const flag = (p: Pattern, id: string, step: number, f: BassFlag) =>
+  withTrack(p, id, toggleBassFlag(p.tracks[id]!, step, f))
+
 /** A scheduler over a live bank; `set*` mutate what the next tick will see. */
 const SIXTEENTH = 0.125
 
 function makeScheduler(initial: Pattern, chain: number[] = []) {
-  let patterns = [initial, createEmptyPattern(), createEmptyPattern(), createEmptyPattern()]
+  let patterns = [initial, empty(), empty(), empty()]
   let active = 0
   let swing = 0
   const trigger = vi.fn()
@@ -98,25 +118,24 @@ const playBar = (seq: { callback: (t: number, s: number) => void }, bar: number)
   for (let step = 0; step < 16; step++) seq.callback(bar * 2 + step * 0.125, step)
 }
 
-describe("triggersForStep", () => {
-  it("lists the voices that are on at a step", () => {
-    let p = createEmptyPattern()
-    p = toggleDrumStep(p, "kick", 0)
-    p = toggleDrumStep(p, "hat", 0)
-    p = toggleDrumStep(p, "snare", 4)
-    expect(triggersForStep(p, 0)).toEqual(["kick", "hat"])
-    expect(triggersForStep(p, 4)).toEqual(["snare"])
-    expect(triggersForStep(p, 1)).toEqual([])
-  })
-
-  it("includes PERC-6 voices and SMP-8 pads after the DR-4 ones", () => {
-    let p = createEmptyPattern()
-    p = toggleDrumStep(p, "kick", 0)
-    p = togglePercStep(p, "crash", 0)
-    p = toggleSampleStep(p, "pad2", 0)
-    p = togglePercStep(p, "shaker", 2)
-    expect(triggersForStep(p, 0)).toEqual(["kick", "crash", "pad2"])
-    expect(triggersForStep(p, 2)).toEqual(["shaker"])
+describe("hitsForStep", () => {
+  it("lists the (instance, voice) pairs that are on at a step, instance by instance", () => {
+    let p = empty()
+    p = hit(p, "drums-1", "kick", 0)
+    p = hit(p, "drums-1", "hat", 0)
+    p = hit(p, "drums-2", "kick", 0)
+    p = hit(p, "perc-1", "crash", 0)
+    p = hit(p, "sampler-1", "pad2", 0)
+    p = hit(p, "drums-1", "snare", 4)
+    expect(hitsForStep(p, 0)).toEqual([
+      ["drums-1", "kick"],
+      ["drums-1", "hat"],
+      ["drums-2", "kick"],
+      ["perc-1", "crash"],
+      ["sampler-1", "pad2"],
+    ])
+    expect(hitsForStep(p, 4)).toEqual([["drums-1", "snare"]])
+    expect(hitsForStep(p, 1)).toEqual([])
   })
 })
 
@@ -137,7 +156,7 @@ describe("Scheduler", () => {
   })
 
   it("arms a single 16-step sixteenth-note sequence from the transport start", () => {
-    const { scheduler } = makeScheduler(createEmptyPattern())
+    const { scheduler } = makeScheduler(empty())
     scheduler.start()
     scheduler.start()
 
@@ -148,20 +167,22 @@ describe("Scheduler", () => {
     expect(seq.events).toEqual(Array.from({ length: 16 }, (_, i) => i))
   })
 
-  it("fires the correct voices at the transport time and publishes the step through Draw", () => {
-    let pattern = createEmptyPattern()
-    pattern = toggleDrumStep(pattern, "kick", 0)
-    pattern = toggleDrumStep(pattern, "kick", 8)
-    pattern = toggleDrumStep(pattern, "snare", 4)
+  it("fires each instance's voices at the transport time and publishes the step through Draw", () => {
+    let pattern = empty()
+    pattern = hit(pattern, "drums-1", "kick", 0)
+    pattern = hit(pattern, "drums-2", "kick", 0)
+    pattern = hit(pattern, "drums-1", "kick", 8)
+    pattern = hit(pattern, "drums-2", "snare", 4)
 
     const { scheduler, trigger, onStep } = makeScheduler(pattern)
     scheduler.start()
     playBar(fake.sequences[0]!, 0)
 
     expect(trigger.mock.calls).toEqual([
-      ["kick", 0],
-      ["snare", 0.5],
-      ["kick", 1],
+      ["drums-1", "kick", 0],
+      ["drums-2", "kick", 0],
+      ["drums-2", "snare", 0.5],
+      ["drums-1", "kick", 1],
     ])
     expect(onStep.mock.calls).toEqual(Array.from({ length: 16 }, (_, i) => [i, 0, 0]))
     // Every UI update went through Draw with the audio time attached.
@@ -170,9 +191,9 @@ describe("Scheduler", () => {
   })
 
   it("fires the synth note of a column, and nothing on rests", () => {
-    let pattern = createEmptyPattern()
-    pattern = toggleSynthNote(pattern, 0, 0) // C2
-    pattern = toggleSynthNote(pattern, 2, 7) // C3
+    let pattern = empty()
+    pattern = note(pattern, "synth-1", 0, 0) // C2
+    pattern = note(pattern, "synth-1", 2, 7) // C3
 
     const { scheduler, triggerNote } = makeScheduler(pattern)
     scheduler.start()
@@ -180,16 +201,16 @@ describe("Scheduler", () => {
     for (let step = 0; step < 4; step++) seq.callback(step * 0.125, step)
 
     expect(triggerNote.mock.calls).toEqual([
-      ["C2", 0],
-      ["C3", 0.25],
+      ["synth-1", "C2", 0],
+      ["synth-1", "C3", 0.25],
     ])
   })
 
   it("swings off-beat steps late, for sound and playhead alike, reading the amount per tick", () => {
-    let pattern = createEmptyPattern()
-    pattern = toggleDrumStep(pattern, "hat", 0)
-    pattern = toggleDrumStep(pattern, "hat", 1)
-    pattern = toggleSynthNote(pattern, 3, 2)
+    let pattern = empty()
+    pattern = hit(pattern, "drums-1", "hat", 0)
+    pattern = hit(pattern, "drums-1", "hat", 1)
+    pattern = note(pattern, "synth-1", 3, 2)
 
     const { scheduler, trigger, triggerNote, setSwing } = makeScheduler(pattern)
     setSwing(1)
@@ -198,9 +219,9 @@ describe("Scheduler", () => {
 
     for (let step = 0; step < 4; step++) seq.callback(step * SIXTEENTH, step)
 
-    expect(trigger.mock.calls[0]).toEqual(["hat", 0])
-    expect(trigger.mock.calls[1]?.[1]).toBeCloseTo(SIXTEENTH + SIXTEENTH / 3)
-    expect(triggerNote.mock.calls[0]?.[1]).toBeCloseTo(3 * SIXTEENTH + SIXTEENTH / 3)
+    expect(trigger.mock.calls[0]).toEqual(["drums-1", "hat", 0])
+    expect(trigger.mock.calls[1]?.[2]).toBeCloseTo(SIXTEENTH + SIXTEENTH / 3)
+    expect(triggerNote.mock.calls[0]?.[2]).toBeCloseTo(3 * SIXTEENTH + SIXTEENTH / 3)
     // Draw follows the swung time so the playhead lands with the sound.
     expect(fake.drawSchedule.mock.calls[1]?.[1]).toBeCloseTo(SIXTEENTH + SIXTEENTH / 3)
     expect(fake.drawSchedule.mock.calls[2]?.[1]).toBeCloseTo(2 * SIXTEENTH)
@@ -212,11 +233,11 @@ describe("Scheduler", () => {
   })
 
   it("drives the bass every step with note, accent and slide, rests included", () => {
-    let pattern = createEmptyPattern()
-    pattern = toggleBassNote(pattern, 0, 0) // E1
-    pattern = toggleBassFlag(pattern, 0, "accent")
-    pattern = toggleBassFlag(pattern, 0, "slide")
-    pattern = toggleBassNote(pattern, 1, 5) // E2
+    let pattern = empty()
+    pattern = note(pattern, "bass-1", 0, 0) // E1
+    pattern = flag(pattern, "bass-1", 0, "accent")
+    pattern = flag(pattern, "bass-1", 0, "slide")
+    pattern = note(pattern, "bass-1", 1, 5) // E2
 
     const { scheduler, triggerBass } = makeScheduler(pattern)
     scheduler.start()
@@ -224,17 +245,17 @@ describe("Scheduler", () => {
     for (let step = 0; step < 3; step++) seq.callback(step * SIXTEENTH, step)
 
     expect(triggerBass.mock.calls).toEqual([
-      [{ note: "E1", accent: true, slide: true }, 0, SIXTEENTH],
-      [{ note: "E2", accent: false, slide: false }, SIXTEENTH, SIXTEENTH],
-      [{ note: null, accent: false, slide: false }, 2 * SIXTEENTH, SIXTEENTH],
+      ["bass-1", { note: "E1", accent: true, slide: true }, 0, SIXTEENTH],
+      ["bass-1", { note: "E2", accent: false, slide: false }, SIXTEENTH, SIXTEENTH],
+      ["bass-1", { note: null, accent: false, slide: false }, 2 * SIXTEENTH, SIXTEENTH],
     ])
   })
 
   it("sounds chords on the polyphonic instruments and skips their rests", () => {
-    let pattern = createEmptyPattern()
-    pattern = togglePolyNote(pattern, "poly", 0, 0)
-    pattern = togglePolyNote(pattern, "poly", 0, 2)
-    pattern = togglePolyNote(pattern, "strings", 1, 7)
+    let pattern = empty()
+    pattern = note(pattern, "poly-1", 0, 0)
+    pattern = note(pattern, "poly-1", 0, 2)
+    pattern = note(pattern, "strings-1", 1, 7)
 
     const { scheduler, triggerPoly } = makeScheduler(pattern)
     scheduler.start()
@@ -242,30 +263,27 @@ describe("Scheduler", () => {
     for (let step = 0; step < 3; step++) seq.callback(step * SIXTEENTH, step)
 
     expect(triggerPoly.mock.calls).toEqual([
-      ["poly", ["C3", "E3"], 0],
-      ["strings", ["B3"], SIXTEENTH],
+      ["poly-1", ["C3", "E3"], 0],
+      ["strings-1", ["B3"], SIXTEENTH],
     ])
   })
 
   it("reads the pattern fresh on every tick, not the one captured at start", () => {
-    const { scheduler, trigger, setPattern } = makeScheduler(createEmptyPattern())
+    const { scheduler, trigger, setPattern } = makeScheduler(empty())
     scheduler.start()
     const seq = fake.sequences[0]!
 
     seq.callback(0, 0)
     expect(trigger).not.toHaveBeenCalled()
 
-    setPattern(toggleDrumStep(createEmptyPattern(), "clap", 0))
+    setPattern(hit(empty(), "drums-1", "clap", 0))
     seq.callback(2, 0)
-    expect(trigger).toHaveBeenCalledWith("clap", 2)
+    expect(trigger).toHaveBeenCalledWith("drums-1", "clap", 2)
   })
 
   it("counts bars so a chain advances on step 0, and rewinds on reset", () => {
-    const { scheduler, getPattern, onStep, setPattern } = makeScheduler(
-      createEmptyPattern(),
-      [0, 1, 1],
-    )
-    setPattern(toggleDrumStep(createEmptyPattern(), "hat", 0), 1)
+    const { scheduler, getPattern, onStep, setPattern } = makeScheduler(empty(), [0, 1, 1])
+    setPattern(hit(empty(), "drums-1", "hat", 0), 1)
     scheduler.start()
     const seq = fake.sequences[0]!
 
@@ -291,7 +309,7 @@ describe("Scheduler", () => {
   })
 
   it("disposes the sequence and can be re-armed", () => {
-    const { scheduler } = makeScheduler(createEmptyPattern())
+    const { scheduler } = makeScheduler(empty())
     scheduler.start()
     scheduler.dispose()
     expect(fake.sequences[0]!.disposed).toBe(true)

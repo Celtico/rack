@@ -8,7 +8,13 @@ import { TimelineUnit } from "./TimelineUnit"
 
 describe("<TimelineUnit />", () => {
   beforeEach(() => {
-    useRackStore.setState({ chain: [0, 2], activePattern: 1, playingBar: -1, currentStep: -1 })
+    useRackStore.setState({
+      chain: [0, 2],
+      activePattern: 1,
+      playingBar: -1,
+      currentStep: -1,
+      folded: {},
+    })
   })
 
   it("lists one block per bar, coloured by pattern, and marks the sounding bar", () => {

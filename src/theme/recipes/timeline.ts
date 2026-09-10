@@ -1,13 +1,24 @@
 import { defineSlotRecipe } from "@chakra-ui/react"
 
 /**
- * The song timeline: one block per bar of the chain, coloured by bank slot
- * (`data-pattern="1".."4"`), the bar being played marked with `data-playing`
- * and a progress bar that fills across the 16 steps.
+ * The song timeline: one grey block per bar of the chain; the bar being played
+ * (`data-playing`) lights up in its bank slot's colour (`data-pattern="1".."4"`)
+ * with a progress bar that fills across the 16 steps.
  */
 export const timelineRecipe = defineSlotRecipe({
   className: "song-timeline",
-  slots: ["root", "track", "block", "number", "progress", "remove", "add", "ruler"],
+  slots: [
+    "root",
+    "track",
+    "block",
+    "number",
+    "progress",
+    "remove",
+    "add",
+    "ruler",
+    "mini",
+    "miniBlock",
+  ],
   base: {
     root: {
       overflowX: "auto",
@@ -52,14 +63,38 @@ export const timelineRecipe = defineSlotRecipe({
       transitionDuration: "fast",
       _motionReduce: { transition: "none" },
       _focusVisible: { outline: "2px solid", outlineColor: "rack.led.on", outlineOffset: "1px" },
-      "&[data-pattern='1']": { bg: "rack.pattern.1", color: "ink.900" },
-      "&[data-pattern='2']": { bg: "rack.pattern.2", color: "cream.100" },
-      "&[data-pattern='3']": { bg: "rack.pattern.3", color: "cream.100" },
-      "&[data-pattern='4']": { bg: "rack.pattern.4", color: "cream.100" },
+      "&[data-playing][data-pattern='1']": { bg: "rack.pattern.1", color: "ink.900" },
+      "&[data-playing][data-pattern='2']": { bg: "rack.pattern.2", color: "cream.100" },
+      "&[data-playing][data-pattern='3']": { bg: "rack.pattern.3", color: "cream.100" },
+      "&[data-playing][data-pattern='4']": { bg: "rack.pattern.4", color: "cream.100" },
       "&[data-playing]": { borderColor: "rack.step.playing", shadow: "stepPlaying" },
+      // The bank's slot being edited.
+      "&[data-active]": { borderColor: "rack.led.on", boxShadow: "0 0 0 1px {colors.rack.led.on}" },
     },
     number: {
       pointerEvents: "none",
+    },
+    // The chain in miniature for the folded header: one small square per bar.
+    mini: {
+      display: "flex",
+      gap: "0.5",
+      flexShrink: 0,
+    },
+    miniBlock: {
+      w: "3",
+      h: "3",
+      rounded: "xs",
+      bg: "rack.step.off",
+      "&[data-active]": { outline: "1px solid", outlineColor: "rack.led.on", outlineOffset: "1px" },
+      "&[data-playing][data-pattern='1']": { bg: "rack.pattern.1" },
+      "&[data-playing][data-pattern='2']": { bg: "rack.pattern.2" },
+      "&[data-playing][data-pattern='3']": { bg: "rack.pattern.3" },
+      "&[data-playing][data-pattern='4']": { bg: "rack.pattern.4" },
+      "&[data-playing]": {
+        outline: "1px solid",
+        outlineColor: "rack.step.playing",
+        outlineOffset: "1px",
+      },
     },
     progress: {
       position: "absolute",

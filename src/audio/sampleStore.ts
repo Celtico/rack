@@ -1,5 +1,3 @@
-import type { PadId } from "../state/pattern"
-
 /** A user sample as kept in the browser: the file's bytes plus its name for the panel. */
 export interface StoredSample {
   name: string
@@ -10,9 +8,12 @@ const DB_NAME = "rack"
 const DB_VERSION = 1
 const STORE = "samples"
 
+/** Storage key of one pad of one sampler instance. */
+export const sampleKey = (instanceId: string, pad: string) => `${instanceId}:${pad}`
+
 /**
- * Samples live in IndexedDB, keyed by pad, so they survive a reload without
- * bloating the song JSON. No React, no Tone — bytes in, bytes out.
+ * Samples live in IndexedDB, keyed by `${instance}:${pad}`, so they survive a
+ * reload without bloating the song JSON. No React, no Tone — bytes in, bytes out.
  */
 function openDb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -43,25 +44,25 @@ function withStore<T>(
   )
 }
 
-export const putSample = (pad: PadId, sample: StoredSample): Promise<void> =>
-  withStore<IDBValidKey>("readwrite", (s) => s.put(sample, pad)).then(() => undefined)
+export const putSample = (key: string, sample: StoredSample): Promise<void> =>
+  withStore<IDBValidKey>("readwrite", (s) => s.put(sample, key)).then(() => undefined)
 
-export const getSample = (pad: PadId): Promise<StoredSample | undefined> =>
-  withStore<StoredSample | undefined>("readonly", (s) => s.get(pad))
+export const getSample = (key: string): Promise<StoredSample | undefined> =>
+  withStore<StoredSample | undefined>("readonly", (s) => s.get(key))
 
-export const deleteSample = (pad: PadId): Promise<void> =>
-  withStore<undefined>("readwrite", (s) => s.delete(pad)).then(() => undefined)
+export const deleteSample = (key: string): Promise<void> =>
+  withStore<undefined>("readwrite", (s) => s.delete(key)).then(() => undefined)
 
-/** Every stored sample, keyed by pad. Missing pads are simply absent. */
-export async function getAllSamples(): Promise<Partial<Record<PadId, StoredSample>>> {
+/** Every stored sample, keyed as stored. */
+export async function getAllSamples(): Promise<Record<string, StoredSample>> {
   const [keys, values] = await Promise.all([
     withStore<IDBValidKey[]>("readonly", (s) => s.getAllKeys()),
     withStore<StoredSample[]>("readonly", (s) => s.getAll()),
   ])
-  const out: Partial<Record<PadId, StoredSample>> = {}
+  const out: Record<string, StoredSample> = {}
   keys.forEach((key, i) => {
     const value = values[i]
-    if (typeof key === "string" && value) out[key as PadId] = value
+    if (typeof key === "string" && value) out[key] = value
   })
   return out
 }

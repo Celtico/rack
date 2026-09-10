@@ -1,73 +1,75 @@
 import { Flex, HStack, Text, VStack } from "@chakra-ui/react"
 
-import type { ReactNode } from "react"
-
-import type { ChannelId } from "../state/channels"
-import type { UnitId } from "../state/layout"
-import type { KitRows } from "../state/pattern"
-import type { Finish } from "../theme/recipes/rackUnit"
+import { instanceLabel, KIND_TITLE, type InstanceOf } from "../state/instances"
+import { DRUM_VOICES, PERC_VOICES, type KitRows } from "../state/pattern"
+import { selectInstance, selectTrack, useRackStore } from "../state/store"
 import { Knob } from "./Knob"
 import { RackUnit } from "./RackUnit"
 import { StepGrid } from "./StepGrid"
+import { changeParams, formatPercent, KIND_FINISH, kindIcon } from "./unitMeta"
 
-export interface KitUnitProps<Id extends string> {
-  model: UnitId
-  title: string
-  finish: Finish
-  channel: ChannelId
-  icon: ReactNode
-  voices: readonly Id[]
-  labels: Readonly<Record<Id, string>>
-  rows: KitRows<Id>
-  levels: Readonly<Record<Id, number>>
-  defaultLevels: Readonly<Record<Id, number>>
-  currentStep: number
-  onToggle: (voice: Id, step: number) => void
-  onLevel: (voice: Id, level: number) => void
+const VOICE_LABELS: Readonly<Record<string, string>> = {
+  kick: "Kick",
+  snare: "Snare",
+  clap: "Clap",
+  hat: "Hat",
+  tomLo: "Tom lo",
+  tomHi: "Tom hi",
+  rim: "Rim",
+  cowbell: "Cowbell",
+  shaker: "Shaker",
+  crash: "Crash",
 }
 
-const formatPercent = (level: number) => `${Math.round(level * 100)}%`
+type KitInstance = InstanceOf<"drums"> | InstanceOf<"perc">
 
-/** A kit of one-shot voices on a 16-step grid, with a level per voice. DR-4 and PERC-6. */
-export function KitUnit<Id extends string>({
-  model,
-  title,
-  finish,
-  channel,
-  icon,
-  voices,
-  labels,
-  rows,
-  levels,
-  defaultLevels,
-  currentStep,
-  onToggle,
-  onLevel,
-}: KitUnitProps<Id>) {
-  const gridRows = voices.map((id) => ({ id, label: labels[id], steps: rows[id] }))
+/** DR-4 or PERC-6: one-shot voices on a 16-step grid, with a level per voice. */
+export function KitUnit({ id }: { id: string }) {
+  const inst = useRackStore((s) => selectInstance(s, id)) as KitInstance | undefined
+  const track = useRackStore((s) => selectTrack(s, id))
+  const all = useRackStore((s) => s.instances)
+  const { toggleStep } = useRackStore.getState()
+  if (!inst || !track || !("rows" in track)) return null
+
+  const voices = inst.kind === "drums" ? DRUM_VOICES : PERC_VOICES
+  const rows = track.rows as KitRows
+  const levels = inst.params as Readonly<Record<string, number>>
+  const gridRows = voices.map((voice) => ({
+    id: voice,
+    label: VOICE_LABELS[voice] ?? voice,
+    steps: rows[voice] ?? [],
+  }))
 
   return (
-    <RackUnit model={model} title={title} units={2} finish={finish} channel={channel} icon={icon}>
+    <RackUnit
+      id={id}
+      model={instanceLabel(inst, all)}
+      title={KIND_TITLE[inst.kind]}
+      units={2}
+      finish={KIND_FINISH[inst.kind]}
+      icon={kindIcon(inst.kind)}
+      instance
+    >
       <Flex direction={{ base: "column", lg: "row" }} gap={{ base: "5", lg: "8" }} align="stretch">
-        <StepGrid rows={gridRows} currentStep={currentStep} onToggle={onToggle} />
+        <StepGrid rows={gridRows} onToggle={(voice, step) => toggleStep(id, voice, step)} />
 
         <VStack gap="2" align="flex-start" flexShrink={0}>
           <Text textStyle="silkscreen" color="rack.silkscreen.muted">
             Level
           </Text>
           <HStack gap="4" wrap="wrap" maxW={{ lg: "48" }}>
-            {voices.map((id) => (
+            {voices.map((voice) => (
               <Knob
-                key={id}
+                key={voice}
                 size="sm"
-                label={labels[id]}
-                value={levels[id]}
+                label={VOICE_LABELS[voice] ?? voice}
+                value={levels[voice] ?? 0}
                 min={0}
                 max={1}
                 step={0.01}
-                defaultValue={defaultLevels[id]}
+                defaultValue={0.7}
                 format={formatPercent}
-                onChange={(level) => onLevel(id, level)}
+                onChange={(level) => changeParams(id, { [voice]: level })}
               />
             ))}
           </HStack>

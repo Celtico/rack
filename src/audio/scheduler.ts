@@ -2,28 +2,24 @@ import * as Tone from "tone"
 
 import {
   bassEventAt,
-  DRUM_VOICES,
-  PAD_IDS,
-  PERC_VOICES,
-  POLY_INSTRUMENTS,
+  hitsAt,
   polyNotesAt,
   STEP_COUNT,
   synthNoteAt,
   type BassStepEvent,
-  type HitVoiceId,
   type Pattern,
-  type PolyInstrumentId,
   type SynthNote,
 } from "../state/pattern"
 import type { PlayingPattern } from "../state/patterns"
 
-/** Which one-shot voices are on at a given step. Pure, so it can be tested without audio. */
-export function triggersForStep(pattern: Pattern, step: number): HitVoiceId[] {
-  return [
-    ...DRUM_VOICES.filter((voice) => pattern.drums[voice][step] === true),
-    ...PERC_VOICES.filter((voice) => pattern.perc[voice][step] === true),
-    ...PAD_IDS.filter((pad) => pattern.samples[pad][step] === true),
-  ]
+/** Every (instance, voice) that fires at a step, in instance order. Pure, testable without audio. */
+export function hitsForStep(pattern: Pattern, step: number): [id: string, voice: string][] {
+  const out: [string, string][] = []
+  for (const [id, track] of Object.entries(pattern.tracks)) {
+    if (!("rows" in track)) continue
+    for (const voice of hitsAt(track, step)) out.push([id, voice])
+  }
+  return out
 }
 
 /** At full swing an off-beat sixteenth lands a third late — the triplet feel. */
@@ -47,14 +43,14 @@ export interface SchedulerDeps {
   getSwing: () => number
   /** Length of a sixteenth at the current tempo. */
   sixteenthSeconds: () => number
-  /** Sound a one-shot voice at the audio-clock time given by the transport callback. */
-  trigger: (voice: HitVoiceId, time: number) => void
-  /** Sound the mono synth. */
-  triggerNote: (note: SynthNote, time: number) => void
-  /** Drive the bass — every step, rests included, so slides can release. */
-  triggerBass: (event: BassStepEvent, time: number, stepSeconds: number) => void
-  /** Sound a chord on a polyphonic instrument. Only called when there are notes. */
-  triggerPoly: (instrument: PolyInstrumentId, notes: string[], time: number) => void
+  /** Sound one voice of a kit instance at the audio-clock time given by the transport callback. */
+  trigger: (id: string, voice: string, time: number) => void
+  /** Sound a MONO-1 instance. */
+  triggerNote: (id: string, note: SynthNote, time: number) => void
+  /** Drive a BASS-2 instance — every step, rests included, so slides can release. */
+  triggerBass: (id: string, event: BassStepEvent, time: number, stepSeconds: number) => void
+  /** Sound a chord on a polyphonic instance. Only called when there are notes. */
+  triggerPoly: (id: string, notes: string[], time: number) => void
   /** UI-side playhead; invoked through Draw so it lands on the matching frame. */
   onStep: (step: number, patternIndex: number, bar: number) => void
 }
@@ -99,15 +95,30 @@ export class Scheduler {
     const { index, pattern } = this.deps.getPattern(bar)
     const sixteenth = this.deps.sixteenthSeconds()
     const at = time + swingOffset(step, this.deps.getSwing(), sixteenth)
-    for (const voice of triggersForStep(pattern, step)) {
-      this.deps.trigger(voice, at)
-    }
-    const note = synthNoteAt(pattern, step)
-    if (note) this.deps.triggerNote(note, at)
-    this.deps.triggerBass(bassEventAt(pattern, step), at, sixteenth)
-    for (const instrument of POLY_INSTRUMENTS) {
-      const notes = polyNotesAt(pattern, instrument, step)
-      if (notes.length) this.deps.triggerPoly(instrument, notes, at)
+
+    for (const [id, track] of Object.entries(pattern.tracks)) {
+      switch (track.kind) {
+        case "drums":
+        case "perc":
+        case "sampler":
+          for (const voice of hitsAt(track, step)) this.deps.trigger(id, voice, at)
+          break
+        case "synth": {
+          const note = synthNoteAt(track.notes, step)
+          if (note) this.deps.triggerNote(id, note, at)
+          break
+        }
+        case "bass":
+          this.deps.triggerBass(id, bassEventAt(track.bass, step), at, sixteenth)
+          break
+        case "poly":
+        case "ep":
+        case "strings": {
+          const notes = polyNotesAt(track, step)
+          if (notes.length) this.deps.triggerPoly(id, notes, at)
+          break
+        }
+      }
     }
     Tone.getDraw().schedule(() => this.deps.onStep(step, index, bar), at)
   }

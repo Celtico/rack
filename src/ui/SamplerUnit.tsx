@@ -1,59 +1,53 @@
 import { Button, chakra, Flex, HStack, Text, VStack } from "@chakra-ui/react"
 import { useRef, type ChangeEvent } from "react"
-import { LuAudioWaveform, LuEraser, LuUpload } from "react-icons/lu"
+import { LuEraser, LuUpload } from "react-icons/lu"
 
 import { getEngine } from "../audio/engine"
 import { toaster } from "../components/ui/toaster"
-import { PAD_IDS, type PadId } from "../state/pattern"
-import {
-  PAD_DEFAULT,
-  PAD_RANGES,
-  selectPattern,
-  useRackStore,
-  type PadParams,
-} from "../state/store"
+import { instanceLabel, KIND_TITLE, type InstanceOf } from "../state/instances"
+import { PAD_IDS, type KitRows, type PadId } from "../state/pattern"
+import { PAD_DEFAULT, PAD_RANGES, selectInstance, selectTrack, useRackStore } from "../state/store"
 import { Display } from "./Display"
 import { Knob } from "./Knob"
 import { RackUnit } from "./RackUnit"
 import { StepGrid } from "./StepGrid"
+import { changeParams, formatPercent, formatSeconds, KIND_FINISH, kindIcon } from "./unitMeta"
 
 const padNumber = (pad: PadId) => pad.replace("pad", "")
 const shortName = (name: string | null, pad: PadId) =>
   name ? name.replace(/\.[^.]+$/, "").slice(0, 10) : `Pad ${padNumber(pad)}`
 
 const formatSemitones = (v: number) => `${v > 0 ? "+" : ""}${v} st`
-const formatSeconds = (v: number) => `${v.toFixed(2)} s`
-const formatPercent = (v: number) => `${Math.round(v * 100)}%`
 
 /**
  * SMP-8: eight pads with the user's own samples. Audio lives in the browser
- * (IndexedDB); the song keeps each pad's name, pitch, decay and level.
+ * (IndexedDB, under this instance's keys); the song keeps each pad's name,
+ * pitch, decay and level.
  */
-export function SamplerUnit() {
-  const samples = useRackStore((s) => selectPattern(s).samples)
-  const currentStep = useRackStore((s) => s.currentStep)
-  const pads = useRackStore((s) => s.pads)
-  const selected = useRackStore((s) => s.selectedPad)
-  const { toggleSampleStep, selectPad, setPadParam } = useRackStore.getState()
+export function SamplerUnit({ id }: { id: string }) {
+  const inst = useRackStore((s) => selectInstance(s, id)) as InstanceOf<"sampler"> | undefined
+  const track = useRackStore((s) => selectTrack(s, id))
+  const all = useRackStore((s) => s.instances)
+  const selected = useRackStore((s) => s.selectedPad[id] ?? "pad1")
+  const { toggleStep, selectPad, setInstanceParams } = useRackStore.getState()
   const fileInput = useRef<HTMLInputElement>(null)
+  if (!inst || !track || !("rows" in track)) return null
 
+  const pads = inst.params
   const pad = pads[selected]
-  const rows = PAD_IDS.map((id) => ({
-    id,
-    label: shortName(pads[id].name, id),
-    steps: samples[id],
+  const rows = track.rows as KitRows
+  const gridRows = PAD_IDS.map((p) => ({
+    id: p,
+    label: shortName(pads[p].name, p),
+    steps: rows[p] ?? [],
   }))
 
-  const change =
-    <K extends keyof PadParams>(key: K) =>
-    (value: PadParams[K]) => {
-      setPadParam(selected, key, value)
-      getEngine().setPadParams(selected, { ...useRackStore.getState().pads[selected] })
-    }
+  const changePad = (patch: Partial<typeof pad>) =>
+    changeParams(id, { [selected]: { ...pad, ...patch } })
 
-  const pick = (id: PadId) => {
-    selectPad(id)
-    getEngine().triggerHit(id)
+  const pick = (p: PadId) => {
+    selectPad(id, p)
+    getEngine().triggerHit(id, p)
   }
 
   const load = async (e: ChangeEvent<HTMLInputElement>) => {
@@ -61,8 +55,8 @@ export function SamplerUnit() {
     e.target.value = ""
     if (!file) return
     try {
-      await getEngine().importSample(selected, file.name, await file.arrayBuffer())
-      setPadParam(selected, "name", file.name)
+      await getEngine().importSample(id, selected, file.name, await file.arrayBuffer())
+      setInstanceParams(id, { [selected]: { ...pad, name: file.name } })
       toaster.create({
         type: "success",
         title: `Pad ${padNumber(selected)}`,
@@ -78,39 +72,40 @@ export function SamplerUnit() {
   }
 
   const clear = async () => {
-    await getEngine().clearSample(selected)
-    setPadParam(selected, "name", null)
+    await getEngine().clearSample(id, selected)
+    setInstanceParams(id, { [selected]: { ...pad, name: null } })
   }
 
   return (
     <RackUnit
-      model="SMP-8"
-      title="Sampler"
+      id={id}
+      model={instanceLabel(inst, all)}
+      title={KIND_TITLE.sampler}
       units={2}
-      finish="teal"
-      channel="sampler"
-      icon={<LuAudioWaveform />}
+      finish={KIND_FINISH.sampler}
+      icon={kindIcon("sampler")}
+      instance
     >
       <Flex direction={{ base: "column", xl: "row" }} gap={{ base: "5", xl: "8" }} align="stretch">
-        <StepGrid rows={rows} currentStep={currentStep} onToggle={toggleSampleStep} />
+        <StepGrid rows={gridRows} onToggle={(p, step) => toggleStep(id, p, step)} />
 
         <VStack gap="3" align="flex-start" flexShrink={0} maxW={{ xl: "64" }}>
           <Text textStyle="silkscreen" color="rack.silkscreen.muted">
             Pad
           </Text>
           <HStack gap="1" wrap="wrap">
-            {PAD_IDS.map((id) => (
+            {PAD_IDS.map((p) => (
               <Button
-                key={id}
+                key={p}
                 size="xs"
                 rounded="sm"
-                variant={id === selected ? "solid" : "subtle"}
-                colorPalette={id === selected ? "orange" : "gray"}
-                aria-pressed={id === selected}
-                aria-label={`Select pad ${padNumber(id)}`}
-                onClick={() => pick(id)}
+                variant={p === selected ? "solid" : "subtle"}
+                colorPalette={p === selected ? "orange" : "gray"}
+                aria-pressed={p === selected}
+                aria-label={`Select pad ${padNumber(p)}`}
+                onClick={() => pick(p)}
               >
-                {padNumber(id)}
+                {padNumber(p)}
               </Button>
             ))}
           </HStack>
@@ -157,7 +152,7 @@ export function SamplerUnit() {
               step={1}
               defaultValue={PAD_DEFAULT.pitch}
               format={formatSemitones}
-              onChange={change("pitch")}
+              onChange={(pitch) => changePad({ pitch })}
             />
             <Knob
               size="sm"
@@ -169,7 +164,7 @@ export function SamplerUnit() {
               step={0.01}
               defaultValue={PAD_DEFAULT.decay}
               format={formatSeconds}
-              onChange={change("decay")}
+              onChange={(decay) => changePad({ decay })}
             />
             <Knob
               size="sm"
@@ -180,7 +175,7 @@ export function SamplerUnit() {
               step={0.01}
               defaultValue={PAD_DEFAULT.level}
               format={formatPercent}
-              onChange={change("level")}
+              onChange={(level) => changePad({ level })}
             />
           </HStack>
         </VStack>

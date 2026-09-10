@@ -3,12 +3,11 @@ import type { ReactNode } from "react"
 import { LuSlidersHorizontal } from "react-icons/lu"
 
 import { getEngine } from "../audio/engine"
-import { CHANNEL_IDS, CHANNEL_LABELS, type ChannelId } from "../state/channels"
+import { instanceLabel } from "../state/instances"
 import {
   DELAY_TIMES,
   FX_DEFAULT,
   FX_RANGES,
-  MIX_DEFAULT,
   useRackStore,
   type DelayTime,
   type FxParams,
@@ -17,6 +16,7 @@ import { Fader } from "./Fader"
 import { Knob } from "./Knob"
 import { LevelMeter } from "./LevelMeter"
 import { RackUnit } from "./RackUnit"
+import { formatPercent } from "./unitMeta"
 
 const DELAY_LABELS: Record<DelayTime, string> = {
   "16n": "1/16",
@@ -26,8 +26,6 @@ const DELAY_LABELS: Record<DelayTime, string> = {
 }
 
 const isDelayTime = (v: string | null): v is DelayTime => DELAY_TIMES.includes(v as DelayTime)
-
-const formatPercent = (v: number) => `${Math.round(v * 100)}%`
 const formatSeconds = (v: number) => `${v.toFixed(1)} s`
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
@@ -41,36 +39,38 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
   )
 }
 
-/** One mixer strip: meter, fader and FX send. */
-function Strip({ channel }: { channel: ChannelId }) {
-  const level = useRackStore((s) => s.mix.level[channel])
-  const send = useRackStore((s) => s.mix.send[channel])
-  const { setChannelLevel, setChannelSend } = useRackStore.getState()
+/** One mixer strip: meter, fader and FX send of an instance. */
+function Strip({ id }: { id: string }) {
+  const inst = useRackStore((s) => s.instances.find((i) => i.id === id))
+  const all = useRackStore((s) => s.instances)
+  const { setInstanceLevel, setInstanceSend } = useRackStore.getState()
+  if (!inst) return null
+  const label = instanceLabel(inst, all)
 
   return (
-    <Section title={CHANNEL_LABELS[channel]}>
+    <Section title={label}>
       <HStack gap="2" align="flex-end">
-        <LevelMeter source={channel} label={`${CHANNEL_LABELS[channel]} level`} size="sm" />
+        <LevelMeter source={id} label={`${label} level`} size="sm" />
         <Fader
           label="Level"
-          value={level}
+          value={inst.level}
           onChange={(v) => {
-            setChannelLevel(channel, v)
-            getEngine().setChannelVolume(channel, v)
+            setInstanceLevel(id, v)
+            getEngine().setInstanceLevel(id, v)
           }}
         />
         <Knob
           size="sm"
           label="Send"
-          value={send}
+          value={inst.send}
           min={0}
           max={1}
           step={0.01}
-          defaultValue={MIX_DEFAULT.send[channel]}
+          defaultValue={0.3}
           format={formatPercent}
           onChange={(v) => {
-            setChannelSend(channel, v)
-            getEngine().setSend(channel, v)
+            setInstanceSend(id, v)
+            getEngine().setInstanceSend(id, v)
           }}
         />
       </HStack>
@@ -78,9 +78,12 @@ function Strip({ channel }: { channel: ChannelId }) {
   )
 }
 
-/** FX-2: the mixer strips (meter, fader, send per module), the echo and the reverb. */
+/** FX-2: a mixer strip per machine (meter, fader, send), the echo and the reverb. */
 export function FxUnit() {
   const fx = useRackStore((s) => s.fx)
+  // Select the list itself: a mapped array would be a fresh value every render.
+  const instances = useRackStore((s) => s.instances)
+  const ids = instances.map((i) => i.id)
   const { setFxParam } = useRackStore.getState()
 
   const changeFx =
@@ -92,15 +95,29 @@ export function FxUnit() {
 
   return (
     <RackUnit
+      id="FX-2"
       model="FX-2"
       title="Mix · Echo · Reverb"
       finish="yellow"
       icon={<LuSlidersHorizontal />}
+      preview={
+        <HStack gap="1.5">
+          {instances.map((inst) => (
+            <LevelMeter
+              key={inst.id}
+              source={inst.id}
+              label={`${instanceLabel(inst, instances)} level`}
+              size="sm"
+              orientation="horizontal"
+            />
+          ))}
+        </HStack>
+      }
     >
       <VStack gap="6" align="stretch">
         <Flex wrap="wrap" gap={{ base: "4", md: "6" }} align="flex-end">
-          {CHANNEL_IDS.map((channel) => (
-            <Strip key={channel} channel={channel} />
+          {ids.map((id) => (
+            <Strip key={id} id={id} />
           ))}
         </Flex>
 

@@ -1,70 +1,63 @@
 import { Flex, HStack, SegmentGroup, Text, VStack } from "@chakra-ui/react"
-import { LuWaves } from "react-icons/lu"
 
-import { getEngine } from "../audio/engine"
+import { instanceLabel, KIND_TITLE, type InstanceOf } from "../state/instances"
 import { SYNTH_NOTES, type SynthNote } from "../state/pattern"
 import {
-  selectPattern,
+  selectInstance,
+  selectTrack,
   SYNTH_PARAMS_DEFAULT,
   SYNTH_RANGES,
   useRackStore,
   WAVEFORMS,
-  type SynthParams,
   type Waveform,
 } from "../state/store"
 import { Knob } from "./Knob"
 import { RackUnit } from "./RackUnit"
 import { StepGrid } from "./StepGrid"
+import {
+  changeParams,
+  formatHz,
+  formatMs,
+  formatQ,
+  KIND_FINISH,
+  kindIcon,
+  WAVE_LABELS,
+} from "./unitMeta"
 
 /** Highest note on top, like a piano roll. */
 const NOTE_ROWS = [...SYNTH_NOTES].reverse()
 
-const WAVE_LABELS: Record<Waveform, string> = {
-  sawtooth: "Saw",
-  square: "Sqr",
-  triangle: "Tri",
-  sine: "Sin",
-}
-
 const isWaveform = (v: string | null): v is Waveform => WAVEFORMS.includes(v as Waveform)
 
-const formatHz = (v: number) => `${Math.round(v)} Hz`
-const formatQ = (v: number) => `Q ${v.toFixed(1)}`
-const formatMs = (v: number) => `${Math.round(v * 1000)} ms`
-
 /** MONO-1: one note per column on an 8-row grid, with waveform, filter and decay. */
-export function MonoSynth() {
-  const synth = useRackStore((s) => selectPattern(s).synth)
-  const currentStep = useRackStore((s) => s.currentStep)
-  const params = useRackStore((s) => s.synthParams)
-  const { toggleSynthNote, setSynthParam } = useRackStore.getState()
+export function MonoSynth({ id }: { id: string }) {
+  const inst = useRackStore((s) => selectInstance(s, id)) as InstanceOf<"synth"> | undefined
+  const track = useRackStore((s) => selectTrack(s, id))
+  const all = useRackStore((s) => s.instances)
+  const { toggleNote } = useRackStore.getState()
+  if (!inst || track?.kind !== "synth") return null
 
+  const params = inst.params
   const rows = NOTE_ROWS.map((note) => {
     const rowIndex = SYNTH_NOTES.indexOf(note)
-    return { id: note, label: note, steps: synth.map((r) => r === rowIndex) }
+    return { id: note, label: note, steps: track.notes.map((r) => r === rowIndex) }
   })
-
-  const onToggle = (note: SynthNote, step: number) =>
-    toggleSynthNote(step, SYNTH_NOTES.indexOf(note))
-
-  const change =
-    <K extends keyof SynthParams>(key: K) =>
-    (value: SynthParams[K]) => {
-      setSynthParam(key, value)
-      getEngine().setSynthParam(key, value)
-    }
 
   return (
     <RackUnit
-      model="MONO-1"
-      title="Mono synth"
+      id={id}
+      model={instanceLabel(inst, all)}
+      title={KIND_TITLE.synth}
       units={3}
-      finish="blue"
-      channel="synth"
-      icon={<LuWaves />}
+      finish={KIND_FINISH.synth}
+      icon={kindIcon("synth")}
+      instance
     >
       <Flex direction={{ base: "column", lg: "row" }} gap={{ base: "5", lg: "8" }} align="stretch">
-        <StepGrid rows={rows} currentStep={currentStep} onToggle={onToggle} />
+        <StepGrid
+          rows={rows}
+          onToggle={(note: SynthNote, step) => toggleNote(id, step, SYNTH_NOTES.indexOf(note))}
+        />
 
         <VStack gap="4" align="flex-start" flexShrink={0}>
           <VStack gap="2" align="flex-start">
@@ -75,7 +68,7 @@ export function MonoSynth() {
               size="sm"
               value={params.waveform}
               onValueChange={(details) => {
-                if (isWaveform(details.value)) change("waveform")(details.value)
+                if (isWaveform(details.value)) changeParams(id, { waveform: details.value })
               }}
             >
               <SegmentGroup.Indicator />
@@ -98,7 +91,7 @@ export function MonoSynth() {
               step={1}
               defaultValue={SYNTH_PARAMS_DEFAULT.cutoff}
               format={formatHz}
-              onChange={change("cutoff")}
+              onChange={(cutoff) => changeParams(id, { cutoff })}
             />
             <Knob
               label="Res"
@@ -108,7 +101,7 @@ export function MonoSynth() {
               step={0.1}
               defaultValue={SYNTH_PARAMS_DEFAULT.resonance}
               format={formatQ}
-              onChange={change("resonance")}
+              onChange={(resonance) => changeParams(id, { resonance })}
             />
             <Knob
               label="Decay"
@@ -118,7 +111,7 @@ export function MonoSynth() {
               step={0.01}
               defaultValue={SYNTH_PARAMS_DEFAULT.decay}
               format={formatMs}
-              onChange={change("decay")}
+              onChange={(decay) => changeParams(id, { decay })}
             />
           </HStack>
         </VStack>

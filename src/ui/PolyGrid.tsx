@@ -1,27 +1,21 @@
-import { POLY_NOTES, type PolyInstrumentId } from "../state/pattern"
-import { selectPattern, useRackStore } from "../state/store"
+import { POLY_NOTES, type PolyTrack } from "../state/pattern"
+import { useRackStore } from "../state/store"
 import { StepGrid } from "./StepGrid"
 
-/** The chord grid of one polyphonic instrument: highest note on top, any number of notes per column. */
-export function PolyGrid({ instrument }: { instrument: PolyInstrumentId }) {
-  const columns = useRackStore((s) => selectPattern(s).poly[instrument])
-  const currentStep = useRackStore((s) => s.currentStep)
-  const { togglePolyNote } = useRackStore.getState()
+/** The chord grid of one polyphonic instance: highest note on top, any number of notes per column. */
+export function PolyGrid({ id, track }: { id: string; track: PolyTrack }) {
+  const { toggleNote } = useRackStore.getState()
 
-  const names = POLY_NOTES[instrument]
+  const names = POLY_NOTES[track.kind]
   const rows = [...names]
     .map((note, rowIndex) => ({
       id: note,
       label: note,
-      steps: columns.map((column) => column.includes(rowIndex)),
+      steps: track.chords.map((column) => column.includes(rowIndex)),
     }))
     .reverse()
 
   return (
-    <StepGrid
-      rows={rows}
-      currentStep={currentStep}
-      onToggle={(note, step) => togglePolyNote(instrument, step, names.indexOf(note))}
-    />
+    <StepGrid rows={rows} onToggle={(note, step) => toggleNote(id, step, names.indexOf(note))} />
   )
 }

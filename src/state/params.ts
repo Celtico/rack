@@ -1,4 +1,3 @@
-import type { ChannelId } from "./channels"
 import { PAD_IDS, type DrumVoiceId, type PadId, type PercVoiceId } from "./pattern"
 
 export const BPM_MIN = 40
@@ -164,46 +163,6 @@ export const STRINGS_RANGES = {
 
 export const STRINGS_PARAMS_DEFAULT: StringsParams = { damp: 3200, sustain: 0.97, release: 1 }
 
-/** Per-channel level into the master bus, send into the FX bus (both 0–1) and mute. */
-export interface MixParams {
-  level: Readonly<Record<ChannelId, number>>
-  send: Readonly<Record<ChannelId, number>>
-  mute: Readonly<Record<ChannelId, boolean>>
-}
-
-export const MIX_DEFAULT: MixParams = {
-  mute: {
-    drums: false,
-    perc: false,
-    sampler: false,
-    synth: false,
-    bass: false,
-    poly: false,
-    ep: false,
-    strings: false,
-  },
-  level: {
-    drums: 0.9,
-    perc: 0.8,
-    sampler: 0.85,
-    synth: 0.8,
-    bass: 0.85,
-    poly: 0.7,
-    ep: 0.75,
-    strings: 0.7,
-  },
-  send: {
-    drums: 0.15,
-    perc: 0.25,
-    sampler: 0.2,
-    synth: 0.35,
-    bass: 0.15,
-    poly: 0.4,
-    ep: 0.35,
-    strings: 0.3,
-  },
-}
-
 /** Echo time in transport notation, so it follows the tempo. */
 export const DELAY_TIMES = ["16n", "8n", "8n.", "4n"] as const
 export type DelayTime = (typeof DELAY_TIMES)[number]
@@ -229,15 +188,3 @@ export const FX_DEFAULT: FxParams = {
 
 export const clamp = (value: number, min: number, max: number) =>
   Math.min(max, Math.max(min, value))
-
-/** Clamp every value of a keyed record to [min, max]. */
-export function clampRecord<Id extends string>(
-  ids: readonly Id[],
-  values: Readonly<Record<Id, number>>,
-  min: number,
-  max: number,
-): Record<Id, number> {
-  const out = {} as Record<Id, number>
-  for (const id of ids) out[id] = clamp(values[id], min, max)
-  return out
-}

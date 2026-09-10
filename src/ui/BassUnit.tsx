@@ -1,20 +1,28 @@
 import { Flex, HStack, SegmentGroup, Text, VStack } from "@chakra-ui/react"
-import { LuZap } from "react-icons/lu"
 
-import { getEngine } from "../audio/engine"
+import { instanceLabel, KIND_TITLE, type InstanceOf } from "../state/instances"
 import { BASS_NOTES, type BassFlag, type BassNote } from "../state/pattern"
 import {
   BASS_PARAMS_DEFAULT,
   BASS_RANGES,
   BASS_WAVEFORMS,
-  selectPattern,
+  selectInstance,
+  selectTrack,
   useRackStore,
-  type BassParams,
   type BassWaveform,
 } from "../state/store"
 import { Knob } from "./Knob"
 import { RackUnit } from "./RackUnit"
 import { StepGrid } from "./StepGrid"
+import {
+  changeParams,
+  formatHz,
+  formatMs,
+  formatPercent,
+  formatQ,
+  KIND_FINISH,
+  kindIcon,
+} from "./unitMeta"
 
 /** Highest note on top, then the two flag rows. */
 const NOTE_ROWS = [...BASS_NOTES].reverse()
@@ -26,18 +34,16 @@ const isWaveform = (v: string | null): v is BassWaveform =>
   BASS_WAVEFORMS.includes(v as BassWaveform)
 const isFlag = (id: RowId): id is BassFlag => id === "accent" || id === "slide"
 
-const formatHz = (v: number) => `${Math.round(v)} Hz`
-const formatQ = (v: number) => `Q ${v.toFixed(1)}`
-const formatPercent = (v: number) => `${Math.round(v * 100)}%`
-const formatMs = (v: number) => `${Math.round(v * 1000)} ms`
-
 /** BASS-2: acid mono line — one note per column, plus accent and slide per step. */
-export function BassUnit() {
-  const bass = useRackStore((s) => selectPattern(s).bass)
-  const currentStep = useRackStore((s) => s.currentStep)
-  const params = useRackStore((s) => s.bassParams)
-  const { toggleBassNote, toggleBassFlag, setBassParam } = useRackStore.getState()
+export function BassUnit({ id }: { id: string }) {
+  const inst = useRackStore((s) => selectInstance(s, id)) as InstanceOf<"bass"> | undefined
+  const track = useRackStore((s) => selectTrack(s, id))
+  const all = useRackStore((s) => s.instances)
+  const { toggleNote, toggleFlag } = useRackStore.getState()
+  if (!inst || track?.kind !== "bass") return null
 
+  const params = inst.params
+  const bass = track.bass
   const rows = [
     ...NOTE_ROWS.map((note) => {
       const rowIndex = BASS_NOTES.indexOf(note)
@@ -47,29 +53,23 @@ export function BassUnit() {
     { id: "slide" as RowId, label: "Slide", steps: bass.slide },
   ]
 
-  const onToggle = (id: RowId, step: number) => {
-    if (isFlag(id)) toggleBassFlag(step, id)
-    else toggleBassNote(step, BASS_NOTES.indexOf(id))
+  const onToggle = (row: RowId, step: number) => {
+    if (isFlag(row)) toggleFlag(id, step, row)
+    else toggleNote(id, step, BASS_NOTES.indexOf(row))
   }
-
-  const change =
-    <K extends keyof BassParams>(key: K) =>
-    (value: BassParams[K]) => {
-      setBassParam(key, value)
-      getEngine().setBassParam(key, value)
-    }
 
   return (
     <RackUnit
-      model="BASS-2"
-      title="Acid bass"
+      id={id}
+      model={instanceLabel(inst, all)}
+      title={KIND_TITLE.bass}
       units={3}
-      finish="silver"
-      channel="bass"
-      icon={<LuZap />}
+      finish={KIND_FINISH.bass}
+      icon={kindIcon("bass")}
+      instance
     >
       <Flex direction={{ base: "column", lg: "row" }} gap={{ base: "5", lg: "8" }} align="stretch">
-        <StepGrid rows={rows} currentStep={currentStep} onToggle={onToggle} />
+        <StepGrid rows={rows} onToggle={onToggle} />
 
         <VStack gap="4" align="flex-start" flexShrink={0}>
           <VStack gap="2" align="flex-start">
@@ -80,7 +80,7 @@ export function BassUnit() {
               size="sm"
               value={params.waveform}
               onValueChange={(details) => {
-                if (isWaveform(details.value)) change("waveform")(details.value)
+                if (isWaveform(details.value)) changeParams(id, { waveform: details.value })
               }}
             >
               <SegmentGroup.Indicator />
@@ -103,7 +103,7 @@ export function BassUnit() {
               step={1}
               defaultValue={BASS_PARAMS_DEFAULT.cutoff}
               format={formatHz}
-              onChange={change("cutoff")}
+              onChange={(cutoff) => changeParams(id, { cutoff })}
             />
             <Knob
               label="Res"
@@ -113,7 +113,7 @@ export function BassUnit() {
               step={0.1}
               defaultValue={BASS_PARAMS_DEFAULT.resonance}
               format={formatQ}
-              onChange={change("resonance")}
+              onChange={(resonance) => changeParams(id, { resonance })}
             />
             <Knob
               label="Env"
@@ -123,7 +123,7 @@ export function BassUnit() {
               step={0.01}
               defaultValue={BASS_PARAMS_DEFAULT.envMod}
               format={formatPercent}
-              onChange={change("envMod")}
+              onChange={(envMod) => changeParams(id, { envMod })}
             />
             <Knob
               label="Decay"
@@ -133,7 +133,7 @@ export function BassUnit() {
               step={0.01}
               defaultValue={BASS_PARAMS_DEFAULT.decay}
               format={formatMs}
-              onChange={change("decay")}
+              onChange={(decay) => changeParams(id, { decay })}
             />
           </HStack>
         </VStack>

@@ -4,9 +4,11 @@ A browser-based hardware rack: a drum machine (**DR-4**), a percussion kit (**PE
 for your own files (**SMP-8**), an acid bass (**BASS-2**), a mono synth (**MONO-1**), a poly pad
 (**POLY-4**), an FM electric piano (**EP-1**), plucked strings (**STR-6**), an FX unit (**FX-2**),
 a four-slot pattern bank, a **SONG** timeline that lays the patterns out bar by bar, and a
-transport with tempo and swing — built with Tone.js and Chakra UI v3. Every unit can be folded
-(showing its waveform), muted, taken out of the rack and put back, and dragged into any order; the
-FX-2 mixer has a fader and LED meter per module. The arrangement is remembered by the browser.
+transport with tempo and swing — built with Tone.js and Chakra UI v3. **Add unit** puts any number
+of each machine in the rack (two DR-4s, three samplers…), each with its own patterns, mixer strip
+and settings. Every unit can be folded (machines show their pattern in miniature, the transport its output meter, FX-2 every level, SONG the bars), muted, removed (with
+Undo) and dragged into any order; the FX-2 mixer has a fader and LED meter per machine. The
+arrangement is remembered by the browser.
 
 Live: https://rack.serverscel.com/
 
@@ -49,8 +51,11 @@ docker compose up -d --build     # serves dist/ with nginx on port 7273
 
 ## Songs
 
-**Save** downloads a `rack-song.json` with the bank, chain, tempo and every parameter;
-**Load** reads one back. `docs/rack-song.json` is an example.
+The rack starts with `public/-rack-song.json` (fetched at load; if it is missing, the built-in groove plays).
+**Save** downloads a `rack-song.json` with the machines in the rack, the bank, chain, tempo and
+every parameter; **Load** reads one back. Files saved before machines could be duplicated (version
+1) still load: each channel the file names becomes the first machine of its kind — nothing else is added. `docs/rack-song.json` is an
+example.
 
 SMP-8 samples are stored in the browser (IndexedDB), not in the song file — a song lists each
 pad's file name, pitch, decay and level, and expects the same samples to be present.

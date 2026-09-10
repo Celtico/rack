@@ -1,4 +1,4 @@
-import { Button, chakra, Flex, HStack, Text, VStack } from "@chakra-ui/react"
+import { Button, chakra, Flex, HStack, Text, useSlotRecipe, VStack } from "@chakra-ui/react"
 import { useRef, type ChangeEvent, type ReactNode } from "react"
 import { LuCopy, LuDownload, LuLayoutGrid, LuUpload } from "react-icons/lu"
 
@@ -7,7 +7,6 @@ import { toaster } from "../components/ui/toaster"
 import { PATTERN_COUNT } from "../state/patterns"
 import { parseSong, serializeSong, SongParseError } from "../state/song"
 import { toSong, useRackStore } from "../state/store"
-import { Led } from "./Led"
 import { RackUnit } from "./RackUnit"
 
 const SLOTS = Array.from({ length: PATTERN_COUNT }, (_, i) => i)
@@ -39,6 +38,8 @@ export function PatternBank() {
   const playingPattern = useRackStore((s) => s.playingPattern)
   const { setActivePattern, copyActivePatternTo, loadSong } = useRackStore.getState()
   const fileInput = useRef<HTMLInputElement>(null)
+  // Same blocks as the SONG bars: grey, lit in the pattern's colour while it sounds.
+  const styles = useSlotRecipe({ key: "songTimeline" })()
 
   const save = () => {
     download("rack-song.json", serializeSong(toSong(useRackStore.getState())))
@@ -59,26 +60,49 @@ export function PatternBank() {
   }
 
   return (
-    <RackUnit model="PATTERN" title="Bank · File" icon={<LuLayoutGrid />}>
+    <RackUnit
+      id="PATTERN"
+      model="PATTERN"
+      title="Bank · File"
+      icon={<LuLayoutGrid />}
+      preview={
+        <chakra.div
+          css={styles.mini}
+          role="img"
+          aria-label={`Bank: editing pattern ${activePattern + 1}`}
+        >
+          {SLOTS.map((slot) => (
+            <chakra.span
+              key={slot}
+              css={styles.miniBlock}
+              data-pattern={slot + 1}
+              data-playing={slot === playingPattern ? "" : undefined}
+              data-active={slot === activePattern ? "" : undefined}
+            />
+          ))}
+        </chakra.div>
+      }
+    >
       <Flex wrap="wrap" gap={{ base: "5", md: "8" }} align="flex-start">
         <Section title="Bank">
           <HStack gap="2" align="flex-end">
-            {SLOTS.map((slot) => (
-              <VStack key={slot} gap="1">
-                <Led on={slot === playingPattern} label={`Pattern ${slot + 1} playing`} />
-                <Button
-                  size="sm"
-                  rounded="sm"
-                  variant={slot === activePattern ? "solid" : "subtle"}
-                  colorPalette={slot === activePattern ? "orange" : "gray"}
+            <HStack gap="1" role="group" aria-label="Pattern bank">
+              {SLOTS.map((slot) => (
+                <chakra.button
+                  key={slot}
+                  type="button"
+                  css={styles.block}
+                  data-pattern={slot + 1}
+                  data-playing={slot === playingPattern ? "" : undefined}
+                  data-active={slot === activePattern ? "" : undefined}
                   aria-pressed={slot === activePattern}
                   aria-label={`Edit pattern ${slot + 1}`}
                   onClick={() => setActivePattern(slot)}
                 >
-                  {slot + 1}
-                </Button>
-              </VStack>
-            ))}
+                  <chakra.span css={styles.number}>{slot + 1}</chakra.span>
+                </chakra.button>
+              ))}
+            </HStack>
             <Button
               size="sm"
               rounded="sm"

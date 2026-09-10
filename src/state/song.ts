@@ -1,73 +1,43 @@
-import { CHANNEL_IDS, type ChannelId } from "./channels"
-import {
-  BASS_PARAMS_DEFAULT,
-  BASS_WAVEFORMS,
-  DELAY_TIMES,
-  EP_PARAMS_DEFAULT,
-  MIX_DEFAULT,
-  PAD_DEFAULT,
-  PERC_LEVELS_DEFAULT,
-  POLY_PARAMS_DEFAULT,
-  STRINGS_PARAMS_DEFAULT,
-  WAVEFORMS,
-  type BassParams,
-  type DrumLevels,
-  type EpParams,
-  type FxParams,
-  type MixParams,
-  type PadParams,
-  type PercLevels,
-  type PolyParams,
-  type StringsParams,
-  type SynthParams,
-} from "./params"
+import { defaultParams, type Instance } from "./instances"
+import { BASS_WAVEFORMS, DELAY_TIMES, WAVEFORMS, type FxParams } from "./params"
 import {
   BASS_NOTES,
-  DRUM_VOICES,
+  emptyTrack,
+  KINDS,
+  KIT_VOICES,
   kitRows,
-  noteRow,
   PAD_IDS,
-  PERC_VOICES,
-  POLY_INSTRUMENTS,
   POLY_NOTES,
-  polyRow,
   STEP_COUNT,
   SYNTH_NOTES,
   type BassRow,
+  type Kind,
+  type KitKind,
   type KitRows,
-  type PadId,
   type Pattern,
-  type PolyInstrumentId,
+  type PolyKind,
   type PolyRow,
   type SynthRow,
+  type Track,
 } from "./pattern"
 import { MAX_CHAIN, PATTERN_COUNT } from "./patterns"
+import { parseSongV1 } from "./songV1"
 
-export const SONG_VERSION = 1
+export const SONG_VERSION = 2
 
 /**
  * Everything worth saving. Transport position and playing state are not.
- * Fields added after the first release (swing, perc, bass, the poly
- * instruments, the sampler, mutes) are optional on read so older files keep
- * loading. Sample audio is not here — it stays in the browser's IndexedDB.
+ * Sample audio is not here either — it stays in the browser's IndexedDB.
  */
 export interface Song {
   version: typeof SONG_VERSION
   bpm: number
   swing: number
   masterVolume: number
+  instances: Instance[]
   patterns: Pattern[]
   activePattern: number
   chain: number[]
-  drumLevels: DrumLevels
-  percLevels: PercLevels
-  pads: Record<PadId, PadParams>
-  synthParams: SynthParams
-  bassParams: BassParams
-  polyParams: PolyParams
-  epParams: EpParams
-  stringsParams: StringsParams
-  mix: MixParams
   fx: FxParams
 }
 
@@ -83,6 +53,12 @@ const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === "obj
 
 const num = (v: unknown, path: string): number =>
   typeof v === "number" && Number.isFinite(v) ? v : fail(path, "a finite number")
+
+const bool = (v: unknown, path: string): boolean =>
+  typeof v === "boolean" ? v : fail(path, "a boolean")
+
+const str = (v: unknown, path: string): string =>
+  typeof v === "string" && v.length > 0 ? v : fail(path, "a non-empty string")
 
 const int = (v: unknown, path: string, max: number): number =>
   Number.isInteger(v) && (v as number) >= 0 && (v as number) < max
@@ -102,9 +78,7 @@ const list = (v: unknown, path: string, length?: number): unknown[] => {
 }
 
 const boolRow = (v: unknown, path: string): boolean[] =>
-  list(v, path, STEP_COUNT).map((on, i) =>
-    typeof on === "boolean" ? on : fail(`${path}[${i}]`, "a boolean"),
-  )
+  list(v, path, STEP_COUNT).map((on, i) => bool(on, `${path}[${i}]`))
 
 const monoRow = (v: unknown, path: string, rows: number): SynthRow =>
   list(v, path, STEP_COUNT).map((r, i) => (r === null ? null : int(r, `${path}[${i}]`, rows)))
@@ -116,23 +90,15 @@ const chordRow = (v: unknown, path: string, rows: number): PolyRow =>
     ].sort((a, b) => a - b),
   )
 
-/** One on/off row per voice. A kit missing from the file (older song) gets empty rows. */
-function parseKitRows<Id extends string>(
-  v: unknown,
-  path: string,
-  ids: readonly Id[],
-): KitRows<Id> {
-  if (v === undefined) return kitRows(ids)
+function parseKitRows(v: unknown, path: string, kind: KitKind): KitRows {
+  if (v === undefined) return kitRows(KIT_VOICES[kind])
   const obj = record(v, path)
-  const out = {} as Record<Id, boolean[]>
-  for (const id of ids) out[id] = boolRow(obj[id], `${path}.${id}`)
+  const out: Record<string, boolean[]> = {}
+  for (const id of KIT_VOICES[kind]) out[id] = boolRow(obj[id], `${path}.${id}`)
   return out
 }
 
 function parseBassRow(v: unknown, path: string): BassRow {
-  if (v === undefined) {
-    return { notes: noteRow(), accent: kitRows(["a"]).a, slide: kitRows(["s"]).s }
-  }
   const obj = record(v, path)
   return {
     notes: monoRow(obj.notes, `${path}.notes`, BASS_NOTES.length),
@@ -141,93 +107,109 @@ function parseBassRow(v: unknown, path: string): BassRow {
   }
 }
 
-function parsePolyRows(v: unknown, path: string): Record<PolyInstrumentId, PolyRow> {
+/** A track of a known kind. A missing track (instance added after the file was saved) is silent. */
+function parseTrack(v: unknown, path: string, kind: Kind): Track {
+  if (v === undefined) return emptyTrack(kind)
+  const t = record(v, path)
+  if (t.kind !== kind) fail(`${path}.kind`, kind)
+  switch (kind) {
+    case "drums":
+    case "perc":
+    case "sampler":
+      return { kind, rows: parseKitRows(t.rows, `${path}.rows`, kind) } as Track
+    case "synth":
+      return { kind, notes: monoRow(t.notes, `${path}.notes`, SYNTH_NOTES.length) }
+    case "bass":
+      return { kind, bass: parseBassRow(t.bass, `${path}.bass`) }
+    case "poly":
+    case "ep":
+    case "strings":
+      return {
+        kind,
+        chords: chordRow(t.chords, `${path}.chords`, POLY_NOTES[kind].length),
+      } as Track
+  }
+}
+
+/** Numeric params validated against the kind's defaults; enum fields checked against their lists. */
+function parseParams(v: unknown, path: string, kind: Kind): Instance["params"] {
+  const defaults = defaultParams(kind) as Record<string, unknown>
   const obj = v === undefined ? {} : record(v, path)
-  const out = {} as Record<PolyInstrumentId, PolyRow>
-  for (const id of POLY_INSTRUMENTS) {
-    out[id] =
-      obj[id] === undefined ? polyRow() : chordRow(obj[id], `${path}.${id}`, POLY_NOTES[id].length)
+  if (kind === "sampler") {
+    const out: Record<string, unknown> = {}
+    for (const id of PAD_IDS) {
+      const d = defaults[id] as Record<string, unknown>
+      const pad = obj[id] === undefined ? {} : record(obj[id], `${path}.${id}`)
+      const name = pad.name ?? null
+      out[id] = {
+        name: name === null ? null : str(name, `${path}.${id}.name`),
+        pitch: num(pad.pitch ?? d.pitch, `${path}.${id}.pitch`),
+        decay: num(pad.decay ?? d.decay, `${path}.${id}.decay`),
+        level: num(pad.level ?? d.level, `${path}.${id}.level`),
+      }
+    }
+    return out as Instance["params"]
   }
-  return out
-}
-
-function parsePattern(v: unknown, path: string): Pattern {
-  const p = record(v, path)
-  return {
-    drums: parseKitRows(p.drums, `${path}.drums`, DRUM_VOICES),
-    perc: parseKitRows(p.perc, `${path}.perc`, PERC_VOICES),
-    samples: parseKitRows(p.samples, `${path}.samples`, PAD_IDS),
-    synth: monoRow(p.synth, `${path}.synth`, SYNTH_NOTES.length),
-    bass: parseBassRow(p.bass, `${path}.bass`),
-    poly: parsePolyRows(p.poly, `${path}.poly`),
-  }
-}
-
-/**
- * A keyed record of numbers. When `defaults` is given, a missing object or a
- * missing key falls back to it — that is how songs saved before a channel or
- * kit existed keep loading.
- */
-function parseNumbers<K extends string>(
-  v: unknown,
-  path: string,
-  keys: readonly K[],
-  defaults?: Readonly<Record<K, number>>,
-): Record<K, number> {
-  const obj = v === undefined && defaults ? {} : record(v, path)
-  const out = {} as Record<K, number>
-  for (const k of keys) out[k] = num(obj[k] ?? defaults?.[k], `${path}.${k}`)
-  return out
-}
-
-/** A params object whose numeric fields are required but that may be absent altogether. */
-function parseParams<T extends object>(
-  v: unknown,
-  path: string,
-  defaults: T,
-  enums: Partial<Record<keyof T, readonly string[]>> = {},
-): T {
-  if (v === undefined) return { ...defaults }
-  const obj = record(v, path)
-  const out = { ...defaults } as Record<string, unknown>
+  const out: Record<string, unknown> = {}
   for (const key of Object.keys(defaults)) {
-    const options = (enums as Record<string, readonly string[] | undefined>)[key]
-    out[key] = options
-      ? oneOf(obj[key], `${path}.${key}`, options)
-      : num(obj[key], `${path}.${key}`)
-  }
-  return out as T
-}
-
-function parsePads(v: unknown, path: string): Record<PadId, PadParams> {
-  const obj = v === undefined ? {} : record(v, path)
-  const out = {} as Record<PadId, PadParams>
-  for (const id of PAD_IDS) {
-    if (obj[id] === undefined) {
-      out[id] = { ...PAD_DEFAULT }
-      continue
-    }
-    const pad = record(obj[id], `${path}.${id}`)
-    const name = pad.name ?? null
-    out[id] = {
-      name:
-        name === null || typeof name === "string" ? name : fail(`${path}.${id}.name`, "a string"),
-      pitch: num(pad.pitch, `${path}.${id}.pitch`),
-      decay: num(pad.decay, `${path}.${id}.decay`),
-      level: num(pad.level, `${path}.${id}.level`),
+    const value = obj[key] ?? defaults[key]
+    if (key === "waveform") {
+      out[key] = oneOf(value, `${path}.${key}`, kind === "bass" ? BASS_WAVEFORMS : WAVEFORMS)
+    } else {
+      out[key] = num(value, `${path}.${key}`)
     }
   }
-  return out
+  return out as Instance["params"]
 }
 
-function parseMutes(v: unknown, path: string): Record<ChannelId, boolean> {
-  const obj = v === undefined ? {} : record(v, path)
-  const out = {} as Record<ChannelId, boolean>
-  for (const ch of CHANNEL_IDS) {
-    const value = obj[ch] ?? false
-    out[ch] = typeof value === "boolean" ? value : fail(`${path}.${ch}`, "a boolean")
+function parseInstance(v: unknown, path: string): Instance {
+  const obj = record(v, path)
+  const kind = oneOf(obj.kind, `${path}.kind`, KINDS)
+  return {
+    id: str(obj.id, `${path}.id`),
+    kind,
+    params: parseParams(obj.params, `${path}.params`, kind),
+    level: num(obj.level, `${path}.level`),
+    send: num(obj.send, `${path}.send`),
+    mute: bool(obj.mute ?? false, `${path}.mute`),
+  } as Instance
+}
+
+function parseSongV2(s: Record<string, unknown>): Song {
+  const instances = list(s.instances, "song.instances").map((i, n) =>
+    parseInstance(i, `song.instances[${n}]`),
+  )
+  const ids = new Set(instances.map((i) => i.id))
+  if (ids.size !== instances.length) fail("song.instances", "unique ids")
+  const fx = record(s.fx, "song.fx")
+
+  return {
+    version: SONG_VERSION,
+    bpm: num(s.bpm, "song.bpm"),
+    swing: num(s.swing ?? 0, "song.swing"),
+    masterVolume: num(s.masterVolume, "song.masterVolume"),
+    instances,
+    patterns: list(s.patterns, "song.patterns", PATTERN_COUNT).map((p, n) => {
+      const tracks = record(record(p, `song.patterns[${n}]`).tracks, `song.patterns[${n}].tracks`)
+      return {
+        tracks: Object.fromEntries(
+          instances.map((i) => [
+            i.id,
+            parseTrack(tracks[i.id], `song.patterns[${n}].tracks.${i.id}`, i.kind),
+          ]),
+        ),
+      }
+    }),
+    activePattern: int(s.activePattern, "song.activePattern", PATTERN_COUNT),
+    chain: list(s.chain, "song.chain")
+      .slice(0, MAX_CHAIN)
+      .map((c, i) => int(c, `song.chain[${i}]`, PATTERN_COUNT)),
+    fx: {
+      delayTime: oneOf(fx.delayTime, "song.fx.delayTime", DELAY_TIMES),
+      feedback: num(fx.feedback, "song.fx.feedback"),
+      reverbDecay: num(fx.reverbDecay, "song.fx.reverbDecay"),
+    },
   }
-  return out
 }
 
 /** Strict on shape, lenient on ranges — the store clamps numbers when it applies the song. */
@@ -239,54 +221,15 @@ export function parseSong(text: string): Song {
     throw new SongParseError("not valid JSON")
   }
   const s = record(raw, "song")
-  if (s.version !== SONG_VERSION) fail("song.version", String(SONG_VERSION))
-
-  const synth = record(s.synthParams, "song.synthParams")
-  const mix = record(s.mix, "song.mix")
-  const fx = record(s.fx, "song.fx")
-
-  return {
-    version: SONG_VERSION,
-    bpm: num(s.bpm, "song.bpm"),
-    swing: num(s.swing ?? 0, "song.swing"),
-    masterVolume: num(s.masterVolume, "song.masterVolume"),
-    patterns: list(s.patterns, "song.patterns", PATTERN_COUNT).map((p, i) =>
-      parsePattern(p, `song.patterns[${i}]`),
-    ),
-    activePattern: int(s.activePattern, "song.activePattern", PATTERN_COUNT),
-    chain: list(s.chain, "song.chain")
-      .slice(0, MAX_CHAIN)
-      .map((c, i) => int(c, `song.chain[${i}]`, PATTERN_COUNT)),
-    drumLevels: parseNumbers(s.drumLevels, "song.drumLevels", DRUM_VOICES),
-    percLevels: parseNumbers(s.percLevels, "song.percLevels", PERC_VOICES, PERC_LEVELS_DEFAULT),
-    pads: parsePads(s.pads, "song.pads"),
-    synthParams: {
-      waveform: oneOf(synth.waveform, "song.synthParams.waveform", WAVEFORMS),
-      cutoff: num(synth.cutoff, "song.synthParams.cutoff"),
-      resonance: num(synth.resonance, "song.synthParams.resonance"),
-      decay: num(synth.decay, "song.synthParams.decay"),
-    },
-    bassParams: parseParams(s.bassParams, "song.bassParams", BASS_PARAMS_DEFAULT, {
-      waveform: BASS_WAVEFORMS,
-    }),
-    polyParams: parseParams(s.polyParams, "song.polyParams", POLY_PARAMS_DEFAULT, {
-      waveform: WAVEFORMS,
-    }),
-    epParams: parseParams(s.epParams, "song.epParams", EP_PARAMS_DEFAULT),
-    stringsParams: parseParams(s.stringsParams, "song.stringsParams", STRINGS_PARAMS_DEFAULT),
-    mix: {
-      level: parseNumbers(mix.level, "song.mix.level", CHANNEL_IDS, MIX_DEFAULT.level),
-      send: parseNumbers(mix.send, "song.mix.send", CHANNEL_IDS, MIX_DEFAULT.send),
-      mute: parseMutes(mix.mute, "song.mix.mute"),
-    },
-    fx: {
-      delayTime: oneOf(fx.delayTime, "song.fx.delayTime", DELAY_TIMES),
-      feedback: num(fx.feedback, "song.fx.feedback"),
-      reverbDecay: num(fx.reverbDecay, "song.fx.reverbDecay"),
-    },
-  }
+  if (s.version === 1) return parseSongV1(s)
+  if (s.version !== SONG_VERSION) fail("song.version", `${1} or ${SONG_VERSION}`)
+  return parseSongV2(s)
 }
 
 export function serializeSong(song: Song): string {
   return JSON.stringify(song, null, 2)
 }
+
+/** Kind of a poly track, for callers that only have the kind string. */
+export const isPolyKind = (kind: Kind): kind is PolyKind =>
+  kind === "poly" || kind === "ep" || kind === "strings"

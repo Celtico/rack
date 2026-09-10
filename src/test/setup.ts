@@ -5,7 +5,7 @@ import { afterEach, vi } from "vitest"
 // Without `globals: true`, Testing Library cannot register its own cleanup.
 afterEach(cleanup)
 
-// jsdom lacks these; Chakra / next-themes query them at mount.
+// jsdom lacks these; Chakra queries them at mount.
 if (!window.matchMedia) {
   window.matchMedia = vi.fn().mockImplementation((query: string) => ({
     matches: false,

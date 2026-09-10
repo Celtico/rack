@@ -15,15 +15,40 @@ const formatPercent = (level: number) => `${Math.round(level * 100)}%`
 
 const BEATS = Array.from({ length: STEP_COUNT / 4 }, (_, i) => i)
 
+/** Step counter and beat LEDs — the only part of the panel that moves while playing. */
+function StepReadout() {
+  const currentStep = useRackStore((s) => s.currentStep)
+  const currentBeat = currentStep < 0 ? -1 : Math.floor(currentStep / 4)
+  return (
+    <>
+      <VStack gap="1" align="stretch">
+        <Display size="lg" aria-label="Current step">
+          {currentStep < 0 ? "--" : String(currentStep + 1).padStart(2, "0")}
+        </Display>
+        <Text textStyle="silkscreen" color="rack.silkscreen.muted" textAlign="center">
+          Step
+        </Text>
+      </VStack>
+      <VStack gap="1" align="center">
+        <HStack gap="2" pb="1">
+          {BEATS.map((beat) => (
+            <Led key={beat} on={beat === currentBeat} label={`Beat ${beat + 1}`} />
+          ))}
+        </HStack>
+        <Text textStyle="silkscreen" color="rack.silkscreen.muted">
+          Beat
+        </Text>
+      </VStack>
+    </>
+  )
+}
+
 export function Transport() {
   const bpm = useRackStore((s) => s.bpm)
   const swing = useRackStore((s) => s.swing)
   const playing = useRackStore((s) => s.playing)
-  const currentStep = useRackStore((s) => s.currentStep)
   const masterVolume = useRackStore((s) => s.masterVolume)
   const { setBpm, setSwing, setPlaying, setPlayhead, setMasterVolume } = useRackStore.getState()
-
-  const currentBeat = currentStep < 0 ? -1 : Math.floor(currentStep / 4)
 
   const togglePlay = async () => {
     const engine = getEngine()
@@ -48,7 +73,20 @@ export function Transport() {
   }
 
   return (
-    <RackUnit model="TRANSPORT" title="Clock · Master" icon={<LuTimer />}>
+    <RackUnit
+      id="TRANSPORT"
+      model="TRANSPORT"
+      title="Clock · Master"
+      icon={<LuTimer />}
+      preview={
+        <HStack gap="2">
+          <Text textStyle="silkscreen" color="rack.silkscreen.muted">
+            Out
+          </Text>
+          <LevelMeter source="master" label="Master level" size="sm" orientation="horizontal" />
+        </HStack>
+      }
+    >
       <Flex wrap="wrap" align="flex-end" gap={{ base: "5", md: "8" }}>
         <HStack gap="3" align="flex-end">
           <IconButton
@@ -101,24 +139,7 @@ export function Transport() {
         </HStack>
 
         <HStack gap="3" align="flex-end">
-          <VStack gap="1" align="stretch">
-            <Display size="lg" aria-label="Current step">
-              {currentStep < 0 ? "--" : String(currentStep + 1).padStart(2, "0")}
-            </Display>
-            <Text textStyle="silkscreen" color="rack.silkscreen.muted" textAlign="center">
-              Step
-            </Text>
-          </VStack>
-          <VStack gap="1" align="center">
-            <HStack gap="2" pb="1">
-              {BEATS.map((beat) => (
-                <Led key={beat} on={beat === currentBeat} label={`Beat ${beat + 1}`} />
-              ))}
-            </HStack>
-            <Text textStyle="silkscreen" color="rack.silkscreen.muted">
-              Beat
-            </Text>
-          </VStack>
+          <StepReadout />
         </HStack>
 
         <HStack gap="3" align="flex-end">

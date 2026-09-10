@@ -1,5 +1,14 @@
 export const STEP_COUNT = 16
 
+/** Kinds of machine. Every instance in the rack is one of these. */
+export const KINDS = ["drums", "perc", "sampler", "synth", "bass", "poly", "ep", "strings"] as const
+export type Kind = (typeof KINDS)[number]
+
+export const KIT_KINDS = ["drums", "perc", "sampler"] as const
+export type KitKind = (typeof KIT_KINDS)[number]
+export const POLY_KINDS = ["poly", "ep", "strings"] as const
+export type PolyKind = (typeof POLY_KINDS)[number]
+
 export const DRUM_VOICES = ["kick", "snare", "clap", "hat"] as const
 export type DrumVoiceId = (typeof DRUM_VOICES)[number]
 
@@ -9,8 +18,12 @@ export type PercVoiceId = (typeof PERC_VOICES)[number]
 export const PAD_IDS = ["pad1", "pad2", "pad3", "pad4", "pad5", "pad6", "pad7", "pad8"] as const
 export type PadId = (typeof PAD_IDS)[number]
 
-/** Any one-shot voice the scheduler can fire. Names are unique across kits. */
-export type HitVoiceId = DrumVoiceId | PercVoiceId | PadId
+/** The voices of each kit kind. */
+export const KIT_VOICES: Readonly<Record<KitKind, readonly string[]>> = {
+  drums: DRUM_VOICES,
+  perc: PERC_VOICES,
+  sampler: PAD_IDS,
+}
 
 /** MONO-1 rows, low to high. Row index in the pattern is an index into this list. */
 export const SYNTH_NOTES = ["C2", "D2", "Eb2", "F2", "G2", "Ab2", "Bb2", "C3"] as const
@@ -20,12 +33,8 @@ export type SynthNote = (typeof SYNTH_NOTES)[number]
 export const BASS_NOTES = ["E1", "G1", "A1", "B1", "D2", "E2", "G2", "A2"] as const
 export type BassNote = (typeof BASS_NOTES)[number]
 
-/** The polyphonic instruments: any number of notes per column. */
-export const POLY_INSTRUMENTS = ["poly", "ep", "strings"] as const
-export type PolyInstrumentId = (typeof POLY_INSTRUMENTS)[number]
-
-/** Rows of each polyphonic instrument, low to high. */
-export const POLY_NOTES: Readonly<Record<PolyInstrumentId, readonly string[]>> = {
+/** Rows of each polyphonic kind, low to high. */
+export const POLY_NOTES: Readonly<Record<PolyKind, readonly string[]>> = {
   poly: ["C3", "D3", "E3", "G3", "A3", "C4", "D4", "E4"],
   ep: ["C3", "E3", "G3", "B3", "D4", "E4", "G4", "B4"],
   strings: ["E2", "G2", "A2", "B2", "D3", "E3", "G3", "B3"],
@@ -33,7 +42,7 @@ export const POLY_NOTES: Readonly<Record<PolyInstrumentId, readonly string[]>> =
 
 export type StepRow = readonly boolean[]
 /** One on/off row per voice of a kit. */
-export type KitRows<Id extends string> = Readonly<Record<Id, StepRow>>
+export type KitRows<Id extends string = string> = Readonly<Record<Id, StepRow>>
 /** One row index per column, or null for a rest. Monophonic by construction. */
 export type SynthRow = readonly (number | null)[]
 /** Per column, the sorted row indices sounding — any number of them. */
@@ -47,13 +56,26 @@ export interface BassRow {
 }
 export type BassFlag = "accent" | "slide"
 
+/** What one instance plays in one pattern. */
+export type Track =
+  | { kind: "drums"; rows: KitRows<DrumVoiceId> }
+  | { kind: "perc"; rows: KitRows<PercVoiceId> }
+  | { kind: "sampler"; rows: KitRows<PadId> }
+  | { kind: "synth"; notes: SynthRow }
+  | { kind: "bass"; bass: BassRow }
+  | { kind: "poly"; chords: PolyRow }
+  | { kind: "ep"; chords: PolyRow }
+  | { kind: "strings"; chords: PolyRow }
+
+export type KitTrack = Extract<Track, { rows: unknown }>
+export type PolyTrack = Extract<Track, { chords: unknown }>
+
+/** The rows of a kit track under a plain string key — the voice set is decided by `kind`. */
+export const rowsOf = (track: KitTrack): KitRows => track.rows as KitRows
+
+/** One bank slot: a track per instance, keyed by instance id. */
 export interface Pattern {
-  drums: KitRows<DrumVoiceId>
-  perc: KitRows<PercVoiceId>
-  samples: KitRows<PadId>
-  synth: SynthRow
-  bass: BassRow
-  poly: Readonly<Record<PolyInstrumentId, PolyRow>>
+  tracks: Readonly<Record<string, Track>>
 }
 
 const row = (...on: number[]): StepRow =>
@@ -83,139 +105,184 @@ export function polyRow(...pairs: [step: number, rows: number[]][]): PolyRow {
   return out
 }
 
-export function createEmptyPattern(): Pattern {
-  return {
-    drums: kitRows(DRUM_VOICES),
-    perc: kitRows(PERC_VOICES),
-    samples: kitRows(PAD_IDS),
-    synth: noteRow(),
-    bass: { notes: noteRow(), accent: row(), slide: row() },
-    poly: { poly: polyRow(), ep: polyRow(), strings: polyRow() },
+/** A silent track of the given kind. */
+export function emptyTrack(kind: Kind): Track {
+  switch (kind) {
+    case "drums":
+      return { kind, rows: kitRows(DRUM_VOICES) }
+    case "perc":
+      return { kind, rows: kitRows(PERC_VOICES) }
+    case "sampler":
+      return { kind, rows: kitRows(PAD_IDS) }
+    case "synth":
+      return { kind, notes: noteRow() }
+    case "bass":
+      return { kind, bass: { notes: noteRow(), accent: row(), slide: row() } }
+    case "poly":
+    case "ep":
+    case "strings":
+      return { kind, chords: polyRow() }
   }
 }
 
-/** Four-on-the-floor, a bassline, an acid line, two chords and an arpeggio — a groove from the first Play. */
-export function createDefaultPattern(): Pattern {
-  return {
-    drums: kitRows(DRUM_VOICES, {
-      kick: [0, 4, 8, 12],
-      snare: [4, 12],
-      hat: [0, 2, 4, 6, 8, 10, 12, 14],
-    }),
-    perc: kitRows(PERC_VOICES, { shaker: [2, 6, 10, 14] }),
-    samples: kitRows(PAD_IDS),
-    synth: noteRow([0, 0], [3, 0], [6, 4], [8, 0], [11, 0], [13, 3], [14, 2]),
-    bass: {
-      notes: noteRow(
-        [0, 0],
-        [2, 0],
-        [3, 0],
-        [5, 0],
-        [6, 2],
-        [8, 0],
-        [10, 0],
-        [11, 3],
-        [12, 0],
-        [14, 5],
-        [15, 4],
-      ),
-      accent: row(0, 6, 12),
-      slide: row(14),
-    },
-    poly: {
-      poly: polyRow([0, [0, 2, 4]], [8, [1, 3, 5]]),
-      ep: polyRow([4, [0, 2, 4]], [12, [1, 3, 5]]),
-      strings: polyRow(
-        [0, [0]],
-        [2, [2]],
-        [4, [4]],
-        [6, [6]],
-        [8, [1]],
-        [10, [3]],
-        [12, [5]],
-        [14, [7]],
-      ),
-    },
+/** The starter groove for a kind — what the first instance of each plays on a fresh rack. */
+export function starterTrack(kind: Kind): Track {
+  switch (kind) {
+    case "drums":
+      return {
+        kind,
+        rows: kitRows(DRUM_VOICES, {
+          kick: [0, 4, 8, 12],
+          snare: [4, 12],
+          hat: [0, 2, 4, 6, 8, 10, 12, 14],
+        }),
+      }
+    case "perc":
+      return { kind, rows: kitRows(PERC_VOICES, { shaker: [2, 6, 10, 14] }) }
+    case "sampler":
+      return emptyTrack(kind)
+    case "synth":
+      return { kind, notes: noteRow([0, 0], [3, 0], [6, 4], [8, 0], [11, 0], [13, 3], [14, 2]) }
+    case "bass":
+      return {
+        kind,
+        bass: {
+          notes: noteRow(
+            [0, 0],
+            [2, 0],
+            [3, 0],
+            [5, 0],
+            [6, 2],
+            [8, 0],
+            [10, 0],
+            [11, 3],
+            [12, 0],
+            [14, 5],
+            [15, 4],
+          ),
+          accent: row(0, 6, 12),
+          slide: row(14),
+        },
+      }
+    case "poly":
+      return { kind, chords: polyRow([0, [0, 2, 4]], [8, [1, 3, 5]]) }
+    case "ep":
+      return { kind, chords: polyRow([4, [0, 2, 4]], [12, [1, 3, 5]]) }
+    case "strings":
+      return {
+        kind,
+        chords: polyRow(
+          [0, [0]],
+          [2, [2]],
+          [4, [4]],
+          [6, [6]],
+          [8, [1]],
+          [10, [3]],
+          [12, [5]],
+          [14, [7]],
+        ),
+      }
   }
 }
 
-function toggleRow<Id extends string>(rows: KitRows<Id>, voice: Id, step: number): KitRows<Id> {
-  return { ...rows, [voice]: rows[voice].map((on, i) => (i === step ? !on : on)) }
+export interface TrackOwner {
+  id: string
+  kind: Kind
 }
+
+/** A pattern with an empty track for each instance. */
+export function createEmptyPattern(instances: readonly TrackOwner[]): Pattern {
+  return {
+    tracks: Object.fromEntries(instances.map(({ id, kind }) => [id, emptyTrack(kind)])),
+  }
+}
+
+/** A pattern with the starter groove on every instance. */
+export function createStarterPattern(instances: readonly TrackOwner[]): Pattern {
+  return {
+    tracks: Object.fromEntries(instances.map(({ id, kind }) => [id, starterTrack(kind)])),
+  }
+}
+
+/** Replace one instance's track. Never mutates the input. */
+export function withTrack(pattern: Pattern, id: string, track: Track): Pattern {
+  return { tracks: { ...pattern.tracks, [id]: track } }
+}
+
+export function withoutTrack(pattern: Pattern, id: string): Pattern {
+  const tracks = { ...pattern.tracks }
+  delete tracks[id]
+  return { tracks }
+}
+
+const flip = (steps: StepRow, step: number): StepRow =>
+  steps.map((on, i) => (i === step ? !on : on))
 
 /** Sets a row in a column, replacing whatever was there; the same row again clears it. */
-function toggleMonoNote(notes: SynthRow, step: number, rowIndex: number): SynthRow {
-  return notes.map((r, i) => (i === step ? (r === rowIndex ? null : rowIndex) : r))
-}
-
-/** Returns a new pattern with one DR-4 step flipped. Never mutates the input. */
-export function toggleDrumStep(pattern: Pattern, voice: DrumVoiceId, step: number): Pattern {
-  return { ...pattern, drums: toggleRow(pattern.drums, voice, step) }
-}
-
-/** Returns a new pattern with one PERC-6 step flipped. Never mutates the input. */
-export function togglePercStep(pattern: Pattern, voice: PercVoiceId, step: number): Pattern {
-  return { ...pattern, perc: toggleRow(pattern.perc, voice, step) }
-}
-
-/** Returns a new pattern with one SMP-8 step flipped. Never mutates the input. */
-export function toggleSampleStep(pattern: Pattern, pad: PadId, step: number): Pattern {
-  return { ...pattern, samples: toggleRow(pattern.samples, pad, step) }
-}
-
-/**
- * Sets the MONO-1 note in a column, replacing whatever was there — at most one
- * note per column. Setting the row that is already on clears the column.
- */
-export function toggleSynthNote(pattern: Pattern, step: number, rowIndex: number): Pattern {
-  return { ...pattern, synth: toggleMonoNote(pattern.synth, step, rowIndex) }
-}
-
-/** Same rule as MONO-1, on the BASS-2 row. */
-export function toggleBassNote(pattern: Pattern, step: number, rowIndex: number): Pattern {
-  return {
-    ...pattern,
-    bass: { ...pattern.bass, notes: toggleMonoNote(pattern.bass.notes, step, rowIndex) },
-  }
-}
-
-/** Flip the accent or slide flag of a BASS-2 step. */
-export function toggleBassFlag(pattern: Pattern, step: number, flag: BassFlag): Pattern {
-  const flags = pattern.bass[flag].map((on, i) => (i === step ? !on : on))
-  return { ...pattern, bass: { ...pattern.bass, [flag]: flags } }
-}
+const toggleMono = (notes: SynthRow, step: number, rowIndex: number): SynthRow =>
+  notes.map((r, i) => (i === step ? (r === rowIndex ? null : rowIndex) : r))
 
 /** Add or remove one note of a chord. Rows stay sorted so equal chords compare equal. */
-export function togglePolyNote(
-  pattern: Pattern,
-  instrument: PolyInstrumentId,
-  step: number,
-  rowIndex: number,
-): Pattern {
-  const rows = pattern.poly[instrument].map((column, i) => {
+const toggleChord = (chords: PolyRow, step: number, rowIndex: number): PolyRow =>
+  chords.map((column, i) => {
     if (i !== step) return column
     return column.includes(rowIndex)
       ? column.filter((r) => r !== rowIndex)
       : [...column, rowIndex].sort((a, b) => a - b)
   })
-  return { ...pattern, poly: { ...pattern.poly, [instrument]: rows } }
+
+/** Flip one step of one voice on a kit track. Never mutates the input. */
+export function toggleKitStep(track: KitTrack, voice: string, step: number): KitTrack {
+  const rows = track.rows as KitRows
+  if (!(voice in rows)) return track
+  return { ...track, rows: { ...rows, [voice]: flip(rows[voice]!, step) } } as KitTrack
+}
+
+/**
+ * Toggle a note on a melodic track: monophonic replace-or-clear for MONO-1
+ * and BASS-2, add-or-remove within the chord for the polyphonic kinds.
+ */
+export function toggleTrackNote(track: Track, step: number, rowIndex: number): Track {
+  switch (track.kind) {
+    case "synth":
+      return { ...track, notes: toggleMono(track.notes, step, rowIndex) }
+    case "bass":
+      return {
+        ...track,
+        bass: { ...track.bass, notes: toggleMono(track.bass.notes, step, rowIndex) },
+      }
+    case "poly":
+    case "ep":
+    case "strings":
+      return { ...track, chords: toggleChord(track.chords, step, rowIndex) }
+    default:
+      return track
+  }
+}
+
+/** Flip the accent or slide flag of a BASS-2 step. */
+export function toggleBassFlag(track: Track, step: number, flag: BassFlag): Track {
+  if (track.kind !== "bass") return track
+  return { ...track, bass: { ...track.bass, [flag]: flip(track.bass[flag], step) } }
+}
+
+/** Voices of a kit track that are on at a step. */
+export function hitsAt(track: KitTrack, step: number): string[] {
+  const rows = track.rows as KitRows
+  return KIT_VOICES[track.kind].filter((voice) => rows[voice]?.[step] === true)
 }
 
 /** The MONO-1 note name sounding at a step, or null for a rest. */
-export function synthNoteAt(pattern: Pattern, step: number): SynthNote | null {
-  const rowIndex = pattern.synth[step]
+export function synthNoteAt(notes: SynthRow, step: number): SynthNote | null {
+  const rowIndex = notes[step]
   if (rowIndex === null || rowIndex === undefined) return null
   return SYNTH_NOTES[rowIndex] ?? null
 }
 
-/** The note names a polyphonic instrument plays at a step — empty for a rest. */
-export function polyNotesAt(
-  pattern: Pattern,
-  instrument: PolyInstrumentId,
-  step: number,
-): string[] {
-  const names = POLY_NOTES[instrument]
-  return (pattern.poly[instrument][step] ?? []).flatMap((r) => names[r] ?? [])
+/** The note names a polyphonic track plays at a step — empty for a rest. */
+export function polyNotesAt(track: PolyTrack, step: number): string[] {
+  const names = POLY_NOTES[track.kind]
+  return (track.chords[step] ?? []).flatMap((r) => names[r] ?? [])
 }
 
 /** What BASS-2 does at a step — sent every step so a held slide can be released on a rest. */
@@ -225,12 +292,8 @@ export interface BassStepEvent {
   slide: boolean
 }
 
-export function bassEventAt(pattern: Pattern, step: number): BassStepEvent {
-  const rowIndex = pattern.bass.notes[step]
+export function bassEventAt(bass: BassRow, step: number): BassStepEvent {
+  const rowIndex = bass.notes[step]
   const note = rowIndex === null || rowIndex === undefined ? null : (BASS_NOTES[rowIndex] ?? null)
-  return {
-    note,
-    accent: pattern.bass.accent[step] === true,
-    slide: pattern.bass.slide[step] === true,
-  }
+  return { note, accent: bass.accent[step] === true, slide: bass.slide[step] === true }
 }

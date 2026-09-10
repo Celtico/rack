@@ -1,54 +1,88 @@
 import { Box, Button, Container, HStack, Menu, Portal, VStack } from "@chakra-ui/react"
-import type { ReactNode } from "react"
-import { LuChevronsDownUp, LuChevronsUpDown, LuPlus } from "react-icons/lu"
+import { useEffect, type ReactNode } from "react"
+import {
+  LuChevronsDownUp,
+  LuChevronsUpDown,
+  LuLayoutGrid,
+  LuListMusic,
+  LuPlus,
+  LuSlidersHorizontal,
+  LuTimer,
+} from "react-icons/lu"
 
 import { getEngine } from "../audio/engine"
-import type { ChannelId } from "../state/channels"
-import { useLayoutStore, type UnitId } from "../state/layout"
+import { KIND_MODEL, KIND_TITLE } from "../state/instances"
+import { FIXED_UNITS, isFixedUnit, useLayoutStore, type FixedUnitId } from "../state/layout"
+import { KINDS, type Kind } from "../state/pattern"
 import { useRackStore } from "../state/store"
-import { BassUnit } from "./BassUnit"
-import { DrumMachine } from "./DrumMachine"
-import { EpUnit } from "./EpUnit"
+import type { Finish } from "../theme/recipes/rackUnit"
 import { FxUnit } from "./FxUnit"
-import { MonoSynth } from "./MonoSynth"
+import { InstanceUnit } from "./InstanceUnit"
 import { PatternBank } from "./PatternBank"
-import { PercUnit } from "./PercUnit"
-import { PolyUnit } from "./PolyUnit"
-import { SamplerUnit } from "./SamplerUnit"
-import { StringsUnit } from "./StringsUnit"
 import { TimelineUnit } from "./TimelineUnit"
 import { Transport } from "./Transport"
+import { KIND_FINISH, kindIcon } from "./unitMeta"
 
-const UNITS: Record<UnitId, { element: ReactNode; channel?: ChannelId }> = {
-  TRANSPORT: { element: <Transport /> },
-  PATTERN: { element: <PatternBank /> },
-  SONG: { element: <TimelineUnit /> },
-  "DR-4": { element: <DrumMachine />, channel: "drums" },
-  "PERC-6": { element: <PercUnit />, channel: "perc" },
-  "SMP-8": { element: <SamplerUnit />, channel: "sampler" },
-  "BASS-2": { element: <BassUnit />, channel: "bass" },
-  "MONO-1": { element: <MonoSynth />, channel: "synth" },
-  "POLY-4": { element: <PolyUnit />, channel: "poly" },
-  "EP-1": { element: <EpUnit />, channel: "ep" },
-  "STR-6": { element: <StringsUnit />, channel: "strings" },
-  "FX-2": { element: <FxUnit /> },
+const FIXED: Record<FixedUnitId, ReactNode> = {
+  TRANSPORT: <Transport />,
+  PATTERN: <PatternBank />,
+  SONG: <TimelineUnit />,
+  "FX-2": <FxUnit />,
 }
 
-/** The rack itself: the modules in the user's order, with a small toolbar above. */
+/** Same pictograms the fixed units wear in their headers. */
+const FIXED_ICON: Record<FixedUnitId, ReactNode> = {
+  TRANSPORT: <LuTimer />,
+  PATTERN: <LuLayoutGrid />,
+  SONG: <LuListMusic />,
+  "FX-2": <LuSlidersHorizontal />,
+}
+
+const isKind = (v: string): v is Kind => (KINDS as readonly string[]).includes(v)
+
+/** A menu entry with its pictogram in front. */
+function MenuIcon({ finish, children }: { finish?: Finish; children: ReactNode }) {
+  // A machine's icon wears its finish colour, lifted so it reads on the dark menu.
+  const color = finish
+    ? `oklch(from {colors.finish.${finish}.panel} 0.74 calc(c * 2.4) h)`
+    : "fg.muted"
+  return (
+    <Box as="span" display="inline-flex" fontSize="lg" color={color} aria-hidden="true">
+      {children}
+    </Box>
+  )
+}
+
+/** The rack itself: the units in the user's order, with a small toolbar above. */
 export function Rack() {
+  const instances = useRackStore((s) => s.instances)
   const order = useLayoutStore((s) => s.order)
   const hidden = useLayoutStore((s) => s.hidden)
-  const { showUnit } = useLayoutStore.getState()
-  const { setFolded, setChannelMute } = useRackStore.getState()
+  const { showUnit, syncUnits } = useLayoutStore.getState()
+  const { setFolded, addInstance } = useRackStore.getState()
 
-  const visible = order.filter((id) => !hidden.includes(id))
+  // Keep the layout's order in step with the instances that exist.
+  const ids = [...FIXED_UNITS, ...instances.map((i) => i.id)]
+  useEffect(() => {
+    syncUnits(ids)
+    // ids is derived from instances; re-sync only when the set changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ids.join("|")])
 
-  const add = (id: UnitId) => {
-    showUnit(id)
-    const channel = UNITS[id].channel
-    if (channel) {
-      setChannelMute(channel, false)
-      getEngine().setChannelMute(channel, false)
+  const visible = order.filter((id) =>
+    isFixedUnit(id) ? !hidden.includes(id) : instances.some((i) => i.id === id),
+  )
+  const kindOf = new Map(instances.map((i) => [i.id, i.kind]))
+  // How many of each kind are in the rack — the menu dims the kinds that are not.
+  const countOf = new Map<Kind, number>()
+  for (const inst of instances) countOf.set(inst.kind, (countOf.get(inst.kind) ?? 0) + 1)
+
+  const onAdd = (value: string) => {
+    if (isKind(value)) {
+      const inst = addInstance(value)
+      getEngine().addInstance(inst)
+    } else if (isFixedUnit(value)) {
+      showUnit(value)
     }
   }
 
@@ -61,20 +95,43 @@ export function Rack() {
         <Button size="xs" variant="subtle" rounded="sm" onClick={() => setFolded(visible, false)}>
           <LuChevronsUpDown /> Unfold all
         </Button>
-        <Menu.Root onSelect={(details) => add(details.value as UnitId)}>
+        <Menu.Root onSelect={(details) => onAdd(details.value)}>
           <Menu.Trigger asChild>
-            <Button size="xs" variant="subtle" rounded="sm" disabled={hidden.length === 0}>
+            <Button size="xs" variant="subtle" rounded="sm">
               <LuPlus /> Add unit
             </Button>
           </Menu.Trigger>
           <Portal>
             <Menu.Positioner>
               <Menu.Content>
-                {hidden.map((id) => (
-                  <Menu.Item key={id} value={id}>
-                    {id}
-                  </Menu.Item>
-                ))}
+                <Menu.ItemGroup>
+                  <Menu.ItemGroupLabel>New machine</Menu.ItemGroupLabel>
+                  {KINDS.map((kind) => {
+                    const count = countOf.get(kind) ?? 0
+                    return (
+                      <Menu.Item key={kind} value={kind} opacity={count ? 1 : 0.5}>
+                        <MenuIcon finish={KIND_FINISH[kind]}>{kindIcon(kind)}</MenuIcon>
+                        {KIND_MODEL[kind]} · {KIND_TITLE[kind]}
+                        {count > 0 && (
+                          <Box as="span" ml="auto" pl="3" fontSize="xs" color="fg.muted">
+                            ×{count}
+                          </Box>
+                        )}
+                      </Menu.Item>
+                    )
+                  })}
+                </Menu.ItemGroup>
+                {hidden.length > 0 && (
+                  <Menu.ItemGroup>
+                    <Menu.ItemGroupLabel>Put back</Menu.ItemGroupLabel>
+                    {hidden.map((id) => (
+                      <Menu.Item key={id} value={id}>
+                        <MenuIcon>{FIXED_ICON[id]}</MenuIcon>
+                        {id}
+                      </Menu.Item>
+                    ))}
+                  </Menu.ItemGroup>
+                )}
               </Menu.Content>
             </Menu.Positioner>
           </Portal>
@@ -91,7 +148,9 @@ export function Rack() {
       >
         <VStack gap={{ base: "2", md: "3" }} align="stretch">
           {visible.map((id) => (
-            <Box key={id}>{UNITS[id].element}</Box>
+            <Box key={id}>
+              {isFixedUnit(id) ? FIXED[id] : <InstanceUnit id={id} kind={kindOf.get(id)!} />}
+            </Box>
           ))}
         </VStack>
       </Box>

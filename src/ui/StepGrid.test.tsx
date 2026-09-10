@@ -1,7 +1,8 @@
 import { screen, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
-import { describe, expect, it, vi } from "vitest"
+import { beforeEach, describe, expect, it, vi } from "vitest"
 
+import { useRackStore } from "../state/store"
 import { renderWithChakra } from "../test/render"
 import { StepGrid } from "./StepGrid"
 
@@ -12,8 +13,10 @@ const rows = [
 ] as const
 
 describe("<StepGrid />", () => {
+  beforeEach(() => useRackStore.setState({ currentStep: -1 }))
+
   it("renders one toggle button per row and step with pressed state", () => {
-    renderWithChakra(<StepGrid rows={rows} currentStep={-1} onToggle={() => {}} />)
+    renderWithChakra(<StepGrid rows={rows} onToggle={() => {}} />)
 
     const kick = within(screen.getByRole("group", { name: "Kick" }))
     expect(kick.getAllByRole("button")).toHaveLength(16)
@@ -31,14 +34,15 @@ describe("<StepGrid />", () => {
   it("reports toggles with the row id and zero-based step", async () => {
     const user = userEvent.setup()
     const onToggle = vi.fn()
-    renderWithChakra(<StepGrid rows={rows} currentStep={-1} onToggle={onToggle} />)
+    renderWithChakra(<StepGrid rows={rows} onToggle={onToggle} />)
 
     await user.click(screen.getByRole("button", { name: "Hat step 7" }))
     expect(onToggle).toHaveBeenCalledWith("hat", 6)
   })
 
   it("marks accents on every fourth step and the playhead column", () => {
-    renderWithChakra(<StepGrid rows={rows} currentStep={5} onToggle={() => {}} />)
+    useRackStore.setState({ currentStep: 5 })
+    renderWithChakra(<StepGrid rows={rows} onToggle={() => {}} />)
 
     expect(screen.getByRole("button", { name: "Kick step 5" })).toHaveAttribute("data-accent")
     expect(screen.getByRole("button", { name: "Kick step 6" })).not.toHaveAttribute("data-accent")

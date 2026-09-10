@@ -1,63 +1,49 @@
 import { create } from "zustand"
 
-import { CHANNEL_IDS, type ChannelId } from "./channels"
 import {
-  BASS_PARAMS_DEFAULT,
-  BASS_RANGES,
+  clampParams,
+  createInstance,
+  defaultInstances,
+  type Instance,
+  type KindParams,
+} from "./instances"
+import {
   BPM_DEFAULT,
   BPM_MAX,
   BPM_MIN,
   clamp,
-  clampRecord,
-  defaultPads,
-  DRUM_LEVELS_DEFAULT,
-  EP_PARAMS_DEFAULT,
-  EP_RANGES,
   FX_DEFAULT,
   FX_RANGES,
   MASTER_DEFAULT,
-  MIX_DEFAULT,
-  PAD_RANGES,
-  PERC_LEVELS_DEFAULT,
-  POLY_PARAMS_DEFAULT,
-  POLY_RANGES,
-  STRINGS_PARAMS_DEFAULT,
-  STRINGS_RANGES,
-  SYNTH_PARAMS_DEFAULT,
-  SYNTH_RANGES,
-  type BassParams,
-  type DrumLevels,
-  type EpParams,
-  type FxParams,
-  type MixParams,
-  type PadParams,
-  type PercLevels,
-  type PolyParams,
-  type StringsParams,
-  type SynthParams,
 } from "./params"
+import type { FxParams } from "./params"
 import {
-  DRUM_VOICES,
-  PAD_IDS,
-  PERC_VOICES,
+  emptyTrack,
   toggleBassFlag,
-  toggleBassNote,
-  toggleDrumStep,
-  togglePercStep,
-  togglePolyNote,
-  toggleSampleStep,
-  toggleSynthNote,
+  toggleKitStep,
+  toggleTrackNote,
+  withoutTrack,
+  withTrack,
   type BassFlag,
-  type DrumVoiceId,
+  type Kind,
   type PadId,
   type Pattern,
-  type PercVoiceId,
-  type PolyInstrumentId,
+  type Track,
 } from "./pattern"
+import { FIXED_UNITS } from "./layout"
 import { createDefaultBank, MAX_CHAIN, PATTERN_COUNT } from "./patterns"
 import { SONG_VERSION, type Song } from "./song"
 
 export * from "./params"
+
+/** Everything needed to put a removed instance back exactly where it was. */
+export interface RemovedInstance {
+  instance: Instance
+  /** Its track in each bank slot. */
+  tracks: readonly Track[]
+  /** Position in the instance list. */
+  index: number
+}
 
 export interface RackState {
   bpm: number
@@ -77,17 +63,10 @@ export interface RackState {
   activePattern: number
   /** Slots to play in order, one per bar; empty means loop the active one. */
   chain: readonly number[]
-  drumLevels: DrumLevels
-  percLevels: PercLevels
-  pads: Readonly<Record<PadId, PadParams>>
-  /** Pad whose controls the SMP-8 panel shows. */
-  selectedPad: PadId
-  synthParams: SynthParams
-  bassParams: BassParams
-  polyParams: PolyParams
-  epParams: EpParams
-  stringsParams: StringsParams
-  mix: MixParams
+  /** The machines in the rack, in creation order. */
+  instances: readonly Instance[]
+  /** Pad whose controls each SMP-8 shows, by instance id. */
+  selectedPad: Readonly<Record<string, PadId>>
   fx: FxParams
   /** Units folded down to their header. UI-only, not saved. */
   folded: Readonly<Record<string, boolean>>
@@ -97,32 +76,28 @@ export interface RackState {
   setPlaying: (playing: boolean) => void
   setPlayhead: (step: number, patternIndex: number, bar: number) => void
   setMasterVolume: (level: number) => void
-  toggleDrumStep: (voice: DrumVoiceId, step: number) => void
-  togglePercStep: (voice: PercVoiceId, step: number) => void
-  toggleSampleStep: (pad: PadId, step: number) => void
-  toggleSynthNote: (step: number, rowIndex: number) => void
-  toggleBassNote: (step: number, rowIndex: number) => void
-  toggleBassFlag: (step: number, flag: BassFlag) => void
-  togglePolyNote: (instrument: PolyInstrumentId, step: number, rowIndex: number) => void
+  /** Flip one step of one voice on a kit instance, in the active pattern. */
+  toggleStep: (id: string, voice: string, step: number) => void
+  /** Toggle a note on a melodic instance, in the active pattern. */
+  toggleNote: (id: string, step: number, rowIndex: number) => void
+  /** Flip a BASS-2 accent or slide. */
+  toggleFlag: (id: string, step: number, flag: BassFlag) => void
   setActivePattern: (index: number) => void
   copyActivePatternTo: (index: number) => void
   appendToChain: (index: number) => void
-  /** Change which pattern a bar of the chain plays. */
   setChainSlot: (bar: number, index: number) => void
   removeChainSlot: (bar: number) => void
   clearChain: () => void
-  setDrumLevel: (voice: DrumVoiceId, level: number) => void
-  setPercLevel: (voice: PercVoiceId, level: number) => void
-  selectPad: (pad: PadId) => void
-  setPadParam: <K extends keyof PadParams>(pad: PadId, key: K, value: PadParams[K]) => void
-  setSynthParam: <K extends keyof SynthParams>(key: K, value: SynthParams[K]) => void
-  setBassParam: <K extends keyof BassParams>(key: K, value: BassParams[K]) => void
-  setPolyParam: <K extends keyof PolyParams>(key: K, value: PolyParams[K]) => void
-  setEpParam: <K extends keyof EpParams>(key: K, value: EpParams[K]) => void
-  setStringsParam: <K extends keyof StringsParams>(key: K, value: StringsParams[K]) => void
-  setChannelLevel: (channel: ChannelId, level: number) => void
-  setChannelSend: (channel: ChannelId, level: number) => void
-  setChannelMute: (channel: ChannelId, muted: boolean) => void
+  /** Add a machine of a kind; returns it. Its tracks start empty in every slot. */
+  addInstance: (kind: Kind) => Instance
+  /** Take a machine out with all its tracks; returns what it takes so it can be restored. */
+  removeInstance: (id: string) => RemovedInstance | null
+  restoreInstance: (removed: RemovedInstance) => void
+  setInstanceParams: (id: string, patch: Partial<KindParams[Kind]>) => void
+  setInstanceLevel: (id: string, level: number) => void
+  setInstanceSend: (id: string, send: number) => void
+  setInstanceMute: (id: string, mute: boolean) => void
+  selectPad: (id: string, pad: PadId) => void
   setFxParam: <K extends keyof FxParams>(key: K, value: FxParams[K]) => void
   toggleFold: (unit: string) => void
   /** Fold or unfold every listed unit at once. */
@@ -137,40 +112,54 @@ export const selectPattern = (s: RackState): Pattern => {
   return p
 }
 
+export const selectInstance = (s: RackState, id: string): Instance | undefined =>
+  s.instances.find((i) => i.id === id)
+
+/** An instance's track in the pattern on screen. */
+export const selectTrack = (s: RackState, id: string): Track | undefined =>
+  selectPattern(s).tracks[id]
+
 const slot = (index: number) => clamp(Math.trunc(index), 0, PATTERN_COUNT - 1)
 
-const updateActive = (state: RackState, fn: (p: Pattern) => Pattern) => ({
-  patterns: state.patterns.map((p, i) => (i === state.activePattern ? fn(p) : p)),
+const editActiveTrack = (state: RackState, id: string, fn: (t: Track) => Track) => ({
+  patterns: state.patterns.map((p, i) => {
+    if (i !== state.activePattern) return p
+    const track = p.tracks[id]
+    return track ? withTrack(p, id, fn(track)) : p
+  }),
 })
 
-type Ranges<T> = { [K in keyof T]?: { min: number; max: number } }
+const editInstance = (state: RackState, id: string, fn: (i: Instance) => Instance) => ({
+  instances: state.instances.map((i) => (i.id === id ? fn(i) : i)),
+})
 
-/** Clamp every numeric field of a params object to its declared range. */
-function clampParams<T extends object>(params: T, ranges: Ranges<T>): T {
-  const out = { ...params }
-  for (const key of Object.keys(ranges) as (keyof T)[]) {
-    const range = ranges[key]
-    const value = out[key]
-    if (range && typeof value === "number") {
-      out[key] = clamp(value, range.min, range.max) as T[keyof T]
-    }
-  }
-  return out
-}
+const clampFx = (fx: FxParams): FxParams => ({
+  delayTime: fx.delayTime,
+  feedback: clamp(fx.feedback, FX_RANGES.feedback.min, FX_RANGES.feedback.max),
+  reverbDecay: clamp(fx.reverbDecay, FX_RANGES.reverbDecay.min, FX_RANGES.reverbDecay.max),
+})
 
-function clampPads(pads: Readonly<Record<PadId, PadParams>>): Record<PadId, PadParams> {
-  const out = {} as Record<PadId, PadParams>
-  for (const id of PAD_IDS) out[id] = clampParams(pads[id], PAD_RANGES)
-  return out
-}
+const clampInstance = (inst: Instance): Instance =>
+  ({
+    ...inst,
+    params: clampParams(inst.kind, inst.params as never),
+    level: clamp(inst.level, 0, 1),
+    send: clamp(inst.send, 0, 1),
+  }) as Instance
+
+const initialInstances = defaultInstances()
+
+/** Every unit folded — the rack opens as a compact stack of headers. */
+export const foldedAll = (ids: readonly string[]): Record<string, boolean> =>
+  Object.fromEntries([...FIXED_UNITS, ...ids].map((id) => [id, true]))
 
 /**
- * Pattern bank, tempo, parameters and transport state. Pure state — it never
+ * Pattern bank, tempo, instances and transport state. Pure state — it never
  * touches the audio engine; the UI forwards changes to the engine itself. The
  * scheduler reads the bank through `getState()` on every tick, so edits during
  * playback are heard on the next step.
  */
-export const useRackStore = create<RackState>()((set) => ({
+export const useRackStore = create<RackState>()((set, get) => ({
   bpm: BPM_DEFAULT,
   swing: 0,
   playing: false,
@@ -178,21 +167,13 @@ export const useRackStore = create<RackState>()((set) => ({
   playingPattern: -1,
   playingBar: -1,
   masterVolume: MASTER_DEFAULT,
-  patterns: createDefaultBank(),
+  patterns: createDefaultBank(initialInstances),
   activePattern: 0,
   chain: [],
-  drumLevels: DRUM_LEVELS_DEFAULT,
-  percLevels: PERC_LEVELS_DEFAULT,
-  pads: defaultPads(),
-  selectedPad: "pad1",
-  synthParams: SYNTH_PARAMS_DEFAULT,
-  bassParams: BASS_PARAMS_DEFAULT,
-  polyParams: POLY_PARAMS_DEFAULT,
-  epParams: EP_PARAMS_DEFAULT,
-  stringsParams: STRINGS_PARAMS_DEFAULT,
-  mix: MIX_DEFAULT,
+  instances: initialInstances,
+  selectedPad: {},
   fx: FX_DEFAULT,
-  folded: {},
+  folded: foldedAll(initialInstances.map((i) => i.id)),
 
   setBpm: (bpm) => set({ bpm: Math.round(clamp(bpm, BPM_MIN, BPM_MAX)) }),
   setSwing: (swing) => set({ swing: clamp(swing, 0, 1) }),
@@ -200,20 +181,16 @@ export const useRackStore = create<RackState>()((set) => ({
   setPlayhead: (currentStep, playingPattern, playingBar) =>
     set({ currentStep, playingPattern, playingBar }),
   setMasterVolume: (level) => set({ masterVolume: clamp(level, 0, 1) }),
-  toggleDrumStep: (voice, step) =>
-    set((state) => updateActive(state, (p) => toggleDrumStep(p, voice, step))),
-  togglePercStep: (voice, step) =>
-    set((state) => updateActive(state, (p) => togglePercStep(p, voice, step))),
-  toggleSampleStep: (pad, step) =>
-    set((state) => updateActive(state, (p) => toggleSampleStep(p, pad, step))),
-  toggleSynthNote: (step, rowIndex) =>
-    set((state) => updateActive(state, (p) => toggleSynthNote(p, step, rowIndex))),
-  toggleBassNote: (step, rowIndex) =>
-    set((state) => updateActive(state, (p) => toggleBassNote(p, step, rowIndex))),
-  toggleBassFlag: (step, flag) =>
-    set((state) => updateActive(state, (p) => toggleBassFlag(p, step, flag))),
-  togglePolyNote: (instrument, step, rowIndex) =>
-    set((state) => updateActive(state, (p) => togglePolyNote(p, instrument, step, rowIndex))),
+
+  toggleStep: (id, voice, step) =>
+    set((state) =>
+      editActiveTrack(state, id, (t) => ("rows" in t ? toggleKitStep(t, voice, step) : t)),
+    ),
+  toggleNote: (id, step, rowIndex) =>
+    set((state) => editActiveTrack(state, id, (t) => toggleTrackNote(t, step, rowIndex))),
+  toggleFlag: (id, step, flag) =>
+    set((state) => editActiveTrack(state, id, (t) => toggleBassFlag(t, step, flag))),
+
   setActivePattern: (index) => set({ activePattern: slot(index) }),
   copyActivePatternTo: (index) =>
     set((state) => {
@@ -232,37 +209,58 @@ export const useRackStore = create<RackState>()((set) => ({
     set((state) => ({ chain: state.chain.map((p, i) => (i === bar ? slot(index) : p)) })),
   removeChainSlot: (bar) => set((state) => ({ chain: state.chain.filter((_, i) => i !== bar) })),
   clearChain: () => set({ chain: [] }),
-  setDrumLevel: (voice, level) =>
-    set((state) => ({ drumLevels: { ...state.drumLevels, [voice]: clamp(level, 0, 1) } })),
-  setPercLevel: (voice, level) =>
-    set((state) => ({ percLevels: { ...state.percLevels, [voice]: clamp(level, 0, 1) } })),
-  selectPad: (pad) => set({ selectedPad: pad }),
-  setPadParam: (pad, key, value) =>
+
+  addInstance: (kind) => {
+    const inst = createInstance(kind, get().instances)
     set((state) => ({
-      pads: {
-        ...state.pads,
-        [pad]: clampParams({ ...state.pads[pad], [key]: value }, PAD_RANGES),
-      },
-    })),
-  setSynthParam: (key, value) =>
-    set((state) => ({ synthParams: { ...state.synthParams, [key]: value } })),
-  setBassParam: (key, value) =>
-    set((state) => ({ bassParams: { ...state.bassParams, [key]: value } })),
-  setPolyParam: (key, value) =>
-    set((state) => ({ polyParams: { ...state.polyParams, [key]: value } })),
-  setEpParam: (key, value) => set((state) => ({ epParams: { ...state.epParams, [key]: value } })),
-  setStringsParam: (key, value) =>
-    set((state) => ({ stringsParams: { ...state.stringsParams, [key]: value } })),
-  setChannelLevel: (channel, level) =>
-    set((state) => ({
-      mix: { ...state.mix, level: { ...state.mix.level, [channel]: clamp(level, 0, 1) } },
-    })),
-  setChannelSend: (channel, level) =>
-    set((state) => ({
-      mix: { ...state.mix, send: { ...state.mix.send, [channel]: clamp(level, 0, 1) } },
-    })),
-  setChannelMute: (channel, muted) =>
-    set((state) => ({ mix: { ...state.mix, mute: { ...state.mix.mute, [channel]: muted } } })),
+      instances: [...state.instances, inst],
+      patterns: state.patterns.map((p) => withTrack(p, inst.id, emptyTrack(kind))),
+    }))
+    return inst
+  },
+  removeInstance: (id) => {
+    const state = get()
+    const index = state.instances.findIndex((i) => i.id === id)
+    const instance = state.instances[index]
+    if (!instance) return null
+    const tracks = state.patterns.map((p) => p.tracks[id] ?? emptyTrack(instance.kind))
+    set({
+      instances: state.instances.filter((i) => i.id !== id),
+      patterns: state.patterns.map((p) => withoutTrack(p, id)),
+    })
+    return { instance, tracks, index }
+  },
+  restoreInstance: ({ instance, tracks, index }) =>
+    set((state) => {
+      if (state.instances.some((i) => i.id === instance.id)) return state
+      const instances = [...state.instances]
+      instances.splice(Math.min(index, instances.length), 0, instance)
+      return {
+        instances,
+        patterns: state.patterns.map((p, i) =>
+          withTrack(p, instance.id, tracks[i] ?? emptyTrack(instance.kind)),
+        ),
+      }
+    }),
+  setInstanceParams: (id, patch) =>
+    set((state) =>
+      editInstance(
+        state,
+        id,
+        (i) =>
+          ({
+            ...i,
+            params: clampParams(i.kind, { ...(i.params as object), ...patch } as never),
+          }) as Instance,
+      ),
+    ),
+  setInstanceLevel: (id, level) =>
+    set((state) => editInstance(state, id, (i) => ({ ...i, level: clamp(level, 0, 1) }))),
+  setInstanceSend: (id, send) =>
+    set((state) => editInstance(state, id, (i) => ({ ...i, send: clamp(send, 0, 1) }))),
+  setInstanceMute: (id, mute) => set((state) => editInstance(state, id, (i) => ({ ...i, mute }))),
+  selectPad: (id, pad) => set((state) => ({ selectedPad: { ...state.selectedPad, [id]: pad } })),
+
   setFxParam: (key, value) => set((state) => ({ fx: { ...state.fx, [key]: value } })),
   toggleFold: (unit) =>
     set((state) => ({ folded: { ...state.folded, [unit]: !state.folded[unit] } })),
@@ -270,76 +268,60 @@ export const useRackStore = create<RackState>()((set) => ({
     set((state) => ({
       folded: { ...state.folded, ...Object.fromEntries(units.map((u) => [u, folded])) },
     })),
+
   loadSong: (song) =>
-    set({
+    set((state) => ({
       bpm: Math.round(clamp(song.bpm, BPM_MIN, BPM_MAX)),
       swing: clamp(song.swing, 0, 1),
       masterVolume: clamp(song.masterVolume, 0, 1),
+      instances: song.instances.map(clampInstance),
       patterns: song.patterns,
       activePattern: slot(song.activePattern),
       chain: song.chain.slice(0, MAX_CHAIN).map(slot),
-      drumLevels: clampRecord(DRUM_VOICES, song.drumLevels, 0, 1),
-      percLevels: clampRecord(PERC_VOICES, song.percLevels, 0, 1),
-      pads: clampPads(song.pads),
-      synthParams: clampParams(song.synthParams, SYNTH_RANGES),
-      bassParams: clampParams(song.bassParams, BASS_RANGES),
-      polyParams: clampParams(song.polyParams, POLY_RANGES),
-      epParams: clampParams(song.epParams, EP_RANGES),
-      stringsParams: clampParams(song.stringsParams, STRINGS_RANGES),
-      mix: {
-        level: clampRecord(CHANNEL_IDS, song.mix.level, 0, 1),
-        send: clampRecord(CHANNEL_IDS, song.mix.send, 0, 1),
-        mute: { ...song.mix.mute },
-      },
-      fx: clampParams(song.fx, FX_RANGES),
-    }),
+      fx: clampFx(song.fx),
+      selectedPad: {},
+      // Every machine the song uses opens up; fixed units keep their fold state.
+      folded: Object.fromEntries(
+        Object.entries(state.folded).filter(([id]) => !song.instances.some((i) => i.id === id)),
+      ),
+    })),
 }))
 
-const copyRows = <Id extends string>(
-  ids: readonly Id[],
-  rows: Readonly<Record<Id, readonly boolean[]>>,
-): Record<Id, boolean[]> => {
-  const out = {} as Record<Id, boolean[]>
-  for (const id of ids) out[id] = [...rows[id]]
-  return out
+const copyTrack = (t: Track): Track => {
+  switch (t.kind) {
+    case "drums":
+    case "perc":
+    case "sampler":
+      return { kind: t.kind, rows: structuredClone(t.rows) } as Track
+    case "synth":
+      return { kind: t.kind, notes: [...t.notes] }
+    case "bass":
+      return {
+        kind: t.kind,
+        bass: { notes: [...t.bass.notes], accent: [...t.bass.accent], slide: [...t.bass.slide] },
+      }
+    case "poly":
+    case "ep":
+    case "strings":
+      return { kind: t.kind, chords: t.chords.map((c) => [...c]) }
+  }
 }
 
 /** Snapshot of everything worth saving. */
 export function toSong(state: RackState): Song {
-  const pads = {} as Record<PadId, PadParams>
-  for (const id of PAD_IDS) pads[id] = { ...state.pads[id] }
   return {
     version: SONG_VERSION,
     bpm: state.bpm,
     swing: state.swing,
     masterVolume: state.masterVolume,
+    instances: state.instances.map(
+      (i) => ({ ...i, params: structuredClone(i.params) }) as Instance,
+    ),
     patterns: state.patterns.map((p) => ({
-      drums: copyRows(DRUM_VOICES, p.drums),
-      perc: copyRows(PERC_VOICES, p.perc),
-      samples: copyRows(PAD_IDS, p.samples),
-      synth: [...p.synth],
-      bass: { notes: [...p.bass.notes], accent: [...p.bass.accent], slide: [...p.bass.slide] },
-      poly: {
-        poly: p.poly.poly.map((c) => [...c]),
-        ep: p.poly.ep.map((c) => [...c]),
-        strings: p.poly.strings.map((c) => [...c]),
-      },
+      tracks: Object.fromEntries(Object.entries(p.tracks).map(([id, t]) => [id, copyTrack(t)])),
     })),
     activePattern: state.activePattern,
     chain: [...state.chain],
-    drumLevels: { ...state.drumLevels },
-    percLevels: { ...state.percLevels },
-    pads,
-    synthParams: { ...state.synthParams },
-    bassParams: { ...state.bassParams },
-    polyParams: { ...state.polyParams },
-    epParams: { ...state.epParams },
-    stringsParams: { ...state.stringsParams },
-    mix: {
-      level: { ...state.mix.level },
-      send: { ...state.mix.send },
-      mute: { ...state.mix.mute },
-    },
     fx: { ...state.fx },
   }
 }
