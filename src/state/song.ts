@@ -16,6 +16,8 @@ export const SONG_VERSION = 1
 export interface Song {
   version: typeof SONG_VERSION
   bpm: number
+  /** 0–1. Optional in files written before swing existed. */
+  swing: number
   masterVolume: number
   patterns: Pattern[]
   activePattern: number
@@ -101,6 +103,7 @@ export function parseSong(text: string): Song {
   return {
     version: SONG_VERSION,
     bpm: num(s.bpm, "song.bpm"),
+    swing: num(s.swing ?? 0, "song.swing"),
     masterVolume: num(s.masterVolume, "song.masterVolume"),
     patterns: list(s.patterns, "song.patterns", PATTERN_COUNT).map((p, i) =>
       parsePattern(p, `song.patterns[${i}]`),

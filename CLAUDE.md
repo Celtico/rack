@@ -28,6 +28,9 @@ strict build order:
      `playingPattern` published via Draw. Save/load: `toSong` / `parseSong` (`src/state/song.ts`, strict
      shape, clamped ranges) + `engine.syncFromStore()` after a load. `PatternBank` unit; toaster snippet.
 
+   - ✅ Extra — swing: `swingOffset()` in the scheduler delays odd steps up to ⅓ of a sixteenth (store
+     `swing` 0–1, SWING knob on the Transport, saved in the song; older song files default to 0).
+
 **The brief is fully implemented.** Anything from here is polish or new scope — confirm with the user first.
 
 Read the skills before touching UI or audio: without the Chakra skill loaded, Chakra UI **v2** API gets

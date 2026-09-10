@@ -77,6 +77,8 @@ export class AudioEngine {
         const s = useRackStore.getState()
         return resolvePlayingPattern(s.patterns, s.activePattern, s.chain, bar)
       },
+      getSwing: () => useRackStore.getState().swing,
+      sixteenthSeconds: () => Tone.getTransport().toSeconds("16n"),
       trigger: (voice, time) => this.voices.get(voice)?.trigger(time),
       triggerNote: (note, time) => this.synth?.trigger(note, time),
       onStep: (step, index) => useRackStore.getState().setPlayhead(step, index),

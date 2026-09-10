@@ -26,6 +26,8 @@ export * from "./params"
 
 export interface RackState {
   bpm: number
+  /** Off-beat delay, 0 (straight) to 1 (triplet feel). */
+  swing: number
   playing: boolean
   /** Step currently sounding, or -1 when stopped. Published by the scheduler via Draw. */
   currentStep: number
@@ -44,6 +46,7 @@ export interface RackState {
   fx: FxParams
 
   setBpm: (bpm: number) => void
+  setSwing: (swing: number) => void
   setPlaying: (playing: boolean) => void
   setPlayhead: (step: number, patternIndex: number) => void
   setMasterVolume: (level: number) => void
@@ -82,6 +85,7 @@ const updateActive = (state: RackState, fn: (p: Pattern) => Pattern) => ({
  */
 export const useRackStore = create<RackState>()((set) => ({
   bpm: BPM_DEFAULT,
+  swing: 0,
   playing: false,
   currentStep: -1,
   playingPattern: -1,
@@ -95,6 +99,7 @@ export const useRackStore = create<RackState>()((set) => ({
   fx: FX_DEFAULT,
 
   setBpm: (bpm) => set({ bpm: Math.round(clamp(bpm, BPM_MIN, BPM_MAX)) }),
+  setSwing: (swing) => set({ swing: clamp(swing, 0, 1) }),
   setPlaying: (playing) => set({ playing }),
   setPlayhead: (currentStep, playingPattern) => set({ currentStep, playingPattern }),
   setMasterVolume: (level) => set({ masterVolume: clamp(level, 0, 1) }),
@@ -133,6 +138,7 @@ export const useRackStore = create<RackState>()((set) => ({
   loadSong: (song) =>
     set({
       bpm: Math.round(clamp(song.bpm, BPM_MIN, BPM_MAX)),
+      swing: clamp(song.swing, 0, 1),
       masterVolume: clamp(song.masterVolume, 0, 1),
       patterns: song.patterns,
       activePattern: slot(song.activePattern),
@@ -177,6 +183,7 @@ export function toSong(state: RackState): Song {
   return {
     version: SONG_VERSION,
     bpm: state.bpm,
+    swing: state.swing,
     masterVolume: state.masterVolume,
     patterns: state.patterns.map((p) => ({
       drums: {

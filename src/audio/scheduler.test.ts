@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 
 import { createEmptyPattern, toggleDrumStep, toggleSynthNote, type Pattern } from "../state/pattern"
 import { resolvePlayingPattern } from "../state/patterns"
-import { Scheduler, triggersForStep } from "./scheduler"
+import { Scheduler, swingOffset, triggersForStep } from "./scheduler"
 
 // A mocked transport: Sequence captures its callback so the test can fire ticks
 // by hand, Draw runs its callback immediately. Hoisted so vi.mock can see it.
@@ -42,14 +42,24 @@ vi.mock("tone", () => ({
 }))
 
 /** A scheduler over a live bank; `set*` mutate what the next tick will see. */
+const SIXTEENTH = 0.125
+
 function makeScheduler(initial: Pattern, chain: number[] = []) {
   let patterns = [initial, createEmptyPattern(), createEmptyPattern(), createEmptyPattern()]
   let active = 0
+  let swing = 0
   const trigger = vi.fn()
   const triggerNote = vi.fn()
   const onStep = vi.fn()
   const getPattern = vi.fn((bar: number) => resolvePlayingPattern(patterns, active, chain, bar))
-  const scheduler = new Scheduler({ getPattern, trigger, triggerNote, onStep })
+  const scheduler = new Scheduler({
+    getPattern,
+    getSwing: () => swing,
+    sixteenthSeconds: () => SIXTEENTH,
+    trigger,
+    triggerNote,
+    onStep,
+  })
   return {
     scheduler,
     trigger,
@@ -61,6 +71,9 @@ function makeScheduler(initial: Pattern, chain: number[] = []) {
     },
     setActive: (i: number) => {
       active = i
+    },
+    setSwing: (s: number) => {
+      swing = s
     },
   }
 }
@@ -78,6 +91,16 @@ describe("triggersForStep", () => {
     expect(triggersForStep(p, 0)).toEqual(["kick", "hat"])
     expect(triggersForStep(p, 4)).toEqual(["snare"])
     expect(triggersForStep(p, 1)).toEqual([])
+  })
+})
+
+describe("swingOffset", () => {
+  it("delays only odd steps, up to a third of a sixteenth at full swing", () => {
+    expect(swingOffset(0, 1, SIXTEENTH)).toBe(0)
+    expect(swingOffset(2, 1, SIXTEENTH)).toBe(0)
+    expect(swingOffset(1, 1, SIXTEENTH)).toBeCloseTo(SIXTEENTH / 3)
+    expect(swingOffset(1, 0.5, SIXTEENTH)).toBeCloseTo(SIXTEENTH / 6)
+    expect(swingOffset(1, 0, SIXTEENTH)).toBe(0)
   })
 })
 
@@ -134,6 +157,32 @@ describe("Scheduler", () => {
       ["C2", 0],
       ["C3", 0.25],
     ])
+  })
+
+  it("swings off-beat steps late, for sound and playhead alike, reading the amount per tick", () => {
+    let pattern = createEmptyPattern()
+    pattern = toggleDrumStep(pattern, "hat", 0)
+    pattern = toggleDrumStep(pattern, "hat", 1)
+    pattern = toggleSynthNote(pattern, 3, 2)
+
+    const { scheduler, trigger, triggerNote, setSwing } = makeScheduler(pattern)
+    setSwing(1)
+    scheduler.start()
+    const seq = fake.sequences[0]!
+
+    for (let step = 0; step < 4; step++) seq.callback(step * SIXTEENTH, step)
+
+    expect(trigger.mock.calls[0]).toEqual(["hat", 0])
+    expect(trigger.mock.calls[1]?.[1]).toBeCloseTo(SIXTEENTH + SIXTEENTH / 3)
+    expect(triggerNote.mock.calls[0]?.[1]).toBeCloseTo(3 * SIXTEENTH + SIXTEENTH / 3)
+    // Draw follows the swung time so the playhead lands with the sound.
+    expect(fake.drawSchedule.mock.calls[1]?.[1]).toBeCloseTo(SIXTEENTH + SIXTEENTH / 3)
+    expect(fake.drawSchedule.mock.calls[2]?.[1]).toBeCloseTo(2 * SIXTEENTH)
+
+    // Turning swing off mid-bar takes effect on the next off-beat.
+    setSwing(0)
+    seq.callback(5 * SIXTEENTH, 5)
+    expect(fake.drawSchedule.mock.calls[4]?.[1]).toBeCloseTo(5 * SIXTEENTH)
   })
 
   it("reads the pattern fresh on every tick, not the one captured at start", () => {

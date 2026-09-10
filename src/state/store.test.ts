@@ -7,6 +7,7 @@ describe("rack store", () => {
   beforeEach(() => {
     useRackStore.setState({
       bpm: 120,
+      swing: 0,
       playing: false,
       currentStep: -1,
       playingPattern: -1,
@@ -25,6 +26,16 @@ describe("rack store", () => {
     expect(useRackStore.getState().bpm).toBe(BPM_MAX)
     setBpm(133.6)
     expect(useRackStore.getState().bpm).toBe(134)
+  })
+
+  it("clamps swing to 0–1", () => {
+    const { setSwing } = useRackStore.getState()
+    setSwing(0.66)
+    expect(useRackStore.getState().swing).toBe(0.66)
+    setSwing(-1)
+    expect(useRackStore.getState().swing).toBe(0)
+    setSwing(5)
+    expect(useRackStore.getState().swing).toBe(1)
   })
 
   it("clamps master volume to 0–1", () => {

@@ -54,6 +54,16 @@ describe("song save/load", () => {
     expect(s.chain).toEqual([3, 2])
   })
 
+  it("keeps swing through a round-trip and defaults it for files that predate it", () => {
+    useRackStore.getState().setSwing(0.6)
+    const song = parseSong(serializeSong(toSong(useRackStore.getState())))
+    expect(song.swing).toBe(0.6)
+
+    const legacy = JSON.parse(serializeSong(song)) as Record<string, unknown>
+    delete legacy.swing
+    expect(parseSong(JSON.stringify(legacy)).swing).toBe(0)
+  })
+
   it("rejects files that are not a song", () => {
     expect(() => parseSong("not json")).toThrow(SongParseError)
     expect(() => parseSong("{}")).toThrow(/song\.version/)

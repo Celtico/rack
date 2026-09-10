@@ -1,8 +1,8 @@
 # RACK
 
 A browser-based hardware rack: a drum machine (**DR-4**), a mono synth (**MONO-1**), an FX unit
-(**FX-2**), a four-slot pattern bank with chaining, and a transport — built with Tone.js and
-Chakra UI v3.
+(**FX-2**), a four-slot pattern bank with chaining, and a transport with tempo and swing — built
+with Tone.js and Chakra UI v3.
 
 Live: https://rack.serverscel.com/
 

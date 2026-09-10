@@ -16,10 +16,11 @@ const BEATS = Array.from({ length: STEP_COUNT / 4 }, (_, i) => i)
 
 export function Transport() {
   const bpm = useRackStore((s) => s.bpm)
+  const swing = useRackStore((s) => s.swing)
   const playing = useRackStore((s) => s.playing)
   const currentStep = useRackStore((s) => s.currentStep)
   const masterVolume = useRackStore((s) => s.masterVolume)
-  const { setBpm, setPlaying, setPlayhead, setMasterVolume } = useRackStore.getState()
+  const { setBpm, setSwing, setPlaying, setPlayhead, setMasterVolume } = useRackStore.getState()
 
   const currentBeat = currentStep < 0 ? -1 : Math.floor(currentStep / 4)
 
@@ -86,6 +87,16 @@ export function Transport() {
               BPM
             </Text>
           </VStack>
+          <Knob
+            label="Swing"
+            value={swing}
+            min={0}
+            max={1}
+            step={0.01}
+            defaultValue={0}
+            format={formatPercent}
+            onChange={setSwing}
+          />
         </HStack>
 
         <HStack gap="3" align="flex-end">
