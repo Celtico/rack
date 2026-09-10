@@ -1,0 +1,9 @@
+services:
+  rack:
+    build: .
+    image: rack:latest
+    container_name: rack
+    restart: unless-stopped
+    ports:
+      # 7273 is free on every host in the proxy list (7270–7272 are taken on .55).
+      - "7273:80"
