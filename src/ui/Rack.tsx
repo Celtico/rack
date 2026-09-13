@@ -1,4 +1,4 @@
-import { Box, Container, HStack, IconButton, VStack } from "@chakra-ui/react"
+import { Box, Container, IconButton, VStack } from "@chakra-ui/react"
 import { useEffect, type ReactNode } from "react"
 import { LuChevronsDownUp, LuChevronsUpDown } from "react-icons/lu"
 
@@ -10,13 +10,14 @@ import { InstanceUnit } from "./InstanceUnit"
 import { MasterUnit } from "./MasterUnit"
 import { PinnedUnits } from "./PinnedUnits"
 import { SongLibrary } from "./SongLibrary"
+import { ToolbarPanel } from "./ToolbarPanel"
 import { toolbarIconButton } from "./toolbar"
 
 const FIXED: Record<FixedUnitId, ReactNode> = {
   "FX-2": <FxUnit />,
 }
 
-/** The rack itself: the units in the user's order, with a small toolbar above. */
+/** The rack itself: a toolbar panel, then the units in the user's order. */
 export function Rack() {
   const instances = useRackStore((s) => s.instances)
   const order = useLayoutStore((s) => s.order)
@@ -43,29 +44,6 @@ export function Rack() {
 
   return (
     <Container as="main" maxW="8xl" px={{ base: "0", md: "6" }} py={{ base: "0", md: "8" }}>
-      {/* Fold-all toggle, then songs, file and units. On a phone the strip runs edge to edge. */}
-      <HStack
-        gap={{ base: "0", md: "2" }}
-        mb={{ base: "2", md: "3" }}
-        // On a phone the strip is panel grey and reaches up under the status bar: 50px of it,
-        // or the notch's own inset when that is taller. Padding, not margin, so nothing shows black.
-        bg={{ base: "rack.toolbar", md: "transparent" }}
-        pt={{ base: "max(50px, env(safe-area-inset-top))", md: "0" }}
-        justify="flex-end"
-      >
-        <IconButton
-          {...toolbarIconButton}
-          aria-label={allFolded ? "Unfold all" : "Fold all"}
-          aria-pressed={allFolded}
-          onClick={() => setFolded(foldable, !allFolded)}
-        >
-          {allFolded ? <LuChevronsUpDown /> : <LuChevronsDownUp />}
-        </IconButton>
-
-        <AddUnitDrawer />
-        <SongLibrary />
-      </HStack>
-
       {/* The wooden rails and frame are a desktop thing; a phone shows the panels edge to edge. */}
       <Box
         bg="rack.frame"
@@ -76,6 +54,19 @@ export function Rack() {
         shadow={{ base: "none", md: "panel" }}
       >
         <VStack gap={{ base: "1", md: "3" }} align="stretch">
+          {/* Fold-all toggle, add unit and songs, as the first panel of the rack. */}
+          <ToolbarPanel>
+            <IconButton
+              {...toolbarIconButton}
+              aria-label={allFolded ? "Unfold all" : "Fold all"}
+              aria-pressed={allFolded}
+              onClick={() => setFolded(foldable, !allFolded)}
+            >
+              {allFolded ? <LuChevronsUpDown /> : <LuChevronsDownUp />}
+            </IconButton>
+            <AddUnitDrawer />
+            <SongLibrary />
+          </ToolbarPanel>
           <MasterUnit />
           <PinnedUnits />
           {visible.map((id) => (

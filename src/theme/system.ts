@@ -206,8 +206,6 @@ const config = defineConfig({
             edge: { value: "{colors.metal.900}" },
           },
           screw: { value: "{colors.metal.500}" },
-          /** The phone's top strip: a shade lighter than the panels, so it reads as a bar. */
-          toolbar: { value: "{colors.metal.600}" },
           silkscreen: {
             DEFAULT: { value: "{colors.cream.200}" },
             muted: { value: "{colors.cream.300}" },
