@@ -427,12 +427,23 @@ export function SongLibrary() {
         <Drawer.Backdrop />
         <Drawer.Positioner>
           <Drawer.Content bg="rack.panel" color="rack.silkscreen">
-            <Drawer.Header borderBottomWidth="1px" borderColor="rack.panel.edge">
+            <Drawer.Header
+              borderBottomWidth="1px"
+              borderColor="rack.panel.edge"
+              // On a phone the drawer reaches under the status bar: same top clearance as the toolbar.
+              pt={{ base: "max(50px, env(safe-area-inset-top))", md: "4" }}
+            >
               <Drawer.Title textStyle="silkscreen" fontSize="sm">
                 Songs
               </Drawer.Title>
               <Drawer.CloseTrigger asChild>
-                <CloseButton size="sm" position="absolute" top="3" right="3" />
+                <CloseButton
+                  size="sm"
+                  position="absolute"
+                  // Rides down with the header's phone clearance.
+                  top={{ base: "calc(max(50px, env(safe-area-inset-top)) - 4px)", md: "3" }}
+                  right="3"
+                />
               </Drawer.CloseTrigger>
             </Drawer.Header>
             <Drawer.Body px="4" py="3">
