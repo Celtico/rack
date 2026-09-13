@@ -148,7 +148,16 @@ strict build order:
      `autoplay()` (`src/ui/transportControl.ts`) starts the clock after the factory song loads and re-tries on the
      first pointer/key, since browsers keep audio suspended until a gesture. `installWakeLock()`
      (`src/ui/wakeLock.ts`, also from `App`) holds a Screen Wake Lock while `playing`, re-taken when the tab comes
-     back, so a phone does not dim and suspend the audio.
+     back, so a phone does not dim and suspend the audio. `installBackgroundAudio()` (`src/ui/backgroundAudio.ts`,
+     also from `App`) plays a looped half-second silent WAV through an `<audio>` element while `playing` and
+     publishes Media Session metadata and play/pause/stop handlers: a real media element is what keeps iOS and
+     Android from suspending the audio session (and the Web Audio graph) when the screen locks or another app
+     comes up, and it puts the rack on the lock screen.
+   - ✅ Extra — **PWA**: `vite-plugin-pwa` in `vite.config.ts` (`registerType: "autoUpdate"`, manifest name RACK,
+     standalone, icons in `public/icons/` rendered from `favicon.svg`; the app shell is precached, `songs/`,
+     `samples/`, `midi/` and the factory song are cached stale-while-revalidate as `rack-content`). `index.html`
+     carries the iOS home-screen metas and `viewport-fit=cover`. `sw.js` and the manifest must be served
+     without long caching.
    - ✅ Extra — **instances** (any number of each machine, e.g. two DR-4s). `src/state/instances.ts`:
      `Instance { id: "${kind}-${n}", kind, params, level, send, mute }` (discriminated by `Kind`, one
      `KindParams` per kind, `clampParams`, `instanceLabel` → "DR-4" or "DR-4 #2"). `Pattern.tracks` is
