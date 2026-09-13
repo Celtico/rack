@@ -7,7 +7,6 @@ import { MASTER_SECTIONS, useRackStore } from "../state/store"
 import { AddUnitDrawer } from "./AddUnitDrawer"
 import { FxUnit } from "./FxUnit"
 import { InstanceUnit } from "./InstanceUnit"
-import { LoadSongButton } from "./LoadSongButton"
 import { MasterUnit } from "./MasterUnit"
 import { PinnedUnits } from "./PinnedUnits"
 import { SongLibrary } from "./SongLibrary"
@@ -63,7 +62,6 @@ export function Rack() {
           {allFolded ? <LuChevronsUpDown /> : <LuChevronsDownUp />}
         </IconButton>
 
-        <LoadSongButton />
         <AddUnitDrawer />
         <SongLibrary />
       </HStack>

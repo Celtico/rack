@@ -151,8 +151,8 @@ strict build order:
    - ✅ Extra — **phone layout** (below `md`): no rails or frame padding, panels square and edge to edge; the toolbar is a full-width strip in `rack.toolbar` grey (metal.600, a shade
      lighter than the panels; 56px buttons, `sm` text, hairlines between them, 50px / safe-area padding on top — the
      Songs and Add unit drawers' headers (and their close buttons) get the same top clearance —
-     `toolbarButton` / `toolbarIconButton` in `src/ui/toolbar.ts`): one fold/unfold-all toggle, then Load (`LoadSongButton`,
-     .json or .mid), Add unit and last Songs (the library drawer) — the bank only keeps the copy row (active
+     `toolbarButton` / `toolbarIconButton` in `src/ui/toolbar.ts`): one fold/unfold-all toggle, then Add unit and Songs (the library drawer,
+     which also holds Load — `LoadSongButton`, .json or .mid — under the save form) — the bank only keeps the copy row (active
      slot → Copy → next slot). The CLOCK is two rows (`Transport`): run button + Tempo/Swing/Master knobs, then
      BEAT LEDs + BPM/STEP displays + OUT meter; side by side from `md`. The bank is a `repeat(8, minmax(0, 4rem))` grid (16 in a row from `xl`);
      song bars are `12` wide instead of `16` (`BAR_WIDTH` in the timeline recipe). Touch screens

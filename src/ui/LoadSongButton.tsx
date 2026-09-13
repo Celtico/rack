@@ -11,8 +11,19 @@ import { useLibraryStore } from "../state/songLibrary"
 import { useRackStore } from "../state/store"
 import { toolbarButton } from "./toolbar"
 
-/** "Load": a rack song (.json), or a standard MIDI file (.mid) converted onto the grid. */
-export function LoadSongButton() {
+/**
+ * "Load": a rack song (.json), or a standard MIDI file (.mid) converted onto
+ * the grid. Lives in the Songs drawer, as a plain button; `toolbar` styles it
+ * for the top strip instead.
+ */
+export function LoadSongButton({
+  toolbar = false,
+  onLoaded,
+}: {
+  toolbar?: boolean
+  /** After a file has been put in the rack: its name without the extension. */
+  onLoaded?: (name: string) => void
+}) {
   const fileInput = useRef<HTMLInputElement>(null)
   const { loadSong } = useRackStore.getState()
 
@@ -22,8 +33,9 @@ export function LoadSongButton() {
     if (!file) return
     const isMidi = /\.midi?$/i.test(file.name) || file.type === "audio/midi"
     // A file from outside is none of the library's songs; remember its name to offer it at save time.
+    const name = file.name.replace(/\.[^.]+$/, "")
     useLibraryStore.getState().setNowPlaying(null)
-    useLibraryStore.getState().setUnsavedName(file.name.replace(/\.[^.]+$/, ""))
+    useLibraryStore.getState().setUnsavedName(name)
     try {
       if (isMidi) {
         const { song, report } = songFromMidi(await file.arrayBuffer())
@@ -47,6 +59,7 @@ export function LoadSongButton() {
         getEngine().syncFromStore()
         toaster.create({ type: "success", title: "Song loaded", description: file.name })
       }
+      onLoaded?.(name)
     } catch (err) {
       const reason =
         err instanceof SongParseError || err instanceof MidiImportError
@@ -73,9 +86,21 @@ export function LoadSongButton() {
         insetInlineStart="0"
         aria-label="Load song or MIDI file"
       />
-      <Button {...toolbarButton} onClick={() => fileInput.current?.click()}>
-        <LuUpload /> Load
-      </Button>
+      {toolbar ? (
+        <Button {...toolbarButton} onClick={() => fileInput.current?.click()}>
+          <LuUpload /> Load
+        </Button>
+      ) : (
+        <Button
+          size="sm"
+          variant="subtle"
+          rounded="sm"
+          flexShrink={0}
+          onClick={() => fileInput.current?.click()}
+        >
+          <LuUpload /> Load .json / .mid
+        </Button>
+      )}
     </>
   )
 }

@@ -47,6 +47,7 @@ import { downloadJson } from "./download"
 import { escapeIsForField, markEscape } from "./escapeGuard"
 import { Cover } from "./Cover"
 import { FolderMenuItems, FolderPicker, NEW_FOLDER } from "./FolderPicker"
+import { LoadSongButton } from "./LoadSongButton"
 import { playFolder, stopPlaylist, usePlaylistStore } from "./playlist"
 import { toolbarButton } from "./toolbar"
 import { startTransport, stopTransport } from "./transportControl"
@@ -521,6 +522,14 @@ export function SongLibrary() {
                   </Button>
                 </HStack>
               </VStack>
+
+              {/* A file from this device: a rack song, or a MIDI file put onto the grid. */}
+              <HStack gap="3" mb="5" align="center">
+                <Text textStyle="silkscreen" color="rack.silkscreen.muted" flex="1">
+                  From a file on this device
+                </Text>
+                <LoadSongButton onLoaded={setName} />
+              </HStack>
 
               <Text textStyle="silkscreen" color="rack.silkscreen.muted" mb="1">
                 Saved
