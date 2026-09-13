@@ -171,7 +171,7 @@ strict build order:
      song the rack holds; the sleeve is the play/stop button. Under it the name, the meta line and a `⋯` `Menu`
      (Download, Rename, Move to folder as a nested `Menu.TriggerItem` menu reusing `FolderMenuItems` from
      `FolderPicker`, Delete); rename and "New folder…" turn that line into an inline field. Grids of
-     `minmax(7.5rem, 1fr)` (`COVER_GRID`). Playing a song or a folder no longer closes the drawer.
+     `minmax(7.5rem, 1fr)` (`COVER_GRID`). Folder groups start folded (`openFolders`); saving into a folder opens it. Playing a song or a folder no longer closes the drawer.
    - ✅ Extra — **play a folder** (`src/ui/playlist.ts`): the play button on a folder row plays its songs one
      after another, round and round; each song runs its whole chain (at least `MIN_BARS` = 8 bars), then the
      next is loaded via stop → load → start (the bar counter restarts, so "bar N has begun" in a

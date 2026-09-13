@@ -355,7 +355,8 @@ export function SongLibrary() {
       entry !== null &&
         serializeSong(toSong(useRackStore.getState())) !== serializeSong(entry.song),
     )
-  const [closedFolders, setClosedFolders] = useState<ReadonlySet<string>>(new Set())
+  // Folders start folded; one opens on its row, or when a song has just been saved into it.
+  const [openFolders, setOpenFolders] = useState<ReadonlySet<string>>(new Set())
   const playingFolder = usePlaylistStore((s) => s.folder)
   const unsaved = useLibraryStore((s) => s.nowPlaying === null)
   const unsavedName = useLibraryStore((s) => s.unsavedName)
@@ -364,7 +365,7 @@ export function SongLibrary() {
   const [saveFolder, setSaveFolder] = useState<string | null>(null)
   const folders = folderNames(entries)
   const toggleFolder = (f: string) =>
-    setClosedFolders((prev) => {
+    setOpenFolders((prev) => {
       const next = new Set(prev)
       if (next.has(f)) next.delete(f)
       else next.add(f)
@@ -398,6 +399,7 @@ export function SongLibrary() {
     e.preventDefault()
     const entry = await save(name, toSong(useRackStore.getState()), saveFolder)
     setName("")
+    if (entry.folder) setOpenFolders((prev) => new Set(prev).add(entry.folder!))
     toaster.create({ type: "success", title: "Song saved", description: entry.name })
   }
 
@@ -549,7 +551,7 @@ export function SongLibrary() {
               </Grid>
               {folders.map((folder: string) => {
                 const inside = entries.filter((e) => e.folder === folder)
-                const isOpen = !closedFolders.has(folder)
+                const isOpen = openFolders.has(folder)
                 return (
                   <VStack key={folder} align="stretch" gap="0" mt="2">
                     <HStack gap="1" mx="-2">
