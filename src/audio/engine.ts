@@ -66,6 +66,8 @@ export class AudioEngine {
   private reverbDecayTimer: ReturnType<typeof setTimeout> | null = null
   private readonly strips = new Map<string, Strip>()
   private scheduler: Scheduler | null = null
+  private compressor: Tone.Compressor | null = null
+  private limiter: Tone.Limiter | null = null
 
   get isBuilt(): boolean {
     return this.master !== null
@@ -76,9 +78,21 @@ export class AudioEngine {
     if (this.master) return this
     const state = useRackStore.getState()
 
-    const master = new Tone.Gain(state.masterVolume).toDestination()
+    // Master glue: a gentle bus compressor for punch and a brickwall so nothing clips —
+    // the difference between a pile of synths and a mix.
+    const limiter = new Tone.Limiter(-1).toDestination()
+    const compressor = new Tone.Compressor({
+      threshold: -14,
+      ratio: 3,
+      attack: 0.008,
+      release: 0.15,
+      knee: 6,
+    }).connect(limiter)
+    const master = new Tone.Gain(state.masterVolume).connect(compressor)
     this.masterMeter = new Tone.Meter({ normalRange: true, smoothing: METER_SMOOTHING })
-    master.connect(this.masterMeter)
+    limiter.connect(this.masterMeter)
+    this.compressor = compressor
+    this.limiter = limiter
     const reverb = new Tone.Reverb({ decay: state.fx.reverbDecay, wet: 1 }).connect(master)
     const delay = new Tone.FeedbackDelay({
       delayTime: state.fx.delayTime,
@@ -115,7 +129,12 @@ export class AudioEngine {
         const d = this.strips.get(id)?.device
         if (d && "poly" in d) d.poly.trigger(notes, time)
       },
-      onStep: (step, index, bar) => useRackStore.getState().setPlayhead(step, index, bar),
+      // Draw callbacks queued before a stop still land after it; a stopped transport publishes nothing,
+      // so the readout stays at "--" instead of freezing on the last step.
+      onStep: (step, index, bar) => {
+        if (Tone.getTransport().state !== "started") return
+        useRackStore.getState().setPlayhead(step, index, bar)
+      },
     })
     return this
   }
@@ -185,6 +204,20 @@ export class AudioEngine {
     this.build()
     this.scheduler?.start()
     Tone.getTransport().start()
+  }
+
+  /** True while the audio context is actually producing sound. */
+  audioRunning(): boolean {
+    return Tone.getContext().state === "running"
+  }
+
+  /**
+   * Ask the context to run again. iOS marks it "interrupted" after a lock
+   * screen, a call or an app switch and the transport keeps ticking in
+   * silence; a call from a tap brings the sound back.
+   */
+  resumeAudio(): Promise<void> {
+    return Tone.getContext().resume()
   }
 
   /** Stop the transport and rewind to the first step of the first bar. */
@@ -383,6 +416,10 @@ export class AudioEngine {
     this.delay?.dispose()
     this.reverb?.dispose()
     this.master?.dispose()
+    this.compressor?.dispose()
+    this.limiter?.dispose()
+    this.compressor = null
+    this.limiter = null
     this.reverbDecayTimer = null
     this.scheduler = null
     this.masterMeter = null

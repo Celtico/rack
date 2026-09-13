@@ -1,6 +1,6 @@
 import { Button, chakra, Flex, HStack, Text, VStack } from "@chakra-ui/react"
-import { useRef, type ChangeEvent } from "react"
-import { LuEraser, LuUpload } from "react-icons/lu"
+import { useRef, useState, type ChangeEvent } from "react"
+import { LuEraser, LuPackage, LuUpload } from "react-icons/lu"
 
 import { getEngine } from "../audio/engine"
 import { toaster } from "../components/ui/toaster"
@@ -10,6 +10,7 @@ import { PAD_DEFAULT, PAD_RANGES, selectInstance, selectTrack, useRackStore } fr
 import { Display } from "./Display"
 import { Knob } from "./Knob"
 import { RackUnit } from "./RackUnit"
+import { loadFactoryKit } from "./samplerKits"
 import { StepGrid } from "./StepGrid"
 import { changeParams, formatPercent, formatSeconds, KIND_FINISH, kindIcon } from "./unitMeta"
 
@@ -31,6 +32,7 @@ export function SamplerUnit({ id }: { id: string }) {
   const selected = useRackStore((s) => s.selectedPad[id] ?? "pad1")
   const { toggleStep, selectPad, setInstanceParams } = useRackStore.getState()
   const fileInput = useRef<HTMLInputElement>(null)
+  const [loadingKit, setLoadingKit] = useState(false)
   if (!inst || !track || !("rows" in track)) return null
 
   const pads = inst.params
@@ -76,6 +78,26 @@ export function SamplerUnit({ id }: { id: string }) {
     setInstanceParams(id, { [selected]: { ...pad, name: null } })
   }
 
+  const loadKit = async () => {
+    setLoadingKit(true)
+    try {
+      await loadFactoryKit(id)
+      toaster.create({
+        type: "success",
+        title: "Kit loaded",
+        description: "Eight pads, CC0 one-shots",
+      })
+    } catch (err) {
+      toaster.create({
+        type: "error",
+        title: "Could not load the kit",
+        description: err instanceof Error ? err.message : String(err),
+      })
+    } finally {
+      setLoadingKit(false)
+    }
+  }
+
   return (
     <RackUnit
       id={id}
@@ -90,9 +112,22 @@ export function SamplerUnit({ id }: { id: string }) {
         <StepGrid rows={gridRows} onToggle={(p, step) => toggleStep(id, p, step)} />
 
         <VStack gap="3" align="flex-start" flexShrink={0} maxW={{ xl: "64" }}>
-          <Text textStyle="silkscreen" color="rack.silkscreen.muted">
-            Pad
-          </Text>
+          <HStack gap="2" w="full">
+            <Text textStyle="silkscreen" color="rack.silkscreen.muted">
+              Pad
+            </Text>
+            {/* Eight CC0 one-shots into the eight pads, so the sampler has something to say out of the box. */}
+            <Button
+              size="xs"
+              rounded="sm"
+              variant="subtle"
+              ml="auto"
+              loading={loadingKit}
+              onClick={() => void loadKit()}
+            >
+              <LuPackage /> Load kit
+            </Button>
+          </HStack>
           <HStack gap="1" wrap="wrap">
             {PAD_IDS.map((p) => (
               <Button

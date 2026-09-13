@@ -4,6 +4,10 @@ import { defineConfig } from "vitest/config"
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
+  server: {
+    // Listen on the LAN too, so a phone on the same Wi-Fi can open the dev server.
+    host: true,
+  },
   build: {
     rolldownOptions: {
       output: {

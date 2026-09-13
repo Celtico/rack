@@ -6,6 +6,9 @@ import { PATTERN_COUNT } from "../../state/patterns"
 const DARK_INK = new Set([1, 4, 5, 6, 9, 10, 11])
 const SLOTS = Array.from({ length: PATTERN_COUNT }, (_, i) => i + 1)
 
+/** A bar of the song (and the ruler above it): narrower on a phone so more of the chain shows. */
+const BAR_WIDTH = { base: "12", md: "16" }
+
 /** `data-playing` + `data-pattern="n"` → the slot's colour (and, for blocks, a readable ink). */
 const slotColours = (withInk: boolean) =>
   Object.fromEntries(
@@ -50,7 +53,7 @@ export const timelineRecipe = defineSlotRecipe({
       mb: "1",
       textStyle: "silkscreen",
       color: "rack.silkscreen.muted",
-      "& > *": { w: "16", flexShrink: 0, textAlign: "center" },
+      "& > *": { w: BAR_WIDTH, flexShrink: 0, textAlign: "center" },
     },
     track: {
       display: "flex",
@@ -61,7 +64,7 @@ export const timelineRecipe = defineSlotRecipe({
     },
     block: {
       position: "relative",
-      w: "16",
+      w: BAR_WIDTH,
       h: "12",
       flexShrink: 0,
       rounded: "sm",
@@ -87,6 +90,8 @@ export const timelineRecipe = defineSlotRecipe({
     },
     number: {
       pointerEvents: "none",
+      // A slot with nothing in it: the number goes grey, like a control that is off; the block stays.
+      "[data-empty] &": { color: "rack.silkscreen.muted" },
     },
     // The chain in miniature for the folded header: one small square per bar.
     mini: {
@@ -133,7 +138,7 @@ export const timelineRecipe = defineSlotRecipe({
       _hover: { opacity: 1 },
     },
     add: {
-      w: "16",
+      w: BAR_WIDTH,
       h: "12",
       flexShrink: 0,
       rounded: "sm",

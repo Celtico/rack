@@ -1,0 +1,40 @@
+{
+  "songs": [
+    {
+      "name": "Factory · Techno",
+      "file": "-rack-song.json",
+      "bpm": 128,
+      "bars": 16
+    },
+    {
+      "name": "Warehouse · Techno",
+      "file": "songs/warehouse-techno.json",
+      "bpm": 132,
+      "bars": 16
+    },
+    {
+      "name": "Kamuffel style · Berlin",
+      "file": "songs/kamuffel-style.json",
+      "bpm": 126,
+      "bars": 16
+    },
+    {
+      "name": "Liquid · Drum & Bass",
+      "file": "songs/liquid-dnb.json",
+      "bpm": 174,
+      "bars": 16
+    },
+    {
+      "name": "Open Road · Country ballad",
+      "file": "songs/open-road.json",
+      "bpm": 76,
+      "bars": 16
+    },
+    {
+      "name": "Menu Loop · Umplix (CC0, MIDI import)",
+      "file": "songs/menu-loop-umplix.json",
+      "bpm": 120,
+      "bars": 16
+    }
+  ]
+}

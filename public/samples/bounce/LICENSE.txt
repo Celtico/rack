@@ -1,0 +1,3 @@
+Eight one-shots from the "02-bounce" kit of https://github.com/Boochi44/free-drum-samples
+(CC0 1.0 — no attribution required). Some samples derive from the TR-808 recordings by
+Edward Loveall (CC0), via tidalcycles/sounds-tr808-fischer. Renamed here for the SMP-8 pads.

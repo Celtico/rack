@@ -2,9 +2,12 @@ import * as Tone from "tone"
 
 import type { SynthNote } from "../../state/pattern"
 import type { SynthParams } from "../../state/store"
+import { fatOscillator } from "./oscillators"
 
 /** Ramp length for automatable parameter changes. */
 const RAMP = 0.03
+/** Three oscillators spread wide: a lead with some air around it. */
+const UNISON = { count: 3, spread: 18 }
 
 /**
  * MONO-1: a single `Tone.MonoSynth` on the synth channel.
@@ -21,7 +24,7 @@ export class MonoVoice {
   constructor(output: Tone.ToneAudioNode, p: SynthParams) {
     this.synth = new Tone.MonoSynth({
       volume: -6,
-      oscillator: { type: p.waveform },
+      oscillator: fatOscillator(p.waveform, UNISON.count, UNISON.spread),
       filter: { type: "lowpass", rolloff: -24, Q: p.resonance },
       filterEnvelope: {
         attack: 0.005,
@@ -42,7 +45,9 @@ export class MonoVoice {
   set<K extends keyof SynthParams>(key: K, value: SynthParams[K]): void {
     switch (key) {
       case "waveform":
-        this.synth.oscillator.type = value as SynthParams["waveform"]
+        this.synth.set({
+          oscillator: fatOscillator(value as SynthParams["waveform"], UNISON.count, UNISON.spread),
+        })
         break
       case "cutoff":
         this.synth.filterEnvelope.baseFrequency = value as number

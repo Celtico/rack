@@ -2,6 +2,7 @@ import * as Tone from "tone"
 
 import type { BassParams } from "../../state/params"
 import type { BassStepEvent } from "../../state/pattern"
+import { fatOscillator } from "./oscillators"
 
 /** Ramp length for automatable parameter changes. */
 const RAMP = 0.03
@@ -15,6 +16,8 @@ const PLAIN_VELOCITY = 0.6
 const GATE = 0.6
 /** Fraction of a step a slide takes to reach the next note. */
 const GLIDE = 0.5
+/** Two oscillators a few cents apart: body without losing the sub. */
+const UNISON = { count: 2, spread: 7 }
 
 /**
  * BASS-2: a 303-style mono line on the bass channel.
@@ -27,16 +30,19 @@ const GLIDE = 0.5
  */
 export class BassVoice {
   private readonly synth: Tone.MonoSynth
+  private readonly drive: Tone.Distortion
   private params: BassParams
   /** A slide is holding the gate open into the next step. */
   private held = false
 
   constructor(output: Tone.ToneAudioNode, p: BassParams) {
     this.params = p
+    // The 303 through a small overdrive: the resonance peak growls instead of whistling.
+    this.drive = new Tone.Distortion({ distortion: 0.2, wet: 0.35 }).connect(output)
     this.synth = new Tone.MonoSynth({
       volume: -8,
       portamento: 0,
-      oscillator: { type: p.waveform },
+      oscillator: fatOscillator(p.waveform, UNISON.count, UNISON.spread),
       filter: { type: "lowpass", rolloff: -24, Q: p.resonance },
       filterEnvelope: {
         attack: 0.003,
@@ -47,7 +53,7 @@ export class BassVoice {
         octaves: this.sweepFor(false),
       },
       envelope: { attack: 0.003, decay: p.decay, sustain: 0.25, release: 0.08 },
-    }).connect(output)
+    }).connect(this.drive)
   }
 
   private sweepFor(accent: boolean): number {
@@ -93,7 +99,9 @@ export class BassVoice {
     this.params = { ...this.params, [key]: value }
     switch (key) {
       case "waveform":
-        this.synth.oscillator.type = value as BassParams["waveform"]
+        this.synth.set({
+          oscillator: fatOscillator(value as BassParams["waveform"], UNISON.count, UNISON.spread),
+        })
         break
       case "cutoff":
         this.synth.filterEnvelope.baseFrequency = value as number
@@ -113,5 +121,6 @@ export class BassVoice {
 
   dispose(): void {
     this.synth.dispose()
+    this.drive.dispose()
   }
 }

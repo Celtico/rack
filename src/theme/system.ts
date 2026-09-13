@@ -22,6 +22,9 @@ const config = defineConfig({
       color: "rack.silkscreen",
       minH: "100dvh",
       fontFamily: "silkscreen",
+      // Keep the edge-to-edge phone layout clear of notches in landscape.
+      paddingInlineStart: "env(safe-area-inset-left)",
+      paddingInlineEnd: "env(safe-area-inset-right)",
     },
     // iOS Safari zooms the viewport when a focused field is under 16px.
     "input, select, textarea": { fontSize: "16px" },
@@ -144,6 +147,18 @@ const config = defineConfig({
           yellow: {
             panel: { value: "#7a681f" },
             edge: { value: "#39310e" },
+            ink: { value: "#d4d2cc" },
+            inkMuted: { value: "#a5a39e" },
+          },
+          green: {
+            panel: { value: "#2a7a1f" },
+            edge: { value: "#13390e" },
+            ink: { value: "#d4d2cc" },
+            inkMuted: { value: "#a5a39e" },
+          },
+          pink: {
+            panel: { value: "#7a1f5e" },
+            edge: { value: "#390e2c" },
             ink: { value: "#d4d2cc" },
             inkMuted: { value: "#a5a39e" },
           },

@@ -11,8 +11,9 @@ const RAMP = 0.03
 const CLAP_BURSTS = [0, 0.012, 0.024]
 
 /**
- * DR-4 voices. Kick is a membrane synth; snare, clap and hat are filtered noise
- * (the snare adds a short membrane body under the noise). Every voice has its
+ * DR-4 voices. Kick is a membrane synth into a little drive; snare and clap are
+ * filtered noise (the snare adds a short membrane body under the noise); the
+ * hat is a metal synth. Every voice has its
  * own level gain feeding the drums channel. Nodes are created once, here.
  */
 export class DrumKit implements Kit<DrumVoiceId> {
@@ -20,21 +21,24 @@ export class DrumKit implements Kit<DrumVoiceId> {
   private readonly snareNoise: Tone.NoiseSynth
   private readonly snareBody: Tone.MembraneSynth
   private readonly clap: Tone.NoiseSynth
-  private readonly hat: Tone.NoiseSynth
+  private readonly hat: Tone.MetalSynth
   private readonly levels: Record<DrumVoiceId, Tone.Gain>
-  private readonly filters: Tone.Filter[]
+  private readonly filters: (Tone.Filter | Tone.Distortion)[]
 
   constructor(output: Tone.ToneAudioNode, initialLevels: DrumLevels) {
     this.levels = Object.fromEntries(
       DRUM_VOICES.map((id) => [id, new Tone.Gain(initialLevels[id]).connect(output)]),
     ) as Record<DrumVoiceId, Tone.Gain>
 
+    // Kick: a longer sine drop into a touch of saturation, which adds the harmonics a
+    // clean sine lacks on small speakers.
+    const kickDrive = new Tone.Distortion({ distortion: 0.3, wet: 0.45 }).connect(this.levels.kick)
     this.kick = new Tone.MembraneSynth({
-      pitchDecay: 0.05,
-      octaves: 6,
+      pitchDecay: 0.045,
+      octaves: 5,
       oscillator: { type: "sine" },
-      envelope: { attack: 0.001, decay: 0.4, sustain: 0.01, release: 0.4 },
-    }).connect(this.levels.kick)
+      envelope: { attack: 0.001, decay: 0.55, sustain: 0, release: 0.3 },
+    }).connect(kickDrive)
 
     const snareFilter = new Tone.Filter({ type: "bandpass", frequency: 1800, Q: 0.8 }).connect(
       this.levels.snare,
@@ -58,15 +62,21 @@ export class DrumKit implements Kit<DrumVoiceId> {
       envelope: { attack: 0.001, decay: 0.15, sustain: 0 },
     }).connect(clapFilter)
 
-    const hatFilter = new Tone.Filter({ type: "highpass", frequency: 7000 }).connect(
+    // Hat: six detuned square oscillators through FM (the 808 recipe) instead of filtered
+    // noise — metallic rather than hissy.
+    const hatFilter = new Tone.Filter({ type: "highpass", frequency: 6000 }).connect(
       this.levels.hat,
     )
-    this.hat = new Tone.NoiseSynth({
-      noise: { type: "white" },
-      envelope: { attack: 0.001, decay: 0.05, sustain: 0 },
+    this.hat = new Tone.MetalSynth({
+      volume: -14,
+      envelope: { attack: 0.001, decay: 0.07, release: 0.03 },
+      harmonicity: 5.1,
+      modulationIndex: 32,
+      resonance: 6500,
+      octaves: 1.2,
     }).connect(hatFilter)
 
-    this.filters = [snareFilter, clapFilter, hatFilter]
+    this.filters = [snareFilter, clapFilter, hatFilter, kickDrive]
   }
 
   /** The scheduler-facing handle for one voice. */
@@ -89,7 +99,7 @@ export class DrumKit implements Kit<DrumVoiceId> {
         }
         break
       case "hat":
-        this.hat.triggerAttackRelease("32n", time)
+        this.hat.triggerAttackRelease(250, "32n", time)
         break
     }
   }

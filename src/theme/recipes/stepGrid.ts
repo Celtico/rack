@@ -1,7 +1,10 @@
 import { defineSlotRecipe } from "@chakra-ui/react"
 
-/** Four cell tracks — one beat. */
+/** Four cell tracks — one beat. Cells shrink to 20px before the grid scrolls… */
 const BEAT = "repeat(4, minmax(1.25rem, 2.25rem))"
+/** …but never under 28px for a finger: a touch screen scrolls sooner instead. */
+const BEAT_COARSE = "repeat(4, minmax(1.75rem, 2.25rem))"
+const columns = (beat: string) => `max-content ${beat} 0.5rem ${beat} 0.5rem ${beat} 0.5rem ${beat}`
 
 /**
  * 16-step grid: a scrollable viewport with one row per voice. State is carried
@@ -31,7 +34,8 @@ export const stepGridRecipe = defineSlotRecipe({
       display: "grid",
       // Cells grow to 36px on a wide rack and shrink to 20px before the grid resorts to scrolling.
       // A narrow gutter track sits between each beat of four; StepGrid places cells past it.
-      gridTemplateColumns: `max-content ${BEAT} 0.5rem ${BEAT} 0.5rem ${BEAT} 0.5rem ${BEAT}`,
+      gridTemplateColumns: columns(BEAT),
+      "@media (pointer: coarse)": { gridTemplateColumns: columns(BEAT_COARSE) },
       // Spare width stays at the end; otherwise the label track would stretch to take it.
       justifyContent: "start",
       columnGap: "2",
@@ -64,7 +68,9 @@ export const stepGridRecipe = defineSlotRecipe({
       bg: "rack.step.off",
       cursor: "pointer",
       touchAction: "manipulation",
-      transitionProperty: "background-color, box-shadow, border-color",
+      // Only the toggle fades. The playhead changes border and shadow on two cells per row
+      // every step; animating those repainted the grid for several frames each step.
+      transitionProperty: "background-color",
       transitionDuration: "fast",
       _motionReduce: { transition: "none" },
       _hover: { borderColor: "rack.screw" },

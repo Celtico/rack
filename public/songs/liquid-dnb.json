@@ -1,0 +1,2619 @@
+{
+  "version": 2,
+  "bpm": 174,
+  "swing": 0,
+  "masterVolume": 0.8,
+  "instances": [
+    {
+      "id": "drums-1",
+      "kind": "drums",
+      "params": {
+        "kick": 0.95,
+        "snare": 0.8,
+        "clap": 0.5,
+        "hat": 0.35
+      },
+      "level": 0.95,
+      "send": 0.1,
+      "mute": false
+    },
+    {
+      "id": "perc-1",
+      "kind": "perc",
+      "params": {
+        "tomLo": 0.5,
+        "tomHi": 0.4,
+        "rim": 0.35,
+        "cowbell": 0.3,
+        "shaker": 0.25,
+        "crash": 0.3
+      },
+      "level": 0.7,
+      "send": 0.3,
+      "mute": false
+    },
+    {
+      "id": "bass-1",
+      "kind": "bass",
+      "params": {
+        "waveform": "square",
+        "cutoff": 380,
+        "resonance": 4,
+        "envMod": 0.35,
+        "decay": 0.5
+      },
+      "level": 0.85,
+      "send": 0.05,
+      "mute": false
+    },
+    {
+      "id": "poly-1",
+      "kind": "poly",
+      "params": {
+        "waveform": "sawtooth",
+        "cutoff": 1100,
+        "attack": 0.4,
+        "decay": 0.6,
+        "sustain": 0.7,
+        "release": 1.8
+      },
+      "level": 0.4,
+      "send": 0.6,
+      "mute": false
+    },
+    {
+      "id": "ep-1",
+      "kind": "ep",
+      "params": {
+        "tone": 3,
+        "bright": 5,
+        "decay": 0.8,
+        "release": 0.5
+      },
+      "level": 0.55,
+      "send": 0.45,
+      "mute": false
+    }
+  ],
+  "patterns": [
+    {
+      "tracks": {
+        "drums-1": {
+          "kind": "drums",
+          "rows": {
+            "kick": [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            "snare": [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            "clap": [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            "hat": [
+              true,
+              false,
+              true,
+              false,
+              true,
+              false,
+              true,
+              false,
+              true,
+              false,
+              true,
+              false,
+              true,
+              false,
+              true,
+              false
+            ]
+          }
+        },
+        "perc-1": {
+          "kind": "perc",
+          "rows": {
+            "tomLo": [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            "tomHi": [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            "rim": [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              true,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              true
+            ],
+            "cowbell": [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            "shaker": [
+              false,
+              true,
+              false,
+              true,
+              false,
+              true,
+              false,
+              true,
+              false,
+              true,
+              false,
+              true,
+              false,
+              true,
+              false,
+              true
+            ],
+            "crash": [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ]
+          }
+        },
+        "bass-1": {
+          "kind": "bass",
+          "bass": {
+            "notes": [
+              null,
+              null,
+              null,
+              null,
+              null,
+              null,
+              null,
+              null,
+              null,
+              null,
+              null,
+              null,
+              null,
+              null,
+              null,
+              null
+            ],
+            "accent": [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            "slide": [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ]
+          }
+        },
+        "poly-1": {
+          "kind": "poly",
+          "chords": [
+            [
+              2,
+              3,
+              6
+            ],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            []
+          ]
+        },
+        "ep-1": {
+          "kind": "ep",
+          "chords": [
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            []
+          ]
+        }
+      }
+    },
+    {
+      "tracks": {
+        "drums-1": {
+          "kind": "drums",
+          "rows": {
+            "kick": [
+              true,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              true,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            "snare": [
+              false,
+              false,
+              false,
+              false,
+              true,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              true,
+              false,
+              false,
+              false
+            ],
+            "clap": [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            "hat": [
+              true,
+              false,
+              true,
+              false,
+              true,
+              false,
+              true,
+              false,
+              true,
+              false,
+              true,
+              false,
+              true,
+              false,
+              true,
+              false
+            ]
+          }
+        },
+        "perc-1": {
+          "kind": "perc",
+          "rows": {
+            "tomLo": [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            "tomHi": [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            "rim": [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              true,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              true
+            ],
+            "cowbell": [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            "shaker": [
+              false,
+              true,
+              false,
+              true,
+              false,
+              true,
+              false,
+              true,
+              false,
+              true,
+              false,
+              true,
+              false,
+              true,
+              false,
+              true
+            ],
+            "crash": [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ]
+          }
+        },
+        "bass-1": {
+          "kind": "bass",
+          "bass": {
+            "notes": [
+              null,
+              null,
+              null,
+              null,
+              null,
+              null,
+              null,
+              null,
+              null,
+              null,
+              null,
+              null,
+              null,
+              null,
+              null,
+              null
+            ],
+            "accent": [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            "slide": [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ]
+          }
+        },
+        "poly-1": {
+          "kind": "poly",
+          "chords": [
+            [
+              2,
+              3,
+              6
+            ],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            []
+          ]
+        },
+        "ep-1": {
+          "kind": "ep",
+          "chords": [
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            []
+          ]
+        }
+      }
+    },
+    {
+      "tracks": {
+        "drums-1": {
+          "kind": "drums",
+          "rows": {
+            "kick": [
+              true,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              true,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            "snare": [
+              false,
+              false,
+              false,
+              false,
+              true,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              true,
+              false,
+              false,
+              false
+            ],
+            "clap": [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            "hat": [
+              true,
+              false,
+              true,
+              false,
+              true,
+              false,
+              true,
+              false,
+              true,
+              false,
+              true,
+              false,
+              true,
+              false,
+              true,
+              false
+            ]
+          }
+        },
+        "perc-1": {
+          "kind": "perc",
+          "rows": {
+            "tomLo": [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            "tomHi": [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            "rim": [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              true,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              true
+            ],
+            "cowbell": [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            "shaker": [
+              false,
+              true,
+              false,
+              true,
+              false,
+              true,
+              false,
+              true,
+              false,
+              true,
+              false,
+              true,
+              false,
+              true,
+              false,
+              true
+            ],
+            "crash": [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ]
+          }
+        },
+        "bass-1": {
+          "kind": "bass",
+          "bass": {
+            "notes": [
+              0,
+              0,
+              0,
+              0,
+              null,
+              null,
+              1,
+              1,
+              0,
+              0,
+              0,
+              0,
+              null,
+              4,
+              3,
+              3
+            ],
+            "accent": [
+              true,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              true,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            "slide": [
+              true,
+              true,
+              true,
+              false,
+              false,
+              false,
+              true,
+              false,
+              true,
+              true,
+              true,
+              false,
+              false,
+              false,
+              true,
+              false
+            ]
+          }
+        },
+        "poly-1": {
+          "kind": "poly",
+          "chords": [
+            [
+              2,
+              3,
+              6
+            ],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [
+              0,
+              2,
+              3
+            ],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            []
+          ]
+        },
+        "ep-1": {
+          "kind": "ep",
+          "chords": [
+            [],
+            [],
+            [
+              3,
+              4,
+              5
+            ],
+            [],
+            [],
+            [],
+            [
+              2,
+              3,
+              4
+            ],
+            [],
+            [],
+            [],
+            [
+              3,
+              4,
+              5
+            ],
+            [],
+            [],
+            [],
+            [
+              1,
+              3,
+              4
+            ],
+            []
+          ]
+        }
+      }
+    },
+    {
+      "tracks": {
+        "drums-1": {
+          "kind": "drums",
+          "rows": {
+            "kick": [
+              true,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              true,
+              false,
+              false,
+              true,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            "snare": [
+              false,
+              false,
+              false,
+              false,
+              true,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              true,
+              false,
+              false,
+              false
+            ],
+            "clap": [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            "hat": [
+              true,
+              false,
+              true,
+              true,
+              true,
+              false,
+              true,
+              false,
+              true,
+              false,
+              true,
+              true,
+              true,
+              false,
+              true,
+              true
+            ]
+          }
+        },
+        "perc-1": {
+          "kind": "perc",
+          "rows": {
+            "tomLo": [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            "tomHi": [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            "rim": [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              true,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              true
+            ],
+            "cowbell": [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            "shaker": [
+              false,
+              true,
+              false,
+              true,
+              false,
+              true,
+              false,
+              true,
+              false,
+              true,
+              false,
+              true,
+              false,
+              true,
+              false,
+              true
+            ],
+            "crash": [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ]
+          }
+        },
+        "bass-1": {
+          "kind": "bass",
+          "bass": {
+            "notes": [
+              0,
+              0,
+              0,
+              null,
+              2,
+              2,
+              1,
+              null,
+              0,
+              0,
+              0,
+              5,
+              4,
+              4,
+              1,
+              0
+            ],
+            "accent": [
+              true,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              true,
+              false,
+              false,
+              false,
+              true,
+              false,
+              false,
+              false
+            ],
+            "slide": [
+              true,
+              true,
+              false,
+              false,
+              true,
+              false,
+              false,
+              false,
+              true,
+              true,
+              false,
+              false,
+              true,
+              false,
+              true,
+              false
+            ]
+          }
+        },
+        "poly-1": {
+          "kind": "poly",
+          "chords": [
+            [
+              3,
+              4,
+              5,
+              7
+            ],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [
+              1,
+              3,
+              6
+            ],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            []
+          ]
+        },
+        "ep-1": {
+          "kind": "ep",
+          "chords": [
+            [],
+            [],
+            [
+              3,
+              4,
+              5
+            ],
+            [],
+            [],
+            [],
+            [
+              2,
+              3,
+              4
+            ],
+            [],
+            [],
+            [],
+            [
+              3,
+              4,
+              5
+            ],
+            [],
+            [],
+            [],
+            [
+              1,
+              3,
+              4
+            ],
+            []
+          ]
+        }
+      }
+    },
+    {
+      "tracks": {
+        "drums-1": {
+          "kind": "drums",
+          "rows": {
+            "kick": [
+              true,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              true,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            "snare": [
+              false,
+              false,
+              false,
+              false,
+              true,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              true,
+              false,
+              true,
+              false
+            ],
+            "clap": [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              true,
+              false,
+              false,
+              false
+            ],
+            "hat": [
+              true,
+              false,
+              true,
+              true,
+              true,
+              false,
+              true,
+              false,
+              true,
+              false,
+              true,
+              true,
+              true,
+              false,
+              true,
+              true
+            ]
+          }
+        },
+        "perc-1": {
+          "kind": "perc",
+          "rows": {
+            "tomLo": [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              true,
+              false,
+              false
+            ],
+            "tomHi": [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              true
+            ],
+            "rim": [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            "cowbell": [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            "shaker": [
+              false,
+              true,
+              false,
+              true,
+              false,
+              true,
+              false,
+              true,
+              false,
+              true,
+              false,
+              true,
+              false,
+              true,
+              false,
+              true
+            ],
+            "crash": [
+              true,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ]
+          }
+        },
+        "bass-1": {
+          "kind": "bass",
+          "bass": {
+            "notes": [
+              0,
+              0,
+              0,
+              0,
+              null,
+              null,
+              1,
+              1,
+              0,
+              0,
+              0,
+              0,
+              null,
+              4,
+              3,
+              3
+            ],
+            "accent": [
+              true,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              true,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            "slide": [
+              true,
+              true,
+              true,
+              false,
+              false,
+              false,
+              true,
+              false,
+              true,
+              true,
+              true,
+              false,
+              false,
+              false,
+              true,
+              false
+            ]
+          }
+        },
+        "poly-1": {
+          "kind": "poly",
+          "chords": [
+            [
+              2,
+              3,
+              6
+            ],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [
+              0,
+              2,
+              3
+            ],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            []
+          ]
+        },
+        "ep-1": {
+          "kind": "ep",
+          "chords": [
+            [],
+            [],
+            [
+              3,
+              4,
+              5
+            ],
+            [],
+            [],
+            [],
+            [
+              2,
+              3,
+              4
+            ],
+            [],
+            [],
+            [],
+            [
+              3,
+              4,
+              5
+            ],
+            [],
+            [],
+            [],
+            [
+              1,
+              3,
+              4
+            ],
+            []
+          ]
+        }
+      }
+    },
+    {
+      "tracks": {
+        "drums-1": {
+          "kind": "drums",
+          "rows": {
+            "kick": [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            "snare": [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            "clap": [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            "hat": [
+              true,
+              false,
+              true,
+              false,
+              true,
+              false,
+              true,
+              false,
+              true,
+              false,
+              true,
+              false,
+              true,
+              false,
+              true,
+              false
+            ]
+          }
+        },
+        "perc-1": {
+          "kind": "perc",
+          "rows": {
+            "tomLo": [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            "tomHi": [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            "rim": [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            "cowbell": [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            "shaker": [
+              false,
+              true,
+              false,
+              true,
+              false,
+              true,
+              false,
+              true,
+              false,
+              true,
+              false,
+              true,
+              false,
+              true,
+              false,
+              true
+            ],
+            "crash": [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ]
+          }
+        },
+        "bass-1": {
+          "kind": "bass",
+          "bass": {
+            "notes": [
+              null,
+              null,
+              null,
+              null,
+              null,
+              null,
+              null,
+              null,
+              null,
+              null,
+              null,
+              null,
+              null,
+              null,
+              null,
+              null
+            ],
+            "accent": [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            "slide": [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ]
+          }
+        },
+        "poly-1": {
+          "kind": "poly",
+          "chords": [
+            [
+              2,
+              3,
+              6
+            ],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [
+              0,
+              2,
+              3
+            ],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            []
+          ]
+        },
+        "ep-1": {
+          "kind": "ep",
+          "chords": [
+            [
+              1
+            ],
+            [],
+            [
+              2
+            ],
+            [],
+            [
+              3
+            ],
+            [],
+            [
+              4
+            ],
+            [],
+            [
+              5
+            ],
+            [],
+            [
+              4
+            ],
+            [],
+            [
+              3
+            ],
+            [],
+            [
+              2
+            ],
+            []
+          ]
+        }
+      }
+    },
+    {
+      "tracks": {
+        "drums-1": {
+          "kind": "drums",
+          "rows": {
+            "kick": [
+              true,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            "snare": [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              true,
+              true,
+              true,
+              true,
+              true,
+              true,
+              true,
+              true
+            ],
+            "clap": [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            "hat": [
+              true,
+              false,
+              true,
+              false,
+              true,
+              false,
+              true,
+              false,
+              true,
+              false,
+              true,
+              false,
+              true,
+              false,
+              true,
+              false
+            ]
+          }
+        },
+        "perc-1": {
+          "kind": "perc",
+          "rows": {
+            "tomLo": [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            "tomHi": [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            "rim": [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            "cowbell": [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            "shaker": [
+              false,
+              true,
+              false,
+              true,
+              false,
+              true,
+              false,
+              true,
+              false,
+              true,
+              false,
+              true,
+              false,
+              true,
+              false,
+              true
+            ],
+            "crash": [
+              true,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ]
+          }
+        },
+        "bass-1": {
+          "kind": "bass",
+          "bass": {
+            "notes": [
+              0,
+              0,
+              0,
+              0,
+              null,
+              null,
+              1,
+              1,
+              0,
+              0,
+              0,
+              0,
+              null,
+              4,
+              3,
+              3
+            ],
+            "accent": [
+              true,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              true,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            "slide": [
+              true,
+              true,
+              true,
+              false,
+              false,
+              false,
+              true,
+              false,
+              true,
+              true,
+              true,
+              false,
+              false,
+              false,
+              true,
+              false
+            ]
+          }
+        },
+        "poly-1": {
+          "kind": "poly",
+          "chords": [
+            [
+              3,
+              4,
+              5,
+              7
+            ],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [
+              1,
+              3,
+              6
+            ],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            []
+          ]
+        },
+        "ep-1": {
+          "kind": "ep",
+          "chords": [
+            [
+              1
+            ],
+            [],
+            [
+              2
+            ],
+            [],
+            [
+              3
+            ],
+            [],
+            [
+              4
+            ],
+            [],
+            [
+              5
+            ],
+            [],
+            [
+              4
+            ],
+            [],
+            [
+              3
+            ],
+            [],
+            [
+              2
+            ],
+            []
+          ]
+        }
+      }
+    },
+    {
+      "tracks": {
+        "drums-1": {
+          "kind": "drums",
+          "rows": {
+            "kick": [
+              true,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              true,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            "snare": [
+              false,
+              false,
+              false,
+              false,
+              true,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              true,
+              false,
+              false,
+              false
+            ],
+            "clap": [
+              false,
+              false,
+              false,
+              false,
+              true,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              true,
+              false,
+              false,
+              false
+            ],
+            "hat": [
+              true,
+              false,
+              true,
+              true,
+              true,
+              false,
+              true,
+              false,
+              true,
+              false,
+              true,
+              true,
+              true,
+              false,
+              true,
+              true
+            ]
+          }
+        },
+        "perc-1": {
+          "kind": "perc",
+          "rows": {
+            "tomLo": [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            "tomHi": [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            "rim": [
+              false,
+              false,
+              false,
+              true,
+              false,
+              false,
+              false,
+              true,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              true
+            ],
+            "cowbell": [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            "shaker": [
+              false,
+              true,
+              false,
+              true,
+              false,
+              true,
+              false,
+              true,
+              false,
+              true,
+              false,
+              true,
+              false,
+              true,
+              false,
+              true
+            ],
+            "crash": [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ]
+          }
+        },
+        "bass-1": {
+          "kind": "bass",
+          "bass": {
+            "notes": [
+              0,
+              0,
+              0,
+              0,
+              null,
+              null,
+              1,
+              1,
+              0,
+              0,
+              0,
+              0,
+              null,
+              4,
+              3,
+              3
+            ],
+            "accent": [
+              true,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              true,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            "slide": [
+              true,
+              true,
+              true,
+              false,
+              false,
+              false,
+              true,
+              false,
+              true,
+              true,
+              true,
+              false,
+              false,
+              false,
+              true,
+              false
+            ]
+          }
+        },
+        "poly-1": {
+          "kind": "poly",
+          "chords": [
+            [
+              3,
+              4,
+              5,
+              7
+            ],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [
+              1,
+              3,
+              6
+            ],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            []
+          ]
+        },
+        "ep-1": {
+          "kind": "ep",
+          "chords": [
+            [],
+            [],
+            [
+              3,
+              4,
+              5
+            ],
+            [],
+            [],
+            [],
+            [
+              2,
+              3,
+              4
+            ],
+            [],
+            [],
+            [],
+            [
+              3,
+              4,
+              5
+            ],
+            [],
+            [],
+            [],
+            [
+              1,
+              3,
+              4
+            ],
+            []
+          ]
+        }
+      }
+    }
+  ],
+  "activePattern": 0,
+  "chain": [
+    0,
+    0,
+    1,
+    1,
+    2,
+    2,
+    3,
+    3,
+    4,
+    7,
+    5,
+    5,
+    6,
+    2,
+    3,
+    4
+  ],
+  "fx": {
+    "delayTime": "16n",
+    "feedback": 0.35,
+    "reverbDecay": 3
+  }
+}

@@ -123,7 +123,7 @@ export function FxUnit() {
 
         <Flex wrap="wrap" gap={{ base: "5", md: "8" }} align="stretch">
           <Section title="Echo">
-            <HStack gap="4" align="flex-start">
+            <HStack gap="4" align="flex-start" wrap="wrap">
               <SegmentGroup.Root
                 size="sm"
                 value={fx.delayTime}
@@ -153,7 +153,13 @@ export function FxUnit() {
             </HStack>
           </Section>
 
-          <Separator orientation="vertical" borderColor="rack.panel.edge" alignSelf="stretch" />
+          <Separator
+            orientation="vertical"
+            borderColor="rack.panel.edge"
+            alignSelf="stretch"
+            // Once the sections stack, a vertical rule between them is just a stray line.
+            hideBelow="md"
+          />
 
           <Section title="Reverb">
             <Knob

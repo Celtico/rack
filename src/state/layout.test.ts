@@ -44,13 +44,30 @@ describe("layout store", () => {
     expect(useLayoutStore.getState().order.at(-1)).toBe("bass-1")
   })
 
-  it("hides and shows FX-2, never an instance", () => {
+  it("swaps the pinned panels among themselves, never into the stack", () => {
+    useLayoutStore.setState({ pinnedOrder: ["PATTERN", "SONG"] })
+    const s = useLayoutStore.getState()
+    s.nudgeUnit("SONG", -1)
+    expect(useLayoutStore.getState().pinnedOrder).toEqual(["SONG", "PATTERN"])
+    s.nudgeUnit("SONG", -1)
+    expect(useLayoutStore.getState().pinnedOrder).toEqual(["SONG", "PATTERN"])
+    s.moveUnit("PATTERN", "SONG")
+    expect(useLayoutStore.getState().pinnedOrder).toEqual(["PATTERN", "SONG"])
+    s.moveUnit("SONG", "drums-1")
+    expect(useLayoutStore.getState().pinnedOrder).toEqual(["PATTERN", "SONG"])
+    expect(useLayoutStore.getState().order).toEqual(ORDER)
+  })
+
+  it("hides and shows FX-2, BANK and SONG, never an instance or the transport", () => {
     const s = useLayoutStore.getState()
     s.hideUnit("FX-2")
     s.hideUnit("FX-2")
     s.hideUnit("drums-1")
-    expect(useLayoutStore.getState().hidden).toEqual(["FX-2"])
+    s.hideUnit("SONG")
+    s.hideUnit("CLOCK")
+    expect(useLayoutStore.getState().hidden).toEqual(["FX-2", "SONG"])
     s.showUnit("FX-2")
+    s.showUnit("SONG")
     expect(useLayoutStore.getState().hidden).toEqual([])
   })
 

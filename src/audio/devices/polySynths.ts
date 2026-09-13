@@ -1,9 +1,12 @@
 import * as Tone from "tone"
 
 import type { EpParams, PolyParams, StringsParams } from "../../state/params"
+import { fatOscillator } from "./oscillators"
 
 /** Ramp length for automatable parameter changes. */
 const RAMP = 0.03
+/** Pad unison: three oscillators well spread, then a slow chorus. */
+const UNISON = { count: 3, spread: 24 }
 
 /** Something that plays chords from the grid. */
 export interface PolyInstrument {
@@ -12,24 +15,28 @@ export interface PolyInstrument {
 }
 
 /**
- * POLY-4: a subtractive pad — `PolySynth` of plain `Synth` voices into one
- * shared lowpass. Chords are held a quarter note; sustain and release shape
- * the rest.
+ * POLY-4: a subtractive pad — `PolySynth` of unison `Synth` voices into one
+ * shared 24 dB lowpass and a slow chorus. Chords are held a quarter note;
+ * sustain and release shape the rest.
  */
 export class PolyPad implements PolyInstrument {
   private readonly synth: Tone.PolySynth<Tone.Synth>
   private readonly filter: Tone.Filter
+  private readonly chorus: Tone.Chorus
 
   constructor(output: Tone.ToneAudioNode, p: PolyParams) {
+    this.chorus = new Tone.Chorus({ frequency: 0.5, delayTime: 3.5, depth: 0.6, wet: 0.35 })
+      .connect(output)
+      .start()
     this.filter = new Tone.Filter({
       type: "lowpass",
       frequency: p.cutoff,
-      rolloff: -12,
-      Q: 1,
-    }).connect(output)
+      rolloff: -24,
+      Q: 1.2,
+    }).connect(this.chorus)
     this.synth = new Tone.PolySynth(Tone.Synth, {
-      volume: -12,
-      oscillator: { type: p.waveform },
+      volume: -14,
+      oscillator: fatOscillator(p.waveform, UNISON.count, UNISON.spread),
       envelope: { attack: p.attack, decay: p.decay, sustain: p.sustain, release: p.release },
     }).connect(this.filter)
     this.synth.maxPolyphony = 8
@@ -42,7 +49,9 @@ export class PolyPad implements PolyInstrument {
   set<K extends keyof PolyParams>(key: K, value: PolyParams[K]): void {
     switch (key) {
       case "waveform":
-        this.synth.set({ oscillator: { type: value as PolyParams["waveform"] } })
+        this.synth.set({
+          oscillator: fatOscillator(value as PolyParams["waveform"], UNISON.count, UNISON.spread),
+        })
         break
       case "cutoff":
         this.filter.frequency.rampTo(value as number, RAMP)
@@ -55,6 +64,7 @@ export class PolyPad implements PolyInstrument {
   dispose(): void {
     this.synth.dispose()
     this.filter.dispose()
+    this.chorus.dispose()
   }
 }
 

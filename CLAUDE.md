@@ -10,14 +10,19 @@ strict build order:
 1. ✅ The two project skills exist (`.claude/skills/chakra-ui/SKILL.md`, `.claude/skills/rack-audio/SKILL.md`).
 2. ✅ Scaffold (Prompt 1): theme system, empty `RackUnit`, `Transport` (play/stop, tempo, master), store, tests.
 3. Rack modules in phases (Prompt 2) — **stop after each phase for the user to test**.
-   - ✅ Phase 1 — engine: master bus, FX bus (delay → reverb), per-channel sends (`drums`, `synth`),
+   - ✅ Phase 1 — engine: master bus (`Gain` → `Compressor` −14 dB/3:1 → `Limiter` −1 dB → destination; the
+     master meter reads after the limiter), FX bus (delay → reverb), per-channel sends (`drums`, `synth`),
      `Scheduler` (16-step `Tone.Sequence`, reads `store.getState().pattern` each tick, publishes the step
      via `Draw`). Devices register a `Voice` per drum through `registerVoice()` — none exist yet.
-   - ✅ Phase 2 — DR-4: `DrumKit` (`src/audio/devices/drums.ts`; kick `MembraneSynth`, snare/clap/hat
-     filtered `NoiseSynth`, per-voice level gains) registered as voices in `engine.build()`. `StepGrid`
+   - ✅ Phase 2 — DR-4: `DrumKit` (`src/audio/devices/drums.ts`; kick `MembraneSynth` into a light
+     `Distortion`, snare/clap filtered `NoiseSynth`, hat a `MetalSynth` (808-style FM squares), per-voice level gains) registered as voices in `engine.build()`. `StepGrid`
      (slot recipe, state via `aria-pressed` / `data-accent` / `data-playing`) + `DrumMachine` unit.
    - ✅ Phase 3 — MONO-1: `MonoVoice` (`src/audio/devices/monoSynth.ts`, a `Tone.MonoSynth`; cutoff is
-     `filterEnvelope.baseFrequency` because the envelope owns `filter.frequency`). Pattern gained
+     `filterEnvelope.baseFrequency` because the envelope owns `filter.frequency`). Sound: every saw/square/
+     triangle oscillator in the rack is a "fat" unison (`fatOscillator()` in `devices/oscillators.ts` — MONO-1
+     3×18 cents, BASS-2 2×7 into a small `Distortion`, POLY-4 3×24 into a 24 dB lowpass and a slow `Chorus`);
+     sine stays single. Set waveforms through `synth.set({ oscillator })`, not `oscillator.type`, so count and
+     spread survive the switch. Pattern gained
      `synth: (rowIndex | null)[16]` over `SYNTH_NOTES` (C2–C3) — monophonic by construction via
      `toggleSynthNote`. `MonoSynth` unit reuses `StepGrid` with one row per note; `Knob` gained `scale="log"`.
    - ✅ Phase 4 — FX-2: `mix` (level + send per channel, `src/state/channels.ts`) and `fx` (delay time in
@@ -29,7 +34,10 @@ strict build order:
      `playingPattern` published via Draw; while a chain plays, `setPlayhead` also moves `activePattern` to the sounding slot so open
      grids (and the bank) follow the song. Picking a bank slot sets `followSong: false` — that slot loops (the
      engine resolves with an empty chain) until "Play song" (`setFollowSong(true)`) or a bar is appended. Save/load: `toSong` / `parseSong` (`src/state/song.ts`, strict
-     shape, clamped ranges) + `engine.syncFromStore()` after a load. `PatternBank` unit; toaster snippet.
+     shape, clamped ranges; lenient where hand-written files fail: missing `fx` defaults, a missing `chain`
+     becomes every slot with content in order and a missing `activePattern` the first of them, row indices
+     past an instrument's eight rows are pulled to the last row, and `KIND_ALIASES` maps names like `pad`, `piano`,
+     `guitar`, `kit`, `lead` to the real kinds for instances and tracks — chatbot-made songs do all of it) + `engine.syncFromStore()` after a load. `PatternBank` unit; toaster snippet.
 
    - ✅ Extra — swing: `swingOffset()` in the scheduler delays odd steps up to ⅓ of a sixteenth (store
      `swing` 0–1, SWING knob on the Transport, saved in the song; older song files default to 0).
@@ -47,6 +55,11 @@ strict build order:
    - ✅ Extra — SMP-8 (`SamplerKit`, `src/audio/devices/sampler.ts`): eight `Player`s; sample bytes live in
      IndexedDB (`src/audio/sampleStore.ts`), the song keeps only name/pitch/decay/level per pad.
      `engine.importSample()` persists first, decodes if the graph exists; `build()` reloads from storage.
+   - ✅ Extra — folding animates: `Fold` (`src/ui/Fold.tsx`, Chakra `Collapsible` controlled by `open`, no
+     trigger — the header buttons fold) wraps every `RackUnit` body and `MasterSection`; content stays mounted,
+     `hidden` once closed. The content bleeds `1.5` so focus rings at the edges survive `overflow: hidden`.
+     The whole header (and a `MasterSection`'s title row) folds on click — `foldOnClick` (`src/ui/foldOnClick.ts`)
+     ignores clicks that land on the header's own buttons, so mute/grip/chevron keep working alone.
    - ✅ Extra — per-unit **finish** (vivid dark tints of one lightness with the graphite ink; the root is `finish.graphite.panel` with a soft radial glow of the tint in the top-left corner over
      `finish.graphite.panel`; slot-recipe variant that overrides the `rack.panel` / `rack.silkscreen`
      CSS variables on the unit root, tokens under `colors.finish.*`), **fold** (store `folded`, UI-only) and
@@ -62,24 +75,80 @@ strict build order:
      `minmax(1.25rem, 2.25rem)` and `justifyContent: start`, so they fit before they scroll; rack is `8xl`.
 
    - ✅ Extra — rack layout (`src/state/layout.ts`, zustand `persist` in localStorage as `rack-layout`,
-     UI-only): drag-and-drop reorder (HTML5 DnD armed by the grip button, `moveWithin()` pure), arrow-key
-     nudge, remove (× — instances are removed with an Undo toast, PATTERN/SONG/FX-2 are hidden) / "Add
-     unit" menu (new machine of any kind, or put a hidden fixed unit back), Fold all / Unfold all
+     UI-only): drag-and-drop reorder (HTML5 DnD armed by the grip button, `moveWithin()` pure); the grip is
+     also a `Menu` (Move up / Move down / Remove) since touch screens have no HTML5 drag — the grip is a single
+     line of dots (`LuEllipsisVertical`) and the menu is the only way to remove (instances go with an Undo toast,
+     FX-2 is hidden; there is no × in the header any more) / "Add unit" drawer (`src/ui/AddUnitDrawer.tsx`,
+     a Chakra `Drawer` like the song library: one row per kind with its accent icon, count in the rack and an
+     add button, under it one row per existing instance — tap to `scrollToUnit` (panels carry `id="unit-<id>"`),
+     trash to remove — then "Put back" rows for hidden units; `removeInstanceWithUndo` in
+     `src/ui/removeInstance.ts` is shared with the grip menu), Fold all / Unfold all
      (`setFolded`). Folded instances show a `MiniGrid` on the right of the header: the instance's pattern in
      miniature (one dot per step, playhead column lit; `miniGrid` slot recipe). Fixed units pass their own
      `RackUnit.preview`: FX-2 one meter per machine (`LevelMeter orientation="horizontal"`). The bank's slots reuse the
      timeline `block` — grey, lit while sounding, `data-active` outline on the slot being edited. TRANSPORT is fixed.
 
-   - ✅ Extra — factory song: `App` calls `loadDefaultSong()` (`src/ui/defaultSong.ts`) once on mount, which
-     fetches `public/-rack-song.json`, `loadSong`s it and `engine.syncFromStore()`s; a missing/broken file leaves
+   - ✅ Extra — startup song: `App` calls `loadDefaultSong()` (`src/ui/defaultSong.ts`) once on mount. It loads
+     the **newest song in the library** if there is one (IndexedDB; no IndexedDB → skipped), else it
+     fetches `public/-rack-song.json` (a v2 techno demo at 128 BPM: DR-4, PERC-6, BASS-2, MONO-1, POLY-4, 8
+     patterns chained over 16 bars — intro, acid line, drop, breakdown, build), `loadSong`s it and
+     `engine.syncFromStore()`s; a missing/broken file leaves
      the coded starter groove (`starterTrack`) in place. The rack starts with every unit folded
      (`foldedAll`, also re-applied after the factory song loads); a user-loaded song unfolds its machines.
-   - ✅ Extra — top panel: `MasterUnit` (id `TRANSPORT`, `RackUnit fixed` — no grip, fold or remove, never in the
-     reorderable stack) holds `Transport`, `PatternBank` and `TimelineUnit` as `MasterSection`s with their own fold
-     toggles (`MASTER_SECTIONS` in the store: CLOCK, PATTERN, SONG; Fold all / Unfold all include them; PATTERN and
-     SONG start folded). `FIXED_UNITS` is now just `FX-2`; `rack-layout` persist version 3 drops the old ids.
+   - ✅ Extra — **song library**: songs saved in the browser (IndexedDB store `songs`; `src/state/db.ts` now
+     owns the shared `rack` database at version 2 with the `samples` and `songs` stores — `sampleStore` uses it).
+     `useLibraryStore` (`src/state/songLibrary.ts`: `refresh` / `save` / `remove` / `restore`, DB first, list
+     second; tested with `fake-indexeddb`). `SongLibrary` (`src/ui/SongLibrary.tsx`) is a Chakra `Drawer` opened
+     by the "Songs" button in Bank · File: a save-as row (`toSong`) and one row per entry with play (`loadSong`
+     + `syncFromStore` + start), download (`downloadJson`, `songFileName`), rename in place (pencil → the name
+     becomes an `Input`; Enter/blur commit, Escape cancels; focus is moved to the row before the field
+     unmounts and the drawer's `onEscapeKeyDown` is vetoed for a rename, or the drawer would close) and delete
+     with an Undo toast.
+     **Built-in songs** head the list, without delete: `public/songs/index.json` (`{ songs: [{ name, file, bpm,
+     bars }] }`) is fetched on open by `loadBuiltinSongs()` (`src/ui/builtinSongs.ts`) and each file by
+     `loadBuiltinSong(file)` on play/download — add a song by dropping a JSON in `public/songs/` and listing it.
+     Shipped: the factory techno (`-rack-song.json`, 128), "Warehouse · Techno" (`warehouse-techno.json`, 132,
+     G minor: rolling square rumble with slides, off-sixteenth MONO-1 arp, Gsus4 POLY-4 stabs, break with the root
+     held, snare-roll build), "Kamuffel style · Berlin" (`kamuffel-style.json`,
+     126, A minor, EP-1 hook), "Liquid · Drum & Bass" (`liquid-dnb.json`, 174, E minor, held sub via slides)
+     and "Open Road · Country ballad" (`open-road.json`, 76, Em7 → G → Dsus4 → Asus4 one chord per bar, EP-1
+     eighths, STR-6 strums; no instrument has an F, so F-based progressions are out), and "Menu Loop · Umplix"
+     (`menu-loop-umplix.json`): a CC0 dubstep MIDI from OpenGameArt (opengameart.org/content/menu-loop-0, by
+     Umplix, 2024) run through the MIDI importer — the only built-in that is not ours; keep the credit in its name.
+     The library's `nowPlaying` (entry id or `builtinKey(file)`; set by play, save and startup, cleared by a
+     file import) marks the song the rack holds: its row is washed amber with `aria-current`, its button is Stop
+     while the clock runs and Play (from the top) when stopped.
+     Play (`playSong`) resumes the audio context first, inside the tap, then stops and rewinds, loads, sets
+     `followSong`, `startTransport()`; the drawer closes and a toast names the song, or an error toast says why
+     not. The generators live outside the repo (Python, scratchpad) — the JSON is the source.
+     **MIDI import**: "Load" also takes `.mid` — `songFromMidi` (`src/state/midiImport.ts`, `@tonejs/midi`,
+     pure, tested): notes quantised to sixteenths, one pattern per distinct bar (chain replays them, cut at 16),
+     channel 10 → DR-4/PERC-6 by a General MIDI map, other tracks → BASS-2 / STR-6 / EP-1 / MONO-1 / POLY-4 by
+     GM program then range and polyphony (two machines per kind at most); pitches fold onto each machine's eight
+     rows by pitch class then nearest octave (`nearestRow`), held bass notes become slides, velocity > 0.8 an
+     accent. The toast reports track → machine, notes moved and dropped. Two `.mid` are served from
+     `public/midi/` (a generated test groove and the CC0 Menu Loop) so a phone can fetch one to try Load with.
+     **SMP-8 factory kit**: "Load kit" on the sampler (`loadFactoryKit`, `src/ui/samplerKits.ts`) fetches eight
+     CC0 one-shots from `public/samples/bounce/` (Boochi44/free-drum-samples, see its LICENSE.txt) into the
+     eight pads via `engine.importSample`. The old
+     "Save" file button is gone: save to the library, then download from there. "Load" still imports a file.
+   - ✅ Extra — top panel: `MasterUnit` is `RackUnit id="CLOCK" model="TRANSPORT" pinned` — it folds from its
+     own header (no inner section row any more), has no grip, is never moved or removed, and is not in the
+     reorderable stack (`MASTER_SECTIONS` in the store: CLOCK, PATTERN, SONG; Fold all / Unfold all include
+     them; PATTERN and SONG start folded). `Transport` is two rows on a phone and, from `md`, one row spread
+     evenly across the panel (`display: contents` dissolves the rows and groups). The bank
+     and the song are two **sticky** panels right under it: `PinnedUnits` (`src/ui/PinnedUnits.tsx`, one
+     `position: sticky; top: 0` box holding `RackUnit id="PATTERN"` BANK (finish `green`) and `RackUnit id="SONG"`
+     SONG (finish `pink`), both `pinned`: they fold, and swap places with each other by grip, drag or menu
+     (`layout.pinnedOrder`, persisted; `moveUnit`/`nudgeUnit` route pinned ids there and never into the stack;
+     a pinned id outside `PINNED_UNITS`, like the transport, gets no grip), and can be hidden like FX-2
+     (`HIDEABLE_UNITS` = FX-2 + the pinned ids, `layout.hidden`; "Remove from rack" in the grip menu, back via
+     "Add unit → Put back"; the transport alone can never leave)), so the slots and the bars stay in view while the rack scrolls; fold either to a
+     thin bar when it is in the way. `FIXED_UNITS` is now just `FX-2`; `rack-layout` persist version 3 drops the old ids.
      `autoplay()` (`src/ui/transportControl.ts`) starts the clock after the factory song loads and re-tries on the
-     first pointer/key, since browsers keep audio suspended until a gesture.
+     first pointer/key, since browsers keep audio suspended until a gesture. `installWakeLock()`
+     (`src/ui/wakeLock.ts`, also from `App`) holds a Screen Wake Lock while `playing`, re-taken when the tab comes
+     back, so a phone does not dim and suspend the audio.
    - ✅ Extra — **instances** (any number of each machine, e.g. two DR-4s). `src/state/instances.ts`:
      `Instance { id: "${kind}-${n}", kind, params, level, send, mute }` (discriminated by `Kind`, one
      `KindParams` per kind, `clampParams`, `instanceLabel` → "DR-4" or "DR-4 #2"). `Pattern.tracks` is
@@ -97,8 +166,24 @@ strict build order:
    - ✅ Extra — playhead performance: nothing but the moving parts subscribes to `currentStep`. `StepGrid` reads
      it itself and its `StepCell`s are `memo`ised (two cells per row re-render per step); `MiniGrid` draws a
      separate `MiniPlayhead` bar over memoised cells; Transport's `StepReadout` and SONG's `BarProgress` are
-     their own components. Meters share one rAF loop (`src/ui/levels.ts`, `subscribeLevels`). Recipe results
-     are `useMemo`d so memoised children keep the same `css` object.
+     their own components. Meters share one rAF loop (`src/ui/levels.ts`, `subscribeLevels`) and light their
+     segments by flipping `data-lit` on the DOM from that loop — no React render per bounce (a meter re-rendering
+     nine Chakra elements 30×/s was the biggest running cost on a phone). Step cells only transition
+     `background-color`: animating the playhead's border/shadow repainted the grid for several frames per step.
+     Measured on the production build at phone width, playing, unfolded: main-thread busy time went from
+     1.55 s to 1.12 s per 5 s after these two changes; `contain: paint` / `will-change` on meters and grids
+     gained nothing. Recipe results are `useMemo`d so memoised children keep the same `css` object.
+
+   - ✅ Extra — **phone layout** (below `md`): no rails, frame padding or screws, panels square and edge to
+     edge with `mx: 0` header/body; the toolbar is a full-width strip in `rack.panel` grey (`toolbarButton` /
+     `toolbarIconButton` in `src/ui/toolbar.ts`): fold-all and unfold-all as icons, then Songs (the library
+     drawer), Load (`LoadSongButton`, .json or .mid) and Add unit — the bank only keeps the copy row (active
+     slot → Copy → next slot). The CLOCK is two rows (`Transport`): run button + Tempo/Swing/Master knobs, then
+     BEAT LEDs + BPM/STEP displays + OUT meter; side by side from `md`. The bank is a `repeat(8, minmax(0, 4rem))` grid (16 in a row from `xl`);
+     song bars are `12` wide instead of `16` (`BAR_WIDTH` in the timeline recipe). Touch screens
+     (`@media (pointer: coarse)` inside the recipes — no custom condition, Chakra's typegen would be needed for
+     `_coarse`) get 28px-minimum step cells and 32px header buttons/grip. `vite.config.ts` has `server.host: true`
+     so a phone on the LAN can open the dev server.
 
 **All extras above are done.** Other ideas: LCD readouts per synth, drag-reorder on the timeline, per-step
 velocity on the kits.

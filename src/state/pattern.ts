@@ -266,6 +266,28 @@ export function toggleBassFlag(track: Track, step: number, flag: BassFlag): Trac
   return { ...track, bass: { ...track.bass, [flag]: flip(track.bass[flag], step) } }
 }
 
+/** True when nothing on the track ever sounds. */
+export function isTrackEmpty(track: Track): boolean {
+  switch (track.kind) {
+    case "drums":
+    case "perc":
+    case "sampler":
+      return Object.values(rowsOf(track)).every((row) => row.every((on) => !on))
+    case "synth":
+      return track.notes.every((r) => r === null)
+    case "bass":
+      return track.bass.notes.every((r) => r === null)
+    case "poly":
+    case "ep":
+    case "strings":
+      return track.chords.every((column) => column.length === 0)
+  }
+}
+
+/** True when no instance plays anything in the pattern — a bank slot with nothing in it. */
+export const isPatternEmpty = (pattern: Pattern): boolean =>
+  Object.values(pattern.tracks).every(isTrackEmpty)
+
 /** Voices of a kit track that are on at a step. */
 export function hitsAt(track: KitTrack, step: number): string[] {
   const rows = track.rows as KitRows

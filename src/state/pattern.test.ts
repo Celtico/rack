@@ -5,6 +5,8 @@ import {
   createEmptyPattern,
   emptyTrack,
   hitsAt,
+  isPatternEmpty,
+  isTrackEmpty,
   polyNotesAt,
   rowsOf,
   synthNoteAt,
@@ -139,6 +141,21 @@ describe("patterns", () => {
     expect(Object.keys(p.tracks)).toEqual(["drums-1", "drums-2", "bass-1"])
     expect(p.tracks["drums-2"]!.kind).toBe("drums")
     expect(p.tracks["bass-1"]!.kind).toBe("bass")
+  })
+
+  it("knows an empty pattern from one with a single hit or note", () => {
+    const p = createEmptyPattern(owners)
+    expect(isPatternEmpty(p)).toBe(true)
+    const withKick = withTrack(
+      p,
+      "drums-2",
+      toggleKitStep(p.tracks["drums-2"] as KitTrack, "kick", 3),
+    )
+    expect(isPatternEmpty(withKick)).toBe(false)
+    const withBass = withTrack(p, "bass-1", toggleTrackNote(p.tracks["bass-1"]!, 0, 2))
+    expect(isPatternEmpty(withBass)).toBe(false)
+    expect(isTrackEmpty(emptyTrack("poly"))).toBe(true)
+    expect(isTrackEmpty(toggleTrackNote(emptyTrack("poly"), 5, 1))).toBe(false)
   })
 
   it("replaces and removes tracks without mutating", () => {

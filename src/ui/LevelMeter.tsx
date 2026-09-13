@@ -1,5 +1,5 @@
 import { chakra, useSlotRecipe, type RecipeVariantProps } from "@chakra-ui/react"
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useRef } from "react"
 
 import type { LevelSource } from "../audio/engine"
 import type { meterRecipe } from "../theme/recipes/meter"
@@ -15,43 +15,45 @@ export interface LevelMeterProps extends MeterVariants {
 
 /**
  * An LED meter that follows one engine source through the shared levels loop
- * (`subscribeLevels`) and only re-renders when the number of lit segments
- * changes — the engine owns the analysers; this component only reads numbers.
+ * (`subscribeLevels`). The segments are lit by flipping `data-lit` on the DOM
+ * directly from that loop — a meter bounces up to 30 times a second, and a
+ * React render (nine styled elements) each time was the rack's biggest
+ * running cost on a phone. React draws the meter once; the loop only touches
+ * attributes.
  */
 export function LevelMeter({ source, label, size, orientation }: LevelMeterProps) {
   const recipe = useSlotRecipe({ key: "meter" })
   const styles = recipe({ size, orientation })
-  const [lit, setLit] = useState(0)
-  const last = useRef(0)
+  const root = useRef<HTMLDivElement>(null)
 
-  useEffect(
-    () =>
-      subscribeLevels((levels) => {
-        const next = litSegments(levels[source] ?? 0)
-        if (next !== last.current) {
-          last.current = next
-          setLit(next)
-        }
-      }),
-    [source],
-  )
+  useEffect(() => {
+    let last = -1
+    return subscribeLevels((levels) => {
+      const next = litSegments(levels[source] ?? 0)
+      const el = root.current
+      if (next === last || !el) return
+      last = next
+      el.setAttribute("aria-valuenow", String(next))
+      const segments = el.children
+      for (let i = 0; i < segments.length; i++) {
+        if (i < next) segments[i]!.setAttribute("data-lit", "")
+        else segments[i]!.removeAttribute("data-lit")
+      }
+    })
+  }, [source])
 
   return (
     <chakra.div
+      ref={root}
       css={styles.root}
       role="meter"
       aria-label={label}
       aria-valuemin={0}
       aria-valuemax={METER_THRESHOLDS_DB.length}
-      aria-valuenow={lit}
+      aria-valuenow={0}
     >
       {METER_THRESHOLDS_DB.map((_, i) => (
-        <chakra.span
-          key={i}
-          css={styles.segment}
-          data-zone={meterZone(i)}
-          data-lit={i < lit ? "" : undefined}
-        />
+        <chakra.span key={i} css={styles.segment} data-zone={meterZone(i)} />
       ))}
     </chakra.div>
   )

@@ -1,8 +1,9 @@
 import { defaultParams, type Instance } from "./instances"
-import { BASS_WAVEFORMS, DELAY_TIMES, WAVEFORMS, type FxParams } from "./params"
+import { BASS_WAVEFORMS, DELAY_TIMES, FX_DEFAULT, WAVEFORMS, type FxParams } from "./params"
 import {
   BASS_NOTES,
   emptyTrack,
+  isPatternEmpty,
   KINDS,
   KIT_VOICES,
   kitRows,
@@ -88,13 +89,23 @@ export const bank = (v: unknown): unknown[] => {
 const boolRow = (v: unknown, path: string): boolean[] =>
   list(v, path, STEP_COUNT).map((on, i) => bool(on, `${path}[${i}]`))
 
+/**
+ * A row index, pulled into range: files written by hand (or by a chatbot) often
+ * count past the eight rows an instrument has; the nearest real row keeps the
+ * rhythm rather than dropping the note.
+ */
+const rowIndex = (v: unknown, path: string, rows: number): number =>
+  Number.isInteger(v) ? Math.min(rows - 1, Math.max(0, v as number)) : fail(path, "an integer")
+
 const monoRow = (v: unknown, path: string, rows: number): SynthRow =>
-  list(v, path, STEP_COUNT).map((r, i) => (r === null ? null : int(r, `${path}[${i}]`, rows)))
+  list(v, path, STEP_COUNT).map((r, i) => (r === null ? null : rowIndex(r, `${path}[${i}]`, rows)))
 
 const chordRow = (v: unknown, path: string, rows: number): PolyRow =>
   list(v, path, STEP_COUNT).map((column, i) =>
     [
-      ...new Set(list(column, `${path}[${i}]`).map((r, j) => int(r, `${path}[${i}][${j}]`, rows))),
+      ...new Set(
+        list(column, `${path}[${i}]`).map((r, j) => rowIndex(r, `${path}[${i}][${j}]`, rows)),
+      ),
     ].sort((a, b) => a - b),
   )
 
@@ -115,11 +126,39 @@ function parseBassRow(v: unknown, path: string): BassRow {
   }
 }
 
+/** Names a hand-written file is likely to use for a kind of machine, mapped to the real one. */
+const KIND_ALIASES: Readonly<Record<string, Kind>> = {
+  pad: "poly",
+  pads: "poly",
+  polysynth: "poly",
+  chords: "poly",
+  piano: "ep",
+  epiano: "ep",
+  keys: "ep",
+  rhodes: "ep",
+  guitar: "strings",
+  pluck: "strings",
+  string: "strings",
+  drum: "drums",
+  kit: "drums",
+  drumkit: "drums",
+  percussion: "perc",
+  percs: "perc",
+  sample: "sampler",
+  samples: "sampler",
+  lead: "synth",
+  mono: "synth",
+  monosynth: "synth",
+  acid: "bass",
+  sub: "bass",
+}
+
 /** A track of a known kind. A missing track (instance added after the file was saved) is silent. */
 function parseTrack(v: unknown, path: string, kind: Kind): Track {
   if (v === undefined) return emptyTrack(kind)
   const t = record(v, path)
-  if (t.kind !== kind) fail(`${path}.kind`, kind)
+  const named = typeof t.kind === "string" ? (KIND_ALIASES[t.kind.toLowerCase()] ?? t.kind) : t.kind
+  if (named !== kind) fail(`${path}.kind`, kind)
   switch (kind) {
     case "drums":
     case "perc":
@@ -172,7 +211,8 @@ function parseParams(v: unknown, path: string, kind: Kind): Instance["params"] {
 
 function parseInstance(v: unknown, path: string): Instance {
   const obj = record(v, path)
-  const kind = oneOf(obj.kind, `${path}.kind`, KINDS)
+  const alias = typeof obj.kind === "string" ? KIND_ALIASES[obj.kind.toLowerCase()] : undefined
+  const kind = alias ?? oneOf(obj.kind, `${path}.kind`, KINDS)
   return {
     id: str(obj.id, `${path}.id`),
     kind,
@@ -189,7 +229,31 @@ function parseSongV2(s: Record<string, unknown>): Song {
   )
   const ids = new Set(instances.map((i) => i.id))
   if (ids.size !== instances.length) fail("song.instances", "unique ids")
-  const fx = record(s.fx, "song.fx")
+  // Missing effects, chain or active slot are what a hand-written file most often lacks: defaults.
+  const fx = s.fx === undefined ? {} : record(s.fx, "song.fx")
+  const patterns = padBank(
+    bank(s.patterns).map((p, n) => {
+      const tracks = record(record(p, `song.patterns[${n}]`).tracks, `song.patterns[${n}].tracks`)
+      return {
+        tracks: Object.fromEntries(
+          instances.map((i) => [
+            i.id,
+            parseTrack(tracks[i.id], `song.patterns[${n}].tracks.${i.id}`, i.kind),
+          ]),
+        ),
+      }
+    }),
+    instances,
+  )
+  // No chain in the file: play every slot that has something in it, in order — what the
+  // author of a file without one almost always means.
+  const filled = patterns.flatMap((p, i) => (isPatternEmpty(p) ? [] : [i]))
+  const chain =
+    s.chain === undefined
+      ? filled.slice(0, MAX_CHAIN)
+      : list(s.chain, "song.chain")
+          .slice(0, MAX_CHAIN)
+          .map((c, i) => int(c, `song.chain[${i}]`, PATTERN_COUNT))
 
   return {
     version: SONG_VERSION,
@@ -197,28 +261,13 @@ function parseSongV2(s: Record<string, unknown>): Song {
     swing: num(s.swing ?? 0, "song.swing"),
     masterVolume: num(s.masterVolume, "song.masterVolume"),
     instances,
-    patterns: padBank(
-      bank(s.patterns).map((p, n) => {
-        const tracks = record(record(p, `song.patterns[${n}]`).tracks, `song.patterns[${n}].tracks`)
-        return {
-          tracks: Object.fromEntries(
-            instances.map((i) => [
-              i.id,
-              parseTrack(tracks[i.id], `song.patterns[${n}].tracks.${i.id}`, i.kind),
-            ]),
-          ),
-        }
-      }),
-      instances,
-    ),
-    activePattern: int(s.activePattern, "song.activePattern", PATTERN_COUNT),
-    chain: list(s.chain, "song.chain")
-      .slice(0, MAX_CHAIN)
-      .map((c, i) => int(c, `song.chain[${i}]`, PATTERN_COUNT)),
+    patterns,
+    activePattern: int(s.activePattern ?? filled[0] ?? 0, "song.activePattern", PATTERN_COUNT),
+    chain,
     fx: {
-      delayTime: oneOf(fx.delayTime, "song.fx.delayTime", DELAY_TIMES),
-      feedback: num(fx.feedback, "song.fx.feedback"),
-      reverbDecay: num(fx.reverbDecay, "song.fx.reverbDecay"),
+      delayTime: oneOf(fx.delayTime ?? FX_DEFAULT.delayTime, "song.fx.delayTime", DELAY_TIMES),
+      feedback: num(fx.feedback ?? FX_DEFAULT.feedback, "song.fx.feedback"),
+      reverbDecay: num(fx.reverbDecay ?? FX_DEFAULT.reverbDecay, "song.fx.reverbDecay"),
     },
   }
 }

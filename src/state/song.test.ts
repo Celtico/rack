@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, it } from "vitest"
 
 import { defaultInstances, type Instance, type InstanceOf } from "./instances"
-import { rowsOf, type Kind, type KitTrack, type PolyTrack } from "./pattern"
+import { isPatternEmpty, rowsOf, type Kind, type KitTrack, type PolyTrack } from "./pattern"
 import { createDefaultBank, PATTERN_COUNT } from "./patterns"
 import { parseSong, serializeSong, SongParseError, type Song } from "./song"
-import { toSong, useRackStore } from "./store"
+import { FX_DEFAULT, toSong, useRackStore } from "./store"
 import rackSongText from "../../docs/rack-song.json?raw"
 
 /** Every song file shipped in docs/, as text. */
@@ -187,6 +187,53 @@ describe("song save/load", () => {
     expect(() => parseSong(JSON.stringify(long))).toThrow(/song\.patterns/)
   })
 
+  it("forgives a hand-written file: missing fx, chain and active slot, rows past the last", () => {
+    const song = toSong(useRackStore.getState())
+    const loose = JSON.parse(serializeSong(song)) as Record<string, unknown> & {
+      patterns: {
+        tracks: { "synth-1": { notes: (number | null)[] }; "poly-1": { chords: number[][] } }
+      }[]
+    }
+    delete loose.fx
+    delete loose.chain
+    delete loose.activePattern
+    loose.patterns[0]!.tracks["synth-1"].notes[3] = 10
+    loose.patterns[0]!.tracks["poly-1"].chords[0] = [3, 7, 10, -1]
+    const parsed = parseSong(JSON.stringify(loose))
+    expect(parsed.fx).toEqual(FX_DEFAULT)
+    // No chain: every slot with content, in order; the first of them is active.
+    const filled = song.patterns.flatMap((p, i) => (isPatternEmpty(p) ? [] : [i]))
+    expect(filled.length).toBeGreaterThan(0)
+    expect(parsed.chain).toEqual(filled)
+    expect(parsed.activePattern).toBe(filled[0])
+    const synth = parsed.patterns[0]!.tracks["synth-1"]
+    const poly = parsed.patterns[0]!.tracks["poly-1"]
+    if (synth?.kind !== "synth" || poly?.kind !== "poly") throw new Error()
+    expect(synth.notes[3]).toBe(7)
+    expect(poly.chords[0]).toEqual([0, 3, 7])
+  })
+
+  it("understands a chatbot's names for machines and lets a track say the same name", () => {
+    const loose = {
+      version: 2,
+      bpm: 100,
+      masterVolume: 0.8,
+      instances: [
+        { id: "pad-1", kind: "pad", params: { cutoff: 1200, attack: 1.5 }, level: 0.5, send: 0.6 },
+        { id: "guitar-1", kind: "Guitar", params: {}, level: 0.6, send: 0.3 },
+      ],
+      patterns: [{ tracks: { "pad-1": { kind: "pad", chords: Array(16).fill([]) } } }],
+    }
+    const parsed = parseSong(JSON.stringify(loose))
+    expect(parsed.instances.map((i) => i.kind)).toEqual(["poly", "strings"])
+    const pad = parsed.instances[0]
+    if (pad?.kind !== "poly") throw new Error()
+    expect(pad.params.cutoff).toBe(1200)
+    expect(pad.params.sustain).toBeGreaterThan(0)
+    expect(pad.mute).toBe(false)
+    expect(parsed.patterns[0]!.tracks["guitar-1"]?.kind).toBe("strings")
+  })
+
   it("rejects files that are not a song", () => {
     expect(() => parseSong("not json")).toThrow(SongParseError)
     expect(() => parseSong("{}")).toThrow(/song\.version/)
@@ -209,7 +256,7 @@ describe("song save/load", () => {
     const badNote = JSON.parse(serializeSong(song)) as {
       patterns: { tracks: { "synth-1": { notes: unknown[] } } }[]
     }
-    badNote.patterns[0]!.tracks["synth-1"].notes[3] = 8
+    badNote.patterns[0]!.tracks["synth-1"].notes[3] = "high"
     expect(() => parseSong(JSON.stringify(badNote))).toThrow(/notes\[3\]/)
 
     const badWave = JSON.parse(serializeSong(song)) as {

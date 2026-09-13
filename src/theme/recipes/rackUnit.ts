@@ -11,8 +11,14 @@ export const FINISHES = [
   "cream",
   "wood",
   "yellow",
+  "green",
+  "pink",
 ] as const
 export type Finish = (typeof FINISHES)[number]
+
+/** The finish colour lifted to a bright accent that reads on the dark panel — the header icon, the menu icon. */
+export const finishAccent = (name: Finish) =>
+  `oklch(from {colors.finish.${name}.panel} 0.74 calc(c * 2.4) h)`
 
 /**
  * A finish repaints the `rack.panel` / `rack.silkscreen` tokens for everything
@@ -26,6 +32,7 @@ const finish = (name: Finish) => ({
     "--chakra-colors-rack-silkscreen": `{colors.finish.${name}.ink}`,
     "--chakra-colors-rack-silkscreen-muted": `{colors.finish.${name}.inkMuted}`,
   },
+  icon: { color: finishAccent(name) },
 })
 
 /**
@@ -54,16 +61,17 @@ export const rackUnitRecipe = defineSlotRecipe({
       bg: "finish.graphite.panel",
       // Plain graphite with a soft glow of the finish colour falling from the top-left corner.
       bgImage:
-        "radial-gradient(ellipse 0px 0px at 0px 0px, {colors.rack.panel} 0%, transparent 100px)",
+        "radial-gradient(ellipse 1px 1px at 10% 50%, {colors.rack.panel} 0, transparent 800px)",
       color: "rack.silkscreen",
       borderWidth: "1px",
       borderColor: "rack.panel.edge",
-      rounded: "sm",
+      // On a phone the panel runs edge to edge: square, no screws, tight margins.
+      rounded: { base: "none", md: "sm" },
       shadow: "panel",
-      px: { base: "4", md: "6" },
-      pt: "3",
-      pb: "5",
-      "&[data-folded]": { pb: "3" },
+      px: { base: "3", md: "6" },
+      pt: { base: "2", md: "3" },
+      pb: { base: "3", md: "5" },
+      "&[data-folded]": { pb: { base: "2", md: "3" } },
       "&[data-drop-target]": {
         outline: "2px dashed",
         outlineColor: "rack.led.on",
@@ -74,10 +82,13 @@ export const rackUnitRecipe = defineSlotRecipe({
     grip: {
       display: "inline-flex",
       alignItems: "center",
+      justifyContent: "center",
       color: "rack.silkscreen.muted",
       cursor: "grab",
       touchAction: "none",
       rounded: "xs",
+      // A finger needs more than the glyph to hit.
+      "@media (pointer: coarse)": { minW: "8", minH: "8" },
       _hover: { color: "rack.silkscreen" },
       _focusVisible: { outline: "2px solid", outlineColor: "rack.led.on", outlineOffset: "2px" },
     },
@@ -96,21 +107,24 @@ export const rackUnitRecipe = defineSlotRecipe({
       borderBottomWidth: "1px",
       borderColor: "rack.panel.edge",
       pb: "2",
-      mb: "4",
-      mx: "4",
+      mb: { base: "3", md: "4" },
+      // Clear of the screws on a desktop; there are none on a phone.
+      mx: { base: "0", md: "4" },
       "[data-folded] &": { borderBottomWidth: "0", pb: "0", mb: "0" },
+      // Any point of the header folds the unit (see `foldOnClick`).
+      "&[data-foldable]": { cursor: "pointer", userSelect: "none" },
     },
     icon: {
       display: "inline-flex",
       alignItems: "center",
+      // The finish variant paints it in the unit's accent colour.
       color: "rack.silkscreen",
-      fontSize: "2xl",
-      opacity: 0.9,
+      fontSize: "xl",
     },
     model: {
       textStyle: "silkscreen",
       fontWeight: "bold",
-      fontSize: "sm",
+      fontSize: "xs",
       color: "rack.silkscreen",
       // "FX-2" must not break into two lines on a phone.
       whiteSpace: "nowrap",
@@ -128,14 +142,17 @@ export const rackUnitRecipe = defineSlotRecipe({
       ml: "auto",
       flexShrink: 0,
       color: "rack.silkscreen.muted",
+      // The header's icon buttons are `xs`; on a touch screen they get a finger-sized box.
+      "@media (pointer: coarse)": { "& > button": { minW: "8", minH: "8" } },
       // Only when a preview sits before them does it take the free space instead.
       "[data-part=preview] + &": { ml: "0" },
     },
     body: {
-      mx: "4",
+      mx: { base: "0", md: "4" },
     },
     screw: {
       position: "absolute",
+      hideBelow: "md",
       boxSize: "3",
       rounded: "full",
       bg: "rack.screw",

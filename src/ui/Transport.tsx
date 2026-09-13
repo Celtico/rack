@@ -15,35 +15,51 @@ const formatPercent = (level: number) => `${Math.round(level * 100)}%`
 
 const BEATS = Array.from({ length: STEP_COUNT / 4 }, (_, i) => i)
 
-/** Step counter and beat LEDs — the only part of the panel that moves while playing. */
-function StepReadout() {
+/** The four beat LEDs — moves while playing, so it subscribes on its own. */
+function BeatLeds() {
   const currentStep = useRackStore((s) => s.currentStep)
   const currentBeat = currentStep < 0 ? -1 : Math.floor(currentStep / 4)
   return (
-    <>
-      <VStack gap="1" align="stretch">
-        <Display size="lg" aria-label="Current step">
-          {currentStep < 0 ? "--" : String(currentStep + 1).padStart(2, "0")}
-        </Display>
-        <Text textStyle="silkscreen" color="rack.silkscreen.muted" textAlign="center">
-          Step
-        </Text>
-      </VStack>
-      <VStack gap="1" align="center">
-        <HStack gap="2" pb="1">
-          {BEATS.map((beat) => (
-            <Led key={beat} on={beat === currentBeat} label={`Beat ${beat + 1}`} />
-          ))}
-        </HStack>
-        <Text textStyle="silkscreen" color="rack.silkscreen.muted">
-          Beat
-        </Text>
-      </VStack>
-    </>
+    <VStack gap="1" align="center">
+      <HStack gap="2" pb="1">
+        {BEATS.map((beat) => (
+          <Led key={beat} on={beat === currentBeat} label={`Beat ${beat + 1}`} />
+        ))}
+      </HStack>
+      <Text textStyle="silkscreen" color="rack.silkscreen.muted">
+        Beat
+      </Text>
+    </VStack>
   )
 }
 
-/** Clock, tempo, swing, step readout and master — the controls of the top panel. */
+/** Step counter — the other moving part. */
+function StepDisplay() {
+  const currentStep = useRackStore((s) => s.currentStep)
+  return (
+    <VStack gap="1" align="stretch">
+      <Display size="lg" aria-label="Current step">
+        {currentStep < 0 ? "--" : String(currentStep + 1).padStart(2, "0")}
+      </Display>
+      <Text textStyle="silkscreen" color="rack.silkscreen.muted" textAlign="center">
+        Step
+      </Text>
+    </VStack>
+  )
+}
+
+/**
+ * On a phone the rows and groups are flex boxes; from `md` they dissolve
+ * (`display: contents`) so every control is a direct child of the panel row
+ * and the nine of them spread evenly across its width.
+ */
+const GROUP = { base: "flex", md: "contents" } as const
+
+/**
+ * Clock, tempo, swing, master and the readouts — the controls of the top panel.
+ * Two rows on a phone: the run button with the three knobs, then the beat LEDs
+ * with the displays and the master meter. One evenly spread row on a desktop.
+ */
 export function Transport() {
   const bpm = useRackStore((s) => s.bpm)
   const swing = useRackStore((s) => s.swing)
@@ -64,78 +80,86 @@ export function Transport() {
   }
 
   return (
-    <Flex wrap="wrap" align="center" gap={{ base: "3", md: "8" }} rowGap={{ base: "4", md: "8" }}>
-      <HStack gap="3" align="flex-end">
-        <IconButton
-          aria-label={playing ? "Stop" : "Play"}
-          aria-pressed={playing}
-          onClick={togglePlay}
-          size="lg"
-          variant="subtle"
-          colorPalette={playing ? "orange" : "gray"}
-          rounded="sm"
-        >
-          {playing ? <LuSquare /> : <LuPlay />}
-        </IconButton>
-        <VStack gap="1" align="center">
-          <Led on={playing} label="Run" />
-          <Text textStyle="silkscreen" color="rack.silkscreen.muted">
-            Run
-          </Text>
-        </VStack>
+    <Flex
+      direction={{ base: "column", md: "row" }}
+      justify={{ md: "space-between" }}
+      align={{ base: "stretch", md: "flex-end" }}
+      gap={{ base: "5", md: "6" }}
+      px={{ md: "2" }}
+    >
+      <HStack display={GROUP} justify="space-between" align="flex-end" gap="4">
+        <HStack display={GROUP} gap="3" align="flex-end">
+          <IconButton
+            aria-label={playing ? "Stop" : "Play"}
+            aria-pressed={playing}
+            onClick={togglePlay}
+            size="lg"
+            variant="subtle"
+            colorPalette={playing ? "orange" : "gray"}
+            rounded="sm"
+          >
+            {playing ? <LuSquare /> : <LuPlay />}
+          </IconButton>
+          <VStack gap="1" align="center">
+            <Led on={playing} label="Run" />
+            <Text textStyle="silkscreen" color="rack.silkscreen.muted">
+              Run
+            </Text>
+          </VStack>
+        </HStack>
+
+        <HStack display={GROUP} gap="4" align="flex-end">
+          <Knob
+            label="Tempo"
+            value={bpm}
+            min={BPM_MIN}
+            max={BPM_MAX}
+            defaultValue={BPM_DEFAULT}
+            format={formatBpm}
+            onChange={changeBpm}
+          />
+          <Knob
+            label="Swing"
+            value={swing}
+            min={0}
+            max={1}
+            step={0.01}
+            defaultValue={0}
+            format={formatPercent}
+            onChange={setSwing}
+          />
+          <Knob
+            label="Master"
+            value={masterVolume}
+            min={0}
+            max={1}
+            step={0.01}
+            defaultValue={MASTER_DEFAULT}
+            format={formatPercent}
+            onChange={changeMaster}
+          />
+        </HStack>
       </HStack>
 
-      <HStack gap="3" align="flex-end">
-        <Knob
-          label="Tempo"
-          value={bpm}
-          min={BPM_MIN}
-          max={BPM_MAX}
-          defaultValue={BPM_DEFAULT}
-          format={formatBpm}
-          onChange={changeBpm}
-        />
-        <VStack gap="1" align="stretch">
-          <Display size="lg" aria-label="Tempo">
-            {bpm}
-          </Display>
-          <Text textStyle="silkscreen" color="rack.silkscreen.muted" textAlign="center">
-            BPM
-          </Text>
-        </VStack>
-        <Knob
-          label="Swing"
-          value={swing}
-          min={0}
-          max={1}
-          step={0.01}
-          defaultValue={0}
-          format={formatPercent}
-          onChange={setSwing}
-        />
-      </HStack>
-
-      <HStack gap="3" align="flex-end">
-        <StepReadout />
-      </HStack>
-
-      <HStack gap="3" align="flex-end">
-        <Knob
-          label="Master"
-          value={masterVolume}
-          min={0}
-          max={1}
-          step={0.01}
-          defaultValue={MASTER_DEFAULT}
-          format={formatPercent}
-          onChange={changeMaster}
-        />
-        <VStack gap="1" align="center">
-          <LevelMeter source="master" label="Master level" />
-          <Text textStyle="silkscreen" color="rack.silkscreen.muted">
-            Out
-          </Text>
-        </VStack>
+      <HStack display={GROUP} justify="space-between" align="flex-end" gap="4">
+        <BeatLeds />
+        <HStack display={GROUP} gap="3" align="flex-end">
+          <VStack gap="1" align="stretch">
+            <Display size="lg" aria-label="Tempo">
+              {bpm}
+            </Display>
+            <Text textStyle="silkscreen" color="rack.silkscreen.muted" textAlign="center">
+              BPM
+            </Text>
+          </VStack>
+          <StepDisplay />
+          <VStack gap="1" align="center">
+            <LevelMeter source="master" label="Master level" />
+            <Text textStyle="silkscreen" color="rack.silkscreen.muted">
+              Out
+            </Text>
+          </VStack>
+        </HStack>
       </HStack>
     </Flex>
   )

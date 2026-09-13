@@ -1,20 +1,31 @@
-import { chakra, IconButton, useSlotRecipe, type RecipeVariantProps } from "@chakra-ui/react"
-import { useState, type DragEvent, type KeyboardEvent, type ReactNode } from "react"
 import {
+  chakra,
+  IconButton,
+  Menu,
+  Portal,
+  useSlotRecipe,
+  type RecipeVariantProps,
+} from "@chakra-ui/react"
+import { useState, type DragEvent, type ReactNode } from "react"
+import {
+  LuArrowDown,
+  LuArrowUp,
   LuChevronDown,
   LuChevronUp,
-  LuGripVertical,
+  LuEllipsisVertical,
   LuVolume2,
   LuVolumeX,
   LuX,
 } from "react-icons/lu"
 
 import { getEngine } from "../audio/engine"
-import { toaster } from "../components/ui/toaster"
-import { HIDEABLE_UNITS, isFixedUnit, useLayoutStore } from "../state/layout"
+import { isHideableUnit, isPinnedUnit, useLayoutStore } from "../state/layout"
 import { useRackStore } from "../state/store"
 import type { rackUnitRecipe } from "../theme/recipes/rackUnit"
+import { Fold } from "./Fold"
+import { foldOnClick } from "./foldOnClick"
 import { MiniGrid } from "./MiniGrid"
+import { removeInstanceWithUndo, unitDomId } from "./removeInstance"
 
 type RackUnitVariants = RecipeVariantProps<typeof rackUnitRecipe>
 
@@ -33,6 +44,11 @@ export interface RackUnitProps extends RackUnitVariants {
   preview?: ReactNode
   /** Always there: no grip, no fold, no remove. */
   fixed?: boolean
+  /**
+   * Folds but is never removed. The sticky panels (`PINNED_UNITS`) also swap
+   * places with each other through the grip; anything else pinned has no grip.
+   */
+  pinned?: boolean
   children?: ReactNode
 }
 
@@ -47,6 +63,7 @@ export function RackUnit({
   icon,
   preview,
   fixed = false,
+  pinned = false,
   units,
   finish,
   children,
@@ -55,12 +72,14 @@ export function RackUnit({
   const styles = recipe({ units, finish })
   const folded = useRackStore((s) => !fixed && s.folded[id] === true)
   const muted = useRackStore((s) => s.instances.find((i) => i.id === id)?.mute ?? false)
-  const { toggleFold, setInstanceMute, removeInstance, restoreInstance } = useRackStore.getState()
+  const { toggleFold, setInstanceMute } = useRackStore.getState()
   const { moveUnit, nudgeUnit, hideUnit } = useLayoutStore.getState()
   // The grip arms dragging; the whole panel is only draggable while it is held.
   const [armed, setArmed] = useState(false)
   const [over, setOver] = useState(false)
-  const removable = !fixed && (instance || (isFixedUnit(id) && HIDEABLE_UNITS.includes(id)))
+  // Instances are removed, FX-2 / BANK / SONG are hidden (and put back from "Add unit"); the transport stays.
+  const removable = !fixed && (instance || isHideableUnit(id))
+  const movable = !fixed && (!pinned || isPinnedUnit(id))
 
   const setMute = (next: boolean) => {
     setInstanceMute(id, next)
@@ -68,25 +87,8 @@ export function RackUnit({
   }
 
   const remove = () => {
-    if (!instance) {
-      hideUnit(id)
-      return
-    }
-    const removed = removeInstance(id)
-    if (!removed) return
-    getEngine().removeInstance(id)
-    toaster.create({
-      type: "info",
-      title: `${model} removed`,
-      description: "Its patterns went with it.",
-      action: {
-        label: "Undo",
-        onClick: () => {
-          restoreInstance(removed)
-          getEngine().addInstance(removed.instance)
-        },
-      },
-    })
+    if (instance) removeInstanceWithUndo(id, model)
+    else hideUnit(id)
   }
 
   const onDragStart = (e: DragEvent) => {
@@ -106,15 +108,16 @@ export function RackUnit({
     e.preventDefault()
     moveUnit(source, id)
   }
-  const onGripKey = (e: KeyboardEvent) => {
-    if (e.key === "ArrowUp") nudgeUnit(id, -1)
-    else if (e.key === "ArrowDown") nudgeUnit(id, 1)
-    else return
-    e.preventDefault()
+  // The grip's menu: what drag does, for keyboards and touch screens (no HTML5 drag there).
+  const onGripSelect = (value: string) => {
+    if (value === "up") nudgeUnit(id, -1)
+    else if (value === "down") nudgeUnit(id, 1)
+    else if (value === "remove") remove()
   }
 
   return (
     <chakra.section
+      id={unitDomId(id)}
       css={styles.root}
       aria-label={title ? `${model} ${title}` : model}
       data-folded={folded ? "" : undefined}
@@ -122,14 +125,19 @@ export function RackUnit({
       draggable={armed}
       onDragStart={onDragStart}
       onDragEnd={() => setArmed(false)}
-      onDragOver={fixed ? undefined : onDragOver}
+      onDragOver={movable ? onDragOver : undefined}
       onDragLeave={() => setOver(false)}
-      onDrop={fixed ? undefined : onDrop}
+      onDrop={movable ? onDrop : undefined}
     >
       {CORNERS.map((corner) => (
         <chakra.span key={corner} css={styles.screw} data-corner={corner} aria-hidden="true" />
       ))}
-      <chakra.header css={styles.header}>
+      {/* The whole header folds the unit; its own buttons are excluded by `foldOnClick`. */}
+      <chakra.header
+        css={styles.header}
+        data-foldable={fixed ? undefined : ""}
+        onClick={fixed ? undefined : foldOnClick(() => toggleFold(id))}
+      >
         {icon && (
           <chakra.span css={styles.icon} aria-hidden="true">
             {icon}
@@ -170,34 +178,46 @@ export function RackUnit({
               {folded ? <LuChevronDown /> : <LuChevronUp />}
             </IconButton>
           )}
-          {removable && (
-            <IconButton
-              size="xs"
-              variant="ghost"
-              color="inherit"
-              aria-label={`Remove ${model} from the rack`}
-              onClick={remove}
-            >
-              <LuX />
-            </IconButton>
-          )}
         </chakra.div>
-        {!fixed && (
-          <chakra.button
-            type="button"
-            css={styles.grip}
-            aria-label={`Move ${model} (drag, or arrow keys)`}
-            onPointerDown={() => setArmed(true)}
-            onPointerUp={() => setArmed(false)}
-            onKeyDown={onGripKey}
+        {movable && (
+          <Menu.Root
+            onSelect={(details) => onGripSelect(details.value)}
+            positioning={{ placement: "bottom-end" }}
           >
-            <LuGripVertical />
-          </chakra.button>
+            <Menu.Trigger asChild>
+              <chakra.button
+                type="button"
+                css={styles.grip}
+                aria-label={`Move ${model}`}
+                onPointerDown={() => setArmed(true)}
+                onPointerUp={() => setArmed(false)}
+              >
+                <LuEllipsisVertical />
+              </chakra.button>
+            </Menu.Trigger>
+            <Portal>
+              <Menu.Positioner>
+                <Menu.Content>
+                  <Menu.Item value="up">
+                    <LuArrowUp /> Move up
+                  </Menu.Item>
+                  <Menu.Item value="down">
+                    <LuArrowDown /> Move down
+                  </Menu.Item>
+                  {removable && (
+                    <Menu.Item value="remove" color="fg.error">
+                      <LuX /> Remove from rack
+                    </Menu.Item>
+                  )}
+                </Menu.Content>
+              </Menu.Positioner>
+            </Portal>
+          </Menu.Root>
         )}
       </chakra.header>
-      <chakra.div css={styles.body} hidden={folded}>
-        {children}
-      </chakra.div>
+      <Fold open={!folded}>
+        <chakra.div css={styles.body}>{children}</chakra.div>
+      </Fold>
     </chakra.section>
   )
 }

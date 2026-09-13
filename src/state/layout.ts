@@ -8,17 +8,29 @@ import { persist } from "zustand/middleware"
 export const FIXED_UNITS = ["FX-2"] as const
 export type FixedUnitId = (typeof FIXED_UNITS)[number]
 
-/** Fixed units that can be taken out of view (instances are removed instead). */
-export const HIDEABLE_UNITS: readonly FixedUnitId[] = ["FX-2"]
-
 export const isFixedUnit = (id: string): id is FixedUnitId =>
   (FIXED_UNITS as readonly string[]).includes(id)
+
+/** The panels stuck under the transport: they swap places with each other, never with the stack. */
+export const PINNED_UNITS = ["PATTERN", "SONG"] as const
+export type PinnedUnitId = (typeof PINNED_UNITS)[number]
+
+export const isPinnedUnit = (id: string): id is PinnedUnitId =>
+  (PINNED_UNITS as readonly string[]).includes(id)
+
+/** Units that can be taken out of view and put back (instances are removed instead). */
+export type HideableUnitId = FixedUnitId | PinnedUnitId
+export const HIDEABLE_UNITS: readonly HideableUnitId[] = ["FX-2", ...PINNED_UNITS]
+export const isHideableUnit = (id: string): id is HideableUnitId =>
+  (HIDEABLE_UNITS as readonly string[]).includes(id)
 
 export interface LayoutState {
   /** Visible order of unit ids — fixed units and instance ids mixed. */
   order: readonly string[]
-  /** Fixed units taken out of view. */
-  hidden: readonly FixedUnitId[]
+  /** Fixed and pinned units taken out of view. */
+  hidden: readonly HideableUnitId[]
+  /** Order of the sticky panels under the transport. */
+  pinnedOrder: readonly PinnedUnitId[]
 
   /** Put `id` where `target` is; `target` shifts to make room. */
   moveUnit: (id: string, target: string) => void
@@ -52,6 +64,17 @@ export function ensureOrder(order: readonly string[], ids: readonly string[]): s
 
 const DEFAULT_ORDER: readonly string[] = ["FX-2"]
 
+/** One place up or down within `list`, or the list unchanged at either end. Pure. */
+function nudgeIn<T>(list: readonly T[], id: T, direction: -1 | 1): T[] | null {
+  const from = list.indexOf(id)
+  const to = from + direction
+  if (from < 0 || to < 0 || to >= list.length) return null
+  const next = [...list]
+  next.splice(from, 1)
+  next.splice(to, 0, id)
+  return next
+}
+
 /**
  * How the rack is arranged on screen — order and which fixed units are out.
  * UI preference, kept in the browser rather than in the song. Instance ids
@@ -62,23 +85,30 @@ export const useLayoutStore = create<LayoutState>()(
     (set) => ({
       order: [...DEFAULT_ORDER],
       hidden: [],
+      pinnedOrder: [...PINNED_UNITS],
 
-      moveUnit: (id, target) => set((s) => ({ order: moveWithin(s.order, id, target) })),
+      moveUnit: (id, target) =>
+        set((s) => {
+          // Pinned panels only trade places among themselves; a drop across the two lists is ignored.
+          if (isPinnedUnit(id) || isPinnedUnit(target)) {
+            return isPinnedUnit(id) && isPinnedUnit(target)
+              ? { pinnedOrder: moveWithin(s.pinnedOrder, id, target) }
+              : s
+          }
+          return { order: moveWithin(s.order, id, target) }
+        }),
       nudgeUnit: (id, direction) =>
         set((s) => {
-          const from = s.order.indexOf(id)
-          const to = from + direction
-          if (from < 0 || to < 0 || to >= s.order.length) return s
-          const next = [...s.order]
-          next.splice(from, 1)
-          next.splice(to, 0, id)
-          return { order: next }
+          if (isPinnedUnit(id)) {
+            const pinnedOrder = nudgeIn(s.pinnedOrder, id, direction)
+            return pinnedOrder ? { pinnedOrder } : s
+          }
+          const order = nudgeIn(s.order, id, direction)
+          return order ? { order } : s
         }),
       hideUnit: (id) =>
         set((s) =>
-          isFixedUnit(id) && HIDEABLE_UNITS.includes(id) && !s.hidden.includes(id)
-            ? { hidden: [...s.hidden, id] }
-            : s,
+          isHideableUnit(id) && !s.hidden.includes(id) ? { hidden: [...s.hidden, id] } : s,
         ),
       showUnit: (id) => set((s) => ({ hidden: s.hidden.filter((x) => x !== id) })),
       syncUnits: (ids) =>
@@ -98,10 +128,10 @@ export const useLayoutStore = create<LayoutState>()(
           (id): id is string => typeof id === "string" && (isFixedUnit(id) || id.includes("-")),
         )
         for (const id of DEFAULT_ORDER) if (!order.includes(id)) order.push(id)
-        const hidden = (saved.hidden ?? []).filter(
-          (id): id is FixedUnitId => isFixedUnit(id) && HIDEABLE_UNITS.includes(id),
-        )
-        return { ...current, order, hidden }
+        const hidden = (saved.hidden ?? []).filter(isHideableUnit)
+        const pinnedOrder = (saved.pinnedOrder ?? []).filter(isPinnedUnit)
+        for (const id of PINNED_UNITS) if (!pinnedOrder.includes(id)) pinnedOrder.push(id)
+        return { ...current, order, hidden, pinnedOrder }
       },
     },
   ),
