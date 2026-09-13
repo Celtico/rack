@@ -11,7 +11,6 @@ import {
 } from "@chakra-ui/react"
 import { Fragment, useState, type ReactNode } from "react"
 import {
-  LuCrosshair,
   LuLayoutGrid,
   LuListMusic,
   LuPlus,
@@ -31,11 +30,19 @@ import { loadFactoryKit } from "./samplerKits"
 import { toolbarButton } from "./toolbar"
 import { KIND_FINISH, kindIcon } from "./unitMeta"
 
-/** Same pictograms and names the hideable units wear in their headers. */
-const HIDEABLE: Record<HideableUnitId, { name: string; title: string; icon: ReactNode }> = {
-  "FX-2": { name: "FX-2", title: "Mix · Echo · Reverb", icon: <LuSlidersHorizontal /> },
-  PATTERN: { name: "BANK", title: "Patterns", icon: <LuLayoutGrid /> },
-  SONG: { name: "SONG", title: "Timeline", icon: <LuListMusic /> },
+/** Same pictograms, names and finishes the hideable units wear in their headers. */
+const HIDEABLE: Record<
+  HideableUnitId,
+  { name: string; title: string; finish: Finish; icon: ReactNode }
+> = {
+  "FX-2": {
+    name: "FX-2",
+    title: "Mix · Echo · Reverb",
+    finish: "yellow",
+    icon: <LuSlidersHorizontal />,
+  },
+  PATTERN: { name: "BANK", title: "Patterns", finish: "green", icon: <LuLayoutGrid /> },
+  SONG: { name: "SONG", title: "Timeline", finish: "pink", icon: <LuListMusic /> },
 }
 
 /** A pictogram in the finish's accent, lifted so it reads on the dark panel. */
@@ -118,7 +125,11 @@ function InstanceRow({ id, label, onGo }: { id: string; label: string; onGo: () 
           onGo()
         }}
       >
-        <LuCrosshair /> {label}
+        {/* A branch of the machine above it, as in a tree. */}
+        <Box as="span" color="rack.silkscreen.muted" fontFamily="display" aria-hidden="true">
+          └
+        </Box>
+        {label}
       </Button>
       <IconButton
         size="xs"
@@ -167,7 +178,10 @@ export function AddUnitDrawer() {
     <Drawer.Root open={open} onOpenChange={(d) => setOpen(d.open)} placement="end" size="sm">
       <Drawer.Trigger asChild>
         <Button {...toolbarButton}>
-          <LuPlus /> Add unit
+          <LuPlus /> Add
+          <Box as="span" hideBelow="md">
+            &nbsp;unit
+          </Box>
         </Button>
       </Drawer.Trigger>
       <Portal>
@@ -234,7 +248,9 @@ export function AddUnitDrawer() {
                     {hidden.map((id) => (
                       <Row
                         key={id}
-                        icon={<Pictogram>{HIDEABLE[id].icon}</Pictogram>}
+                        icon={
+                          <Pictogram finish={HIDEABLE[id].finish}>{HIDEABLE[id].icon}</Pictogram>
+                        }
                         name={HIDEABLE[id].name}
                         title={HIDEABLE[id].title}
                         actionLabel={`Put back ${HIDEABLE[id].name}`}

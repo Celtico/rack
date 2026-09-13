@@ -36,39 +36,26 @@ const finish = (name: Finish) => ({
 })
 
 /**
- * One module in the rack: a metal panel with four corner screws, a silkscreen
- * header (model name + description + fold/mute controls) and a body that holds
- * the controls. Screw placement is keyed off `data-corner` so it stays in the
- * recipe.
+ * One module in the rack: a plain metal panel, a silkscreen header (model name
+ * + description + fold/mute controls) and a body that holds the controls. No
+ * screws: the panels butt against each other.
  */
 export const rackUnitRecipe = defineSlotRecipe({
   className: "rack-unit",
-  slots: [
-    "root",
-    "header",
-    "grip",
-    "icon",
-    "model",
-    "title",
-    "preview",
-    "controls",
-    "body",
-    "screw",
-  ],
+  slots: ["root", "header", "grip", "icon", "model", "title", "preview", "controls", "body"],
   base: {
     root: {
       position: "relative",
       bg: "finish.graphite.panel",
       // Plain graphite with a soft glow of the finish colour falling from the top-left corner.
-      bgImage:
-        "radial-gradient(ellipse 1px 1px at 0.1% 0.1%, {colors.rack.panel} 0, transparent 400px)",
+      // bgImage: "radial-gradient(ellipse 1px 1px at 0.1% 0.1%, transparent 1800px, {colors.rack.panel} 0, transparent 1800px)",
       color: "rack.silkscreen",
       borderWidth: "1px",
       borderColor: "rack.panel.edge",
-      // On a phone the panel runs edge to edge: square, no screws, tight margins.
+      // On a phone the panel runs edge to edge: square, tight margins.
       rounded: { base: "none", md: "sm" },
       shadow: "panel",
-      px: { base: "3", md: "6" },
+      px: "4",
       pt: { base: "2", md: "3" },
       pb: { base: "3", md: "5" },
       "&[data-folded]": { pb: { base: "2", md: "3" } },
@@ -108,8 +95,6 @@ export const rackUnitRecipe = defineSlotRecipe({
       borderColor: "rack.panel.edge",
       pb: "2",
       mb: { base: "3", md: "4" },
-      // Clear of the screws on a desktop; there are none on a phone.
-      mx: { base: "0", md: "4" },
       "[data-folded] &": { borderBottomWidth: "0", pb: "0", mb: "0" },
       // Any point of the header folds the unit (see `foldOnClick`).
       "&[data-foldable]": { cursor: "pointer", userSelect: "none" },
@@ -147,32 +132,7 @@ export const rackUnitRecipe = defineSlotRecipe({
       // Only when a preview sits before them does it take the free space instead.
       "[data-part=preview] + &": { ml: "0" },
     },
-    body: {
-      mx: { base: "0", md: "4" },
-    },
-    screw: {
-      position: "absolute",
-      hideBelow: "md",
-      boxSize: "3",
-      rounded: "full",
-      bg: "rack.screw",
-      shadow: "screw",
-      pointerEvents: "none",
-      _before: {
-        content: '""',
-        position: "absolute",
-        inset: "0",
-        m: "auto",
-        w: "70%",
-        h: "1px",
-        bg: "rack.panel.edge",
-        rotate: "45deg",
-      },
-      "&[data-corner=tl]": { top: "2", left: "2" },
-      "&[data-corner=tr]": { top: "2", right: "2" },
-      "&[data-corner=bl]": { bottom: "2", left: "2" },
-      "&[data-corner=br]": { bottom: "2", right: "2" },
-    },
+    body: {},
   },
   variants: {
     units: {

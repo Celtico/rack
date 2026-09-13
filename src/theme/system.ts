@@ -91,7 +91,7 @@ const config = defineConfig({
         /** Unit finishes: panel colour, its darker edge, and the silkscreen inks that read on it. */
         finish: {
           graphite: {
-            panel: { value: "#2d2e2f" },
+            panel: { value: "#202022" },
             edge: { value: "#19191a" },
             ink: { value: "#d4d2cc" },
             inkMuted: { value: "#a5a39e" },
@@ -202,10 +202,12 @@ const config = defineConfig({
           rail: { value: "{colors.metal.950}" },
           frame: { value: "{colors.metal.900}" },
           panel: {
-            DEFAULT: { value: "{colors.metal.700}" },
+            DEFAULT: { value: "{colors.metal.900}" },
             edge: { value: "{colors.metal.900}" },
           },
           screw: { value: "{colors.metal.500}" },
+          /** The phone's top strip: a shade lighter than the panels, so it reads as a bar. */
+          toolbar: { value: "{colors.metal.600}" },
           silkscreen: {
             DEFAULT: { value: "{colors.cream.200}" },
             muted: { value: "{colors.cream.300}" },

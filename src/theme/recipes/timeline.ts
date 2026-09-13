@@ -6,7 +6,7 @@ import { PATTERN_COUNT } from "../../state/patterns"
 const DARK_INK = new Set([1, 4, 5, 6, 9, 10, 11])
 const SLOTS = Array.from({ length: PATTERN_COUNT }, (_, i) => i + 1)
 
-/** A bar of the song (and the ruler above it): narrower on a phone so more of the chain shows. */
+/** A bar of the song (with its number above): narrower on a phone so more of the chain fits a row. */
 const BAR_WIDTH = { base: "12", md: "16" }
 
 /** `data-playing` + `data-pattern="n"` → the slot's colour (and, for blocks, a readable ink). */
@@ -30,6 +30,7 @@ export const timelineRecipe = defineSlotRecipe({
   slots: [
     "root",
     "track",
+    "bar",
     "block",
     "number",
     "progress",
@@ -41,26 +42,31 @@ export const timelineRecipe = defineSlotRecipe({
   ],
   base: {
     root: {
-      overflowX: "auto",
-      overscrollBehaviorX: "contain",
       py: "1",
       px: "1",
       mx: "-1",
     },
-    ruler: {
-      display: "flex",
-      gap: "1",
-      mb: "1",
-      textStyle: "silkscreen",
-      color: "rack.silkscreen.muted",
-      "& > *": { w: BAR_WIDTH, flexShrink: 0, textAlign: "center" },
-    },
+    // Bars wrap into rows, so a long song (up to `MAX_CHAIN`) is all on screen at once.
     track: {
       display: "flex",
-      alignItems: "stretch",
+      flexWrap: "wrap",
+      alignItems: "flex-end",
       gap: "1",
-      width: "max-content",
-      minW: "full",
+      rowGap: "2",
+    },
+    // One column: the bar number, then the block.
+    bar: {
+      display: "flex",
+      flexDirection: "column",
+      gap: "1",
+      w: BAR_WIDTH,
+      flexShrink: 0,
+    },
+    ruler: {
+      textStyle: "silkscreen",
+      color: "rack.silkscreen.muted",
+      textAlign: "center",
+      lineHeight: "1",
     },
     block: {
       position: "relative",

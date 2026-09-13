@@ -52,7 +52,6 @@ export interface RackUnitProps extends RackUnitVariants {
   children?: ReactNode
 }
 
-const CORNERS = ["tl", "tr", "bl", "br"] as const
 const DRAG_TYPE = "application/x-rack-unit"
 
 export function RackUnit({
@@ -129,9 +128,6 @@ export function RackUnit({
       onDragLeave={() => setOver(false)}
       onDrop={movable ? onDrop : undefined}
     >
-      {CORNERS.map((corner) => (
-        <chakra.span key={corner} css={styles.screw} data-corner={corner} aria-hidden="true" />
-      ))}
       {/* The whole header folds the unit; its own buttons are excluded by `foldOnClick`. */}
       <chakra.header
         css={styles.header}

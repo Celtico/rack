@@ -22,6 +22,7 @@ export function Rack() {
   const instances = useRackStore((s) => s.instances)
   const order = useLayoutStore((s) => s.order)
   const hidden = useLayoutStore((s) => s.hidden)
+  const folded = useRackStore((s) => s.folded)
   const { syncUnits } = useLayoutStore.getState()
   const { setFolded } = useRackStore.getState()
 
@@ -37,28 +38,34 @@ export function Rack() {
     isFixedUnit(id) ? !hidden.includes(id) : instances.some((i) => i.id === id),
   )
   const kindOf = new Map(instances.map((i) => [i.id, i.kind]))
+  // One toggle: fold everything while anything is open, unfold everything once it is all folded.
+  const foldable = [...MASTER_SECTIONS, ...visible]
+  const allFolded = foldable.every((id) => folded[id] === true)
 
   return (
     <Container as="main" maxW="8xl" px={{ base: "0", md: "6" }} py={{ base: "0", md: "8" }}>
-      {/* Fold / unfold as icons, then songs, file and units. On a phone the strip runs edge to edge. */}
-      <HStack gap={{ base: "px", md: "2" }} mb={{ base: "2", md: "3" }} justify="flex-end">
+      {/* Fold-all toggle, then songs, file and units. On a phone the strip runs edge to edge. */}
+      <HStack
+        gap={{ base: "0", md: "2" }}
+        mb={{ base: "2", md: "3" }}
+        // On a phone the strip is panel grey and reaches up under the status bar: 50px of it,
+        // or the notch's own inset when that is taller. Padding, not margin, so nothing shows black.
+        bg={{ base: "rack.toolbar", md: "transparent" }}
+        pt={{ base: "max(50px, env(safe-area-inset-top))", md: "0" }}
+        justify="flex-end"
+      >
         <IconButton
           {...toolbarIconButton}
-          aria-label="Fold all"
-          onClick={() => setFolded([...MASTER_SECTIONS, ...visible], true)}
+          aria-label={allFolded ? "Unfold all" : "Fold all"}
+          aria-pressed={allFolded}
+          onClick={() => setFolded(foldable, !allFolded)}
         >
-          <LuChevronsDownUp />
+          {allFolded ? <LuChevronsUpDown /> : <LuChevronsDownUp />}
         </IconButton>
-        <IconButton
-          {...toolbarIconButton}
-          aria-label="Unfold all"
-          onClick={() => setFolded([...MASTER_SECTIONS, ...visible], false)}
-        >
-          <LuChevronsUpDown />
-        </IconButton>
-        <SongLibrary />
+
         <LoadSongButton />
         <AddUnitDrawer />
+        <SongLibrary />
       </HStack>
 
       {/* The wooden rails and frame are a desktop thing; a phone shows the panels edge to edge. */}

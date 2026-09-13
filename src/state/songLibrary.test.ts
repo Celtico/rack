@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it } from "vitest"
 import { defaultInstances } from "./instances"
 import { createDefaultBank } from "./patterns"
 import { SONG_VERSION, type Song } from "./song"
-import { songFileName, useLibraryStore } from "./songLibrary"
+import { folderNames, songFileName, useLibraryStore } from "./songLibrary"
 
 const song = (bpm: number): Song => {
   const instances = defaultInstances()
@@ -62,6 +62,36 @@ describe("song library", () => {
     expect(again.find((e) => e.id === a.id)?.name).toBe("Renamed")
     expect(again.find((e) => e.id === a.id)?.song.bpm).toBe(120)
     expect(again.find((e) => e.id === b.id)?.name).toBe("Untitled")
+  })
+
+  it("updates a saved song in place, keeping its id, name and folder", async () => {
+    const s = useLibraryStore.getState()
+    const a = await s.save("Keep me", song(120), "Sets")
+    const updated = await s.update(a.id, song(140))
+    expect(updated?.id).toBe(a.id)
+    expect(updated?.name).toBe("Keep me")
+    expect(updated?.folder).toBe("Sets")
+    useLibraryStore.setState({ entries: [], loaded: false })
+    await s.refresh()
+    expect(useLibraryStore.getState().entries.find((e) => e.id === a.id)?.song.bpm).toBe(140)
+    expect(await s.update("nope", song(100))).toBeNull()
+  })
+
+  it("puts songs in folders, moves them, and lists the folders in use", async () => {
+    const s = useLibraryStore.getState()
+    const a = await s.save("In techno", song(130), "Techno")
+    const b = await s.save("Loose", song(90))
+    expect(a.folder).toBe("Techno")
+    expect(b.folder).toBeUndefined()
+    expect(folderNames(useLibraryStore.getState().entries)).toEqual(["Techno"])
+    await s.setFolder(b.id, "  Ballads ")
+    await s.setFolder(a.id, null)
+    useLibraryStore.setState({ entries: [], loaded: false })
+    await s.refresh()
+    const again = useLibraryStore.getState().entries
+    expect(again.find((e) => e.id === b.id)?.folder).toBe("Ballads")
+    expect(again.find((e) => e.id === a.id)?.folder).toBeUndefined()
+    expect(folderNames(again)).toEqual(["Ballads"])
   })
 
   it("makes a safe file name from the song's name", () => {

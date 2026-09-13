@@ -9,6 +9,7 @@ import { DrumKit } from "./devices/drums"
 import { MonoVoice } from "./devices/monoSynth"
 import { PercKit } from "./devices/perc"
 import { EPiano, PolyPad, Strings } from "./devices/polySynths"
+import { installTonePatches } from "./tonePatches"
 import { SamplerKit } from "./devices/sampler"
 import { deleteSample, putSample, sampleKey } from "./sampleStore"
 import { Scheduler } from "./scheduler"
@@ -76,6 +77,7 @@ export class AudioEngine {
   /** Create the node graph once. Safe to call repeatedly. */
   build(): this {
     if (this.master) return this
+    installTonePatches()
     const state = useRackStore.getState()
 
     // Master glue: a gentle bus compressor for punch and a brickwall so nothing clips —

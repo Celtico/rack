@@ -40,56 +40,60 @@ export function TimelineUnit() {
   return (
     <VStack gap="3" align="stretch">
       <chakra.div css={styles.root}>
-        <chakra.div css={styles.ruler} aria-hidden="true">
-          {chain.map((_, bar) => (
-            <span key={bar}>{bar + 1}</span>
-          ))}
-        </chakra.div>
         <chakra.div css={styles.track} role="list" aria-label="Song bars">
           {chain.map((pattern, bar) => (
-            <chakra.div
-              key={bar}
-              role="listitem"
-              css={styles.block}
-              data-pattern={pattern + 1}
-              data-playing={bar === playingIndex ? "" : undefined}
-              tabIndex={0}
-              aria-label={`Bar ${bar + 1}: pattern ${pattern + 1}`}
-              onClick={() => setChainSlot(bar, (pattern + 1) % PATTERN_COUNT)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") {
-                  e.preventDefault()
-                  setChainSlot(bar, (pattern + 1) % PATTERN_COUNT)
-                } else if (e.key === "Delete" || e.key === "Backspace") {
-                  e.preventDefault()
-                  removeChainSlot(bar)
-                }
-              }}
-            >
-              <chakra.span css={styles.number}>{pattern + 1}</chakra.span>
-              {bar === playingIndex && <BarProgress css={styles.progress} />}
-              <chakra.button
-                type="button"
-                css={styles.remove}
-                aria-label={`Remove bar ${bar + 1}`}
-                onClick={(e) => {
-                  e.stopPropagation()
-                  removeChainSlot(bar)
+            <chakra.div key={bar} css={styles.bar}>
+              <chakra.span css={styles.ruler} aria-hidden="true">
+                {bar + 1}
+              </chakra.span>
+              <chakra.div
+                role="listitem"
+                css={styles.block}
+                data-pattern={pattern + 1}
+                data-playing={bar === playingIndex ? "" : undefined}
+                tabIndex={0}
+                aria-label={`Bar ${bar + 1}: pattern ${pattern + 1}`}
+                onClick={() => setChainSlot(bar, (pattern + 1) % PATTERN_COUNT)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault()
+                    setChainSlot(bar, (pattern + 1) % PATTERN_COUNT)
+                  } else if (e.key === "Delete" || e.key === "Backspace") {
+                    e.preventDefault()
+                    removeChainSlot(bar)
+                  }
                 }}
               >
-                ×
-              </chakra.button>
+                <chakra.span css={styles.number}>{pattern + 1}</chakra.span>
+                {bar === playingIndex && <BarProgress css={styles.progress} />}
+                <chakra.button
+                  type="button"
+                  css={styles.remove}
+                  aria-label={`Remove bar ${bar + 1}`}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    removeChainSlot(bar)
+                  }}
+                >
+                  ×
+                </chakra.button>
+              </chakra.div>
             </chakra.div>
           ))}
           {chain.length < MAX_CHAIN && (
-            <chakra.button
-              type="button"
-              css={styles.add}
-              aria-label={`Add a bar of pattern ${activePattern + 1}`}
-              onClick={() => appendToChain(activePattern)}
-            >
-              <LuPlus />
-            </chakra.button>
+            <chakra.div css={styles.bar}>
+              <chakra.span css={styles.ruler} aria-hidden="true">
+                {chain.length + 1}
+              </chakra.span>
+              <chakra.button
+                type="button"
+                css={styles.add}
+                aria-label={`Add a bar of pattern ${activePattern + 1}`}
+                onClick={() => appendToChain(activePattern)}
+              >
+                <LuPlus />
+              </chakra.button>
+            </chakra.div>
           )}
         </chakra.div>
       </chakra.div>

@@ -10,6 +10,8 @@ export interface LibraryEntry {
   /** Epoch ms. */
   savedAt: number
   song: Song
+  /** One level of folders; absent means the top of the list. */
+  folder?: string
 }
 
 const put = (entry: LibraryEntry): Promise<void> =>
@@ -47,8 +49,12 @@ export interface LibraryState {
   unsavedName: string | null
   setUnsavedName: (name: string | null) => void
   refresh: () => Promise<void>
-  /** Store a song under a name; returns the entry. */
-  save: (name: string, song: Song) => Promise<LibraryEntry>
+  /** Store a song under a name, in a folder if given; returns the entry. */
+  save: (name: string, song: Song, folder?: string | null) => Promise<LibraryEntry>
+  /** Replace an entry's song with what the rack holds now; keeps id, name and folder. */
+  update: (id: string, song: Song) => Promise<LibraryEntry | null>
+  /** Move an entry into a folder (null: out of any). A blank name means no folder. */
+  setFolder: (id: string, folder: string | null) => Promise<void>
   /** Give an entry a new name (blank keeps the old one). */
   rename: (id: string, name: string) => Promise<void>
   /** Drop an entry; returns it so it can be put back. */
@@ -74,17 +80,39 @@ export const useLibraryStore = create<LibraryState>()((set, get) => ({
     set({ entries: await loadAll(), loaded: true })
   },
 
-  save: async (name, song) => {
+  save: async (name, song, folder = null) => {
     const entry: LibraryEntry = {
       id: newId(),
       name: name.trim() || "Untitled",
       savedAt: Date.now(),
       song,
+      ...(folder?.trim() ? { folder: folder.trim() } : {}),
     }
     await put(entry)
     // What was just saved is what the rack holds.
     set((s) => ({ entries: [entry, ...s.entries], nowPlaying: entry.id, unsavedName: null }))
     return entry
+  },
+
+  update: async (id, song) => {
+    const entry = get().entries.find((e) => e.id === id)
+    if (!entry) return null
+    const updated: LibraryEntry = { ...entry, song, savedAt: Date.now() }
+    await put(updated)
+    set((s) => ({ entries: s.entries.map((e) => (e.id === id ? updated : e)) }))
+    return updated
+  },
+
+  setFolder: async (id, folder) => {
+    const entry = get().entries.find((e) => e.id === id)
+    if (!entry) return
+    const next = folder?.trim() || undefined
+    if (next === entry.folder) return
+    const moved: LibraryEntry = { ...entry }
+    if (next) moved.folder = next
+    else delete moved.folder
+    await put(moved)
+    set((s) => ({ entries: s.entries.map((e) => (e.id === id ? moved : e)) }))
   },
 
   rename: async (id, name) => {
@@ -113,6 +141,12 @@ export const useLibraryStore = create<LibraryState>()((set, get) => ({
     }))
   },
 }))
+
+/** The folders in use, sorted. */
+export const folderNames = (entries: readonly LibraryEntry[]): string[] =>
+  [...new Set(entries.flatMap((e) => (e.folder ? [e.folder] : [])))].sort((a, b) =>
+    a.localeCompare(b),
+  )
 
 /** A file name for a song: its name, made safe. */
 export const songFileName = (name: string) =>

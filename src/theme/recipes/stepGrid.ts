@@ -18,6 +18,8 @@ export const stepGridRecipe = defineSlotRecipe({
   slots: ["root", "grid", "row", "label", "step"],
   base: {
     root: {
+      // Painting with a drag must not select the labels along the way.
+      userSelect: "none",
       // Takes what is left next to a unit's controls and scrolls inside — never pushes them off.
       flex: "1 1 auto",
       minW: "0",

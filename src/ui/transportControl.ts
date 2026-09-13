@@ -15,15 +15,14 @@ export function stopTransport(): void {
 }
 
 /**
- * The rack plays as soon as it can. Browsers keep audio suspended until the
- * page is touched, so the first pointer or key also (re)starts the clock.
- * After that, every tap and every return to the tab checks that the audio
- * context still runs: iOS silences it ("interrupted") when the screen locks
- * or another app takes over, while the clock keeps going, so it has to be
- * woken again — and only a gesture is allowed to do that.
+ * With `start`, the rack plays as soon as it can: browsers keep audio
+ * suspended until the page is touched, so the first pointer or key also
+ * (re)starts the clock. Always, every tap and every return to the tab checks
+ * that the audio context still runs: iOS silences it ("interrupted") when the
+ * screen locks or another app takes over, while the clock keeps going, so it
+ * has to be woken again — and only a gesture is allowed to do that.
  */
-export function autoplay(): () => void {
-  void startTransport()
+export function autoplay(start: boolean): () => void {
   const once = () => {
     stopOnce()
     if (!useRackStore.getState().playing) void startTransport()
@@ -36,8 +35,11 @@ export function autoplay(): () => void {
     const engine = getEngine()
     if (useRackStore.getState().playing && !engine.audioRunning()) void engine.resumeAudio()
   }
-  window.addEventListener("pointerdown", once)
-  window.addEventListener("keydown", once)
+  if (start) {
+    void startTransport()
+    window.addEventListener("pointerdown", once)
+    window.addEventListener("keydown", once)
+  }
   window.addEventListener("pointerdown", wake)
   document.addEventListener("visibilitychange", wake)
   return () => {

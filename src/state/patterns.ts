@@ -1,7 +1,8 @@
 import { createEmptyPattern, createStarterPattern, type Pattern, type TrackOwner } from "./pattern"
 
 export const PATTERN_COUNT = 16
-export const MAX_CHAIN = 16
+/** Bars a song can hold. Long enough for a real arrangement; the timeline wraps into rows. */
+export const MAX_CHAIN = 128
 
 /** Slot 1 carries the starter groove; the rest are empty. */
 export function createDefaultBank(instances: readonly TrackOwner[]): Pattern[] {

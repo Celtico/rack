@@ -67,7 +67,8 @@ strict build order:
    - ✅ Extra — SONG timeline (`TimelineUnit`, slot recipe registered as `songTimeline` because Chakra's own
      Timeline component owns the `timeline` key): the chain as grey bar blocks — only the sounding bar lights in its pattern colour (`colors.pattern.*`),
      click cycles the pattern, × removes, + appends the active one; the sounding bar (`playingBar % length`)
-     is outlined with a 16-step progress bar. The old +1…+4 chain buttons are gone from PATTERN.
+     is outlined with a 16-step progress bar. The old +1…+4 chain buttons are gone from PATTERN. A song holds
+     up to `MAX_CHAIN` = 128 bars; the bars wrap into rows (`bar` slot: number above block), no sideways scroll.
    - ✅ Extra — restyle: wooden `rail` recipe either side of the rack (holes every 44px), `LevelMeter`
      (engine owns a `Tone.Meter` per channel + master, `engine.getLevels()` read from a rAF loop, 8 LED
      segments 6 dB apart via `meterScale.ts`), vertical `Fader`s on the FX-2 strips (Chakra `Slider`),
@@ -88,50 +89,12 @@ strict build order:
      `RackUnit.preview`: FX-2 one meter per machine (`LevelMeter orientation="horizontal"`). The bank's slots reuse the
      timeline `block` — grey, lit while sounding, `data-active` outline on the slot being edited. TRANSPORT is fixed.
 
-   - ✅ Extra — startup song: `App` calls `loadDefaultSong()` (`src/ui/defaultSong.ts`) once on mount. It loads
-     the **newest song in the library** if there is one (IndexedDB; no IndexedDB → skipped), else it
-     fetches `public/-rack-song.json` (a v2 techno demo at 128 BPM: DR-4, PERC-6, BASS-2, MONO-1, POLY-4, 8
-     patterns chained over 16 bars — intro, acid line, drop, breakdown, build), `loadSong`s it and
-     `engine.syncFromStore()`s; a missing/broken file leaves
-     the coded starter groove (`starterTrack`) in place. The rack starts with every unit folded
-     (`foldedAll`, also re-applied after the factory song loads); a user-loaded song unfolds its machines.
-   - ✅ Extra — **song library**: songs saved in the browser (IndexedDB store `songs`; `src/state/db.ts` now
-     owns the shared `rack` database at version 2 with the `samples` and `songs` stores — `sampleStore` uses it).
-     `useLibraryStore` (`src/state/songLibrary.ts`: `refresh` / `save` / `remove` / `restore`, DB first, list
-     second; tested with `fake-indexeddb`). `SongLibrary` (`src/ui/SongLibrary.tsx`) is a Chakra `Drawer` opened
-     by the "Songs" button in Bank · File: a save-as row (`toSong`) and one row per entry with play (`loadSong`
-     + `syncFromStore` + start), download (`downloadJson`, `songFileName`), rename in place (pencil → the name
-     becomes an `Input`; Enter/blur commit, Escape cancels; focus is moved to the row before the field
-     unmounts and the drawer's `onEscapeKeyDown` is vetoed for a rename, or the drawer would close) and delete
-     with an Undo toast.
-     **Built-in songs** head the list, without delete: `public/songs/index.json` (`{ songs: [{ name, file, bpm,
-     bars }] }`) is fetched on open by `loadBuiltinSongs()` (`src/ui/builtinSongs.ts`) and each file by
-     `loadBuiltinSong(file)` on play/download — add a song by dropping a JSON in `public/songs/` and listing it.
-     Shipped: the factory techno (`-rack-song.json`, 128), "Warehouse · Techno" (`warehouse-techno.json`, 132,
-     G minor: rolling square rumble with slides, off-sixteenth MONO-1 arp, Gsus4 POLY-4 stabs, break with the root
-     held, snare-roll build), "Kamuffel style · Berlin" (`kamuffel-style.json`,
-     126, A minor, EP-1 hook), "Liquid · Drum & Bass" (`liquid-dnb.json`, 174, E minor, held sub via slides)
-     and "Open Road · Country ballad" (`open-road.json`, 76, Em7 → G → Dsus4 → Asus4 one chord per bar, EP-1
-     eighths, STR-6 strums; no instrument has an F, so F-based progressions are out), and "Menu Loop · Umplix"
-     (`menu-loop-umplix.json`): a CC0 dubstep MIDI from OpenGameArt (opengameart.org/content/menu-loop-0, by
-     Umplix, 2024) run through the MIDI importer — the only built-in that is not ours; keep the credit in its name.
-     The library's `nowPlaying` (entry id or `builtinKey(file)`; set by play, save and startup, cleared by a
-     file import) marks the song the rack holds: its row is washed amber with `aria-current`, its button is Stop
-     while the clock runs and Play (from the top) when stopped.
-     Play (`playSong`) resumes the audio context first, inside the tap, then stops and rewinds, loads, sets
-     `followSong`, `startTransport()`; the drawer closes and a toast names the song, or an error toast says why
-     not. The generators live outside the repo (Python, scratchpad) — the JSON is the source.
-     **MIDI import**: "Load" also takes `.mid` — `songFromMidi` (`src/state/midiImport.ts`, `@tonejs/midi`,
-     pure, tested): notes quantised to sixteenths, one pattern per distinct bar (chain replays them, cut at 16),
-     channel 10 → DR-4/PERC-6 by a General MIDI map, other tracks → BASS-2 / STR-6 / EP-1 / MONO-1 / POLY-4 by
-     GM program then range and polyphony (two machines per kind at most); pitches fold onto each machine's eight
-     rows by pitch class then nearest octave (`nearestRow`), held bass notes become slides, velocity > 0.8 an
-     accent. The toast reports track → machine, notes moved and dropped. Two `.mid` are served from
-     `public/midi/` (a generated test groove and the CC0 Menu Loop) so a phone can fetch one to try Load with.
-     **SMP-8 factory kit**: "Load kit" on the sampler (`loadFactoryKit`, `src/ui/samplerKits.ts`) fetches eight
-     CC0 one-shots from `public/samples/bounce/` (Boochi44/free-drum-samples, see its LICENSE.txt) into the
-     eight pads via `engine.importSample`. The old
-     "Save" file button is gone: save to the library, then download from there. "Load" still imports a file.
+   - ✅ Extra — startup: `App` calls `loadDefaultSong()` (`src/ui/defaultSong.ts`) once on mount. It loads
+     **an empty rack** (`emptyRack()`: no machines at all, no chain, 120 BPM — units come from "Add unit"), folded and
+     **stopped** — no factory song, and not the last saved one either: songs are chosen on purpose from the
+     Songs drawer, where the factory songs wait under "Demos". `autoplay(start)` only starts the clock when
+     `start` is true (a loaded song); it always installs the audio-resume handlers. The coded starter groove
+     (`starterTrack`) is now only the store's pre-load state.
    - ✅ Extra — top panel: `MasterUnit` is `RackUnit id="CLOCK" model="TRANSPORT" pinned` — it folds from its
      own header (no inner section row any more), has no grip, is never moved or removed, and is not in the
      reorderable stack (`MASTER_SECTIONS` in the store: CLOCK, PATTERN, SONG; Fold all / Unfold all include
@@ -183,16 +146,35 @@ strict build order:
      1.55 s to 1.12 s per 5 s after these two changes; `contain: paint` / `will-change` on meters and grids
      gained nothing. Recipe results are `useMemo`d so memoised children keep the same `css` object.
 
-   - ✅ Extra — **phone layout** (below `md`): no rails, frame padding or screws, panels square and edge to
-     edge with `mx: 0` header/body; the toolbar is a full-width strip in `rack.panel` grey (`toolbarButton` /
-     `toolbarIconButton` in `src/ui/toolbar.ts`): fold-all and unfold-all as icons, then Songs (the library
-     drawer), Load (`LoadSongButton`, .json or .mid) and Add unit — the bank only keeps the copy row (active
+   - ✅ Extra — **no screws** anywhere any more (the `screw` slot is gone from the `rackUnit` recipe); every
+     panel has `px: 4` and the header/body sit flush inside it.
+   - ✅ Extra — **phone layout** (below `md`): no rails or frame padding, panels square and edge to edge; the toolbar is a full-width strip in `rack.toolbar` grey (metal.600, a shade
+     lighter than the panels; 56px buttons, `sm` text, hairlines between them, 50px / safe-area padding on top —
+     `toolbarButton` / `toolbarIconButton` in `src/ui/toolbar.ts`): one fold/unfold-all toggle, then Load (`LoadSongButton`,
+     .json or .mid), Add unit and last Songs (the library drawer) — the bank only keeps the copy row (active
      slot → Copy → next slot). The CLOCK is two rows (`Transport`): run button + Tempo/Swing/Master knobs, then
      BEAT LEDs + BPM/STEP displays + OUT meter; side by side from `md`. The bank is a `repeat(8, minmax(0, 4rem))` grid (16 in a row from `xl`);
      song bars are `12` wide instead of `16` (`BAR_WIDTH` in the timeline recipe). Touch screens
      (`@media (pointer: coarse)` inside the recipes — no custom condition, Chakra's typegen would be needed for
      `_coarse`) get 28px-minimum step cells and 32px header buttons/grip. `vite.config.ts` has `server.host: true`
      so a phone on the LAN can open the dev server.
+
+   - ✅ Extra — **drag-painting** on every `StepGrid`: a mouse/pen press toggles a cell and sets the stroke's
+     state; dragging paints that state on every cell passed over (`document.elementFromPoint` on the grid's
+     pointer events, state read off `aria-pressed`, pointer capture on the grid, `onClickCapture` swallows the
+     click that follows a pointer press so it does not toggle back; keyboard clicks have `detail === 0` and
+     pass). Touch keeps scrolling and tapping — no painting.
+   - ✅ Extra — **play a folder** (`src/ui/playlist.ts`): the play button on a folder row plays its songs one
+     after another, round and round; each song runs its whole chain (at least `MIN_BARS` = 8 bars), then the
+     next is loaded via stop → load → start (the bar counter restarts, so "bar N has begun" in a
+     `useRackStore.subscribe` is the cue). Stopping the clock or playing anything else ends the run;
+     `usePlaylistStore.folder` is what the drawer shows.
+   - ✅ Extra — **Tone leak patch** (`src/audio/tonePatches.ts`, installed by `engine.build()`): Tone 15.1's
+     `Oscillator` creates a native OscillatorNode per note and wires its `frequency`/`detune` signals into it
+     but never unwires them, and standardized-audio-context keeps that connection on the (long-lived) signal
+     side, so every finished node stayed reachable — ~100 oscillators/s with a hat on every sixteenth, the
+     iPhone died after minutes. The patch wraps `Oscillator.prototype._start` and detaches both signals from the
+     node in its `onended`. Verified with `Runtime.queryObjects` after forced GC: flat instead of thousands.
 
 **All extras above are done.** Other ideas: LCD readouts per synth, drag-reorder on the timeline, per-step
 velocity on the kits.

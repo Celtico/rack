@@ -1,5 +1,12 @@
 import { chakra, useSlotRecipe, type SystemStyleObject } from "@chakra-ui/react"
-import { memo, useMemo, type CSSProperties } from "react"
+import {
+  memo,
+  useMemo,
+  useRef,
+  type CSSProperties,
+  type PointerEvent,
+  type MouseEvent,
+} from "react"
 
 import { STEP_COUNT } from "../state/pattern"
 import { useRackStore } from "../state/store"
@@ -56,26 +63,95 @@ const StepCell = memo(function StepCell({
       aria-pressed={on}
       data-accent={step % 4 === 0 ? "" : undefined}
       data-playing={playing ? "" : undefined}
+      data-row={rowId}
+      data-step={step}
       style={COLUMN_STYLE[step]}
       onClick={() => onToggle(rowId as never, step)}
     />
   )
 })
 
+interface Cell {
+  row: string
+  step: number
+  on: boolean
+}
+
+/** A cell button (or anything inside one) and its state, read off the button itself. */
+function cellOf(target: EventTarget | null): Cell | null {
+  const el = target instanceof Element ? target.closest<HTMLElement>("[data-step]") : null
+  if (!el?.dataset.row || el.dataset.step === undefined) return null
+  return {
+    row: el.dataset.row,
+    step: Number(el.dataset.step),
+    on: el.getAttribute("aria-pressed") === "true",
+  }
+}
+
+/** The cell under a point on screen (jsdom has no hit-testing: then nothing). */
+function cellAt(x: number, y: number): Cell | null {
+  if (typeof document.elementFromPoint !== "function") return null
+  return cellOf(document.elementFromPoint(x, y))
+}
+
 /**
  * One toggle button per (row, step). The viewport scrolls horizontally on
  * narrow screens; row labels stay pinned. Accents mark the first step of each
  * beat and the playhead follows the store's `currentStep` — read here, so the
  * unit around the grid does not re-render on every step.
+ *
+ * A mouse (or pen) paints: press on a cell and drag, and every cell passed
+ * over takes the state the first one was given. Fingers keep scrolling the
+ * page and the grid instead, and toggle with a tap.
  */
 export function StepGrid<Id extends string>({ rows, onToggle }: StepGridProps<Id>) {
   const recipe = useSlotRecipe({ key: "stepGrid" })
   const styles = useMemo(() => recipe(), [recipe])
   const currentStep = useRackStore((s) => s.currentStep)
 
+  // The stroke in progress: the state being painted and the cells already done.
+  const stroke = useRef<{ to: boolean; done: Set<string> } | null>(null)
+  const toggle = (row: string, step: number) => onToggle(row as Id, step)
+
+  const onPointerDown = (e: PointerEvent<HTMLDivElement>) => {
+    if (e.pointerType === "touch" || e.button !== 0) return
+    const cell = cellOf(e.target)
+    if (!cell) return
+    stroke.current = { to: !cell.on, done: new Set([`${cell.row}:${cell.step}`]) }
+    toggle(cell.row, cell.step)
+    // Keep the moves coming when the drag leaves the grid (jsdom has no capture).
+    if (typeof e.currentTarget.setPointerCapture === "function")
+      e.currentTarget.setPointerCapture(e.pointerId)
+  }
+  const onPointerMove = (e: PointerEvent<HTMLDivElement>) => {
+    const s = stroke.current
+    if (!s) return
+    const cell = cellAt(e.clientX, e.clientY)
+    if (!cell) return
+    const key = `${cell.row}:${cell.step}`
+    if (s.done.has(key)) return
+    s.done.add(key)
+    if (cell.on !== s.to) toggle(cell.row, cell.step)
+  }
+  const endStroke = () => {
+    stroke.current = null
+  }
+  // A press already toggled the cell; the click that follows it must not toggle it back.
+  // Keyboard activation (Enter / Space) sends no pointer events, so it still reaches the cell.
+  const onClickCapture = (e: MouseEvent<HTMLDivElement>) => {
+    if (e.detail !== 0 && cellOf(e.target)) e.stopPropagation()
+  }
+
   return (
     <chakra.div css={styles.root}>
-      <chakra.div css={styles.grid}>
+      <chakra.div
+        css={styles.grid}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={endStroke}
+        onPointerCancel={endStroke}
+        onClickCapture={onClickCapture}
+      >
         {rows.map((row) => (
           <chakra.div key={row.id} css={styles.row} role="group" aria-label={row.label}>
             <chakra.span css={styles.label}>{row.label}</chakra.span>

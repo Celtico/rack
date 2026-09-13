@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest"
 
 import { defaultInstances, type InstanceOf } from "./instances"
 import { rowsOf, type KitTrack } from "./pattern"
-import { createDefaultBank, PATTERN_COUNT } from "./patterns"
+import { createDefaultBank, MAX_CHAIN, PATTERN_COUNT } from "./patterns"
 import { BPM_MAX, BPM_MIN, selectInstance, selectPattern, selectTrack, useRackStore } from "./store"
 
 const kit = (id: string) => rowsOf(selectTrack(useRackStore.getState(), id) as KitTrack)
@@ -169,8 +169,8 @@ describe("rack store", () => {
     expect(mid).toEqual([1, PATTERN_COUNT - 1])
     expect(before).toEqual([])
 
-    for (let i = 0; i < 30; i++) store.appendToChain(0)
-    expect(useRackStore.getState().chain).toHaveLength(16)
+    for (let i = 0; i < MAX_CHAIN + 10; i++) store.appendToChain(0)
+    expect(useRackStore.getState().chain).toHaveLength(MAX_CHAIN)
 
     store.clearChain()
     expect(useRackStore.getState().chain).toEqual([])
