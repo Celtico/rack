@@ -4,8 +4,43 @@ import { LuFolder, LuFolderInput, LuFolderPlus } from "react-icons/lu"
 
 import { markEscape } from "./escapeGuard"
 
-const NO_FOLDER = "\u0000none"
-const NEW_FOLDER = "\u0000new"
+export const NO_FOLDER = "\u0000none"
+export const NEW_FOLDER = "\u0000new"
+
+/** The choices of a folder menu: none, each folder in use, and "New folder…" (`NEW_FOLDER`). */
+export function FolderMenuItems({
+  value,
+  folders,
+  onChange,
+}: {
+  value: string | null
+  folders: readonly string[]
+  onChange: (folder: string | null) => void
+}) {
+  return (
+    <>
+      <Menu.RadioItemGroup
+        value={value ?? NO_FOLDER}
+        onValueChange={(d) => onChange(d.value === NO_FOLDER ? null : d.value)}
+      >
+        <Menu.RadioItem value={NO_FOLDER}>
+          <Menu.ItemIndicator />
+          No folder
+        </Menu.RadioItem>
+        {folders.map((f) => (
+          <Menu.RadioItem key={f} value={f}>
+            <Menu.ItemIndicator />
+            {f}
+          </Menu.RadioItem>
+        ))}
+      </Menu.RadioItemGroup>
+      <Menu.Separator />
+      <Menu.Item value={NEW_FOLDER}>
+        <LuFolderPlus /> New folder…
+      </Menu.Item>
+    </>
+  )
+}
 
 /**
  * Pick a folder: none, one already in use, or a new one typed in place. As an
@@ -60,12 +95,13 @@ export function FolderPicker({
       </HStack>
     )
   }
-  const select = (v: string) => {
-    if (v === NEW_FOLDER) setDraft("")
-    else onChange(v === NO_FOLDER ? null : v)
-  }
   return (
-    <Menu.Root onSelect={(d) => select(d.value)} positioning={{ placement: "bottom-end" }}>
+    <Menu.Root
+      onSelect={(d) => {
+        if (d.value === NEW_FOLDER) setDraft("")
+      }}
+      positioning={{ placement: "bottom-end" }}
+    >
       <Menu.Trigger asChild>
         {compact ? (
           <IconButton size="sm" variant="ghost" rounded="sm" aria-label={label}>
@@ -80,22 +116,7 @@ export function FolderPicker({
       <Portal>
         <Menu.Positioner>
           <Menu.Content>
-            <Menu.RadioItemGroup value={value ?? NO_FOLDER}>
-              <Menu.RadioItem value={NO_FOLDER}>
-                <Menu.ItemIndicator />
-                No folder
-              </Menu.RadioItem>
-              {folders.map((f) => (
-                <Menu.RadioItem key={f} value={f}>
-                  <Menu.ItemIndicator />
-                  {f}
-                </Menu.RadioItem>
-              ))}
-            </Menu.RadioItemGroup>
-            <Menu.Separator />
-            <Menu.Item value={NEW_FOLDER}>
-              <LuFolderPlus /> New folder…
-            </Menu.Item>
+            <FolderMenuItems value={value} folders={folders} onChange={onChange} />
           </Menu.Content>
         </Menu.Positioner>
       </Portal>

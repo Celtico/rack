@@ -164,6 +164,12 @@ strict build order:
      pointer events, state read off `aria-pressed`, pointer capture on the grid, `onClickCapture` swallows the
      click that follows a pointer press so it does not toggle back; keyboard clicks have `detail === 0` and
      pass). Touch keeps scrolling and tapping — no painting.
+   - ✅ Extra — the Songs drawer lists songs as **record sleeves** (`Cover`, `src/ui/Cover.tsx`): a flat dark
+     grey square (`metal.800`) with the name printed on it, a play/stop mark in the corner, an amber frame on the
+     song the rack holds; the sleeve is the play/stop button. Under it the name, the meta line and a `⋯` `Menu`
+     (Download, Rename, Move to folder as a nested `Menu.TriggerItem` menu reusing `FolderMenuItems` from
+     `FolderPicker`, Delete); rename and "New folder…" turn that line into an inline field. Grids of
+     `minmax(7.5rem, 1fr)` (`COVER_GRID`). Playing a song or a folder no longer closes the drawer.
    - ✅ Extra — **play a folder** (`src/ui/playlist.ts`): the play button on a folder row plays its songs one
      after another, round and round; each song runs its whole chain (at least `MIN_BARS` = 8 bars), then the
      next is loaded via stop → load → start (the bar counter restarts, so "bar N has begun" in a

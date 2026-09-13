@@ -2,19 +2,25 @@ import {
   Button,
   CloseButton,
   Drawer,
+  Grid,
   HStack,
   IconButton,
   Input,
+  Menu,
   Portal,
   Text,
   VStack,
 } from "@chakra-ui/react"
-import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react"
+import { useEffect, useRef, useState, type FormEvent } from "react"
 import {
   LuChevronDown,
+  LuChevronRight,
   LuChevronUp,
   LuDownload,
+  LuEllipsis,
   LuFolder,
+  LuFolderInput,
+  LuFolderPlus,
   LuLibrary,
   LuPencil,
   LuPlay,
@@ -39,13 +45,23 @@ import { toSong, useRackStore } from "../state/store"
 import { loadBuiltinSong, loadBuiltinSongs, type BuiltinSong } from "./builtinSongs"
 import { downloadJson } from "./download"
 import { escapeIsForField, markEscape } from "./escapeGuard"
-import { FolderPicker } from "./FolderPicker"
+import { Cover } from "./Cover"
+import { FolderMenuItems, FolderPicker, NEW_FOLDER } from "./FolderPicker"
 import { playFolder, stopPlaylist, usePlaylistStore } from "./playlist"
 import { toolbarButton } from "./toolbar"
 import { startTransport, stopTransport } from "./transportControl"
 
 const when = (ms: number) =>
   new Date(ms).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })
+
+/** Sleeves side by side, as many as fit, wrapping. */
+const COVER_GRID = {
+  templateColumns: "repeat(auto-fill, minmax(7.5rem, 1fr))",
+  gap: "3",
+  rowGap: "4",
+  listStyleType: "none",
+  py: "2",
+} as const
 
 const length = (bars: number) => (bars ? `${bars} bar${bars === 1 ? "" : "s"}` : "loop")
 
@@ -55,7 +71,7 @@ const length = (bars: number) => (bars ? `${bars} bar${bars === 1 ? "" : "s"}` :
  * a gesture, and it may have silenced the context in the background while the
  * clock kept "playing".
  */
-async function playSong(key: string, getSong: () => Promise<Song>, name: string, done: () => void) {
+async function playSong(key: string, getSong: () => Promise<Song>, name: string) {
   const engine = getEngine()
   try {
     void engine.resumeAudio()
@@ -67,7 +83,6 @@ async function playSong(key: string, getSong: () => Promise<Song>, name: string,
     useLibraryStore.getState().setNowPlaying(key)
     engine.syncFromStore()
     await startTransport()
-    done()
     toaster.create({ type: "info", title: "Playing", description: name })
   } catch (err) {
     toaster.create({
@@ -78,7 +93,7 @@ async function playSong(key: string, getSong: () => Promise<Song>, name: string,
   }
 }
 
-interface RowProps {
+interface SongCoverProps {
   /** Identifies the song in `nowPlaying`: the entry id, or a `builtinKey`. */
   songKey: string
   name: string
@@ -89,37 +104,56 @@ interface RowProps {
   onDelete?: () => void
   /** Absent for built-in songs, which cannot be renamed. */
   onRename?: (name: string) => void
-  /** More actions, before rename — the folder picker. */
-  extra?: ReactNode
-  onPlayed: () => void
+  /** Absent for built-in songs, which live in no folder. */
+  onMove?: (folder: string | null) => void
+  folder?: string | null
+  folders?: readonly string[]
 }
 
+/** What the line under a sleeve has turned into for a moment: a field for a new name, or a new folder. */
+type Draft = { kind: "rename" | "folder"; value: string }
+
 /**
- * One song of the list, with play / download and, for the user's own, delete.
- * The song the rack holds is outlined; its button stops the clock while it
- * runs, and starts the song over when it is stopped.
+ * One song as a record sleeve: the cover plays it (and stops it while it runs),
+ * name and meta sit under it, and a small menu holds download, rename, move to
+ * a folder and delete. The song the rack holds wears an amber frame. The drawer
+ * stays open through all of it.
  */
-function Row({ songKey, name, meta, getSong, onDelete, onRename, extra, onPlayed }: RowProps) {
+function SongCover({
+  songKey,
+  name,
+  meta,
+  getSong,
+  onDelete,
+  onRename,
+  onMove,
+  folder = null,
+  folders = [],
+}: SongCoverProps) {
   const current = useLibraryStore((s) => s.nowPlaying === songKey)
   const playing = useRackStore((s) => s.playing) && current
-  // Renaming happens in place: the name becomes a field until Enter, blur or Escape.
-  const [draft, setDraft] = useState<string | null>(null)
-  const rowRef = useRef<HTMLDivElement>(null)
+  // Renaming and naming a new folder happen in place: a field until Enter, blur or Escape.
+  const [draft, setDraft] = useState<Draft | null>(null)
+  const itemRef = useRef<HTMLDivElement>(null)
   // Set while the field is being closed on purpose, so the blur that moving focus causes
   // does not commit what Escape meant to throw away.
   const closing = useRef(false)
-  const endRename = (commit: boolean) => {
+  const endDraft = (commit: boolean) => {
     if (closing.current) return
     closing.current = true
-    // Focus goes to the row before the field unmounts: left to the drawer's focus trap, it
+    // Focus goes to the item before the field unmounts: left to the drawer's focus trap, it
     // would land on the close button and the tail of the Enter keystroke would press it.
-    rowRef.current?.focus()
-    if (commit && draft !== null && onRename) onRename(draft)
+    itemRef.current?.focus()
+    if (commit && draft !== null) {
+      const value = draft.value.trim()
+      if (draft.kind === "rename" && onRename && value) onRename(value)
+      if (draft.kind === "folder" && onMove && value) onMove(value)
+    }
     setDraft(null)
   }
-  const startRename = () => {
+  const startDraft = (kind: Draft["kind"]) => {
     closing.current = false
-    setDraft(name)
+    setDraft({ kind, value: kind === "rename" ? name : "" })
   }
   const download = async () => {
     try {
@@ -132,115 +166,146 @@ function Row({ songKey, name, meta, getSong, onDelete, onRename, extra, onPlayed
       })
     }
   }
+  const act = (value: string) => {
+    if (value === "download") void download()
+    else if (value === "rename") startDraft("rename")
+    else if (value === "delete") onDelete?.()
+    else if (value === NEW_FOLDER) startDraft("folder")
+  }
 
   return (
-    <HStack
+    <VStack
       as="li"
-      ref={rowRef}
+      ref={itemRef}
       tabIndex={-1}
       outline="none"
-      gap="2"
-      py="2"
-      px="2"
-      mx="-2"
-      rounded="sm"
-      borderBottomWidth="1px"
-      borderColor="rack.panel.edge"
+      gap="1.5"
       align="center"
+      minW="0"
       aria-current={current ? "true" : undefined}
-      // The song the rack holds: a faint amber wash and an LED-coloured name.
-      bg={current ? "rack.led.off" : undefined}
-      css={{ "&[aria-current] .song-name": { color: "rack.led.on" } }}
     >
-      <VStack gap="0.5" align="flex-start" minW="0" flex="1">
-        {draft === null ? (
-          <Text className="song-name" fontWeight="medium" lineClamp={1} title={name}>
-            {name}
-          </Text>
-        ) : (
+      <Cover
+        name={name}
+        playing={playing}
+        aria-label={playing ? `Stop ${name}` : `Play ${name}`}
+        aria-pressed={playing}
+        data-current={current ? "" : undefined}
+        data-playing={playing ? "" : undefined}
+        onClick={() => (playing ? stopTransport() : void playSong(songKey, getSong, name))}
+      />
+      {draft === null ? (
+        <HStack gap="0" align="flex-start" w="full" minW="0">
+          <VStack gap="0" align="flex-start" flex="1" minW="0" pt="0.5">
+            <Text
+              className="song-name"
+              srOnly={false}
+              fontSize="xs"
+              fontWeight="medium"
+              lineClamp={1}
+              title={name}
+              color={current ? "rack.led.on" : "rack.silkscreen"}
+            >
+              {name}
+            </Text>
+            <Text textStyle="silkscreen" fontSize="2xs" color="rack.silkscreen.muted" lineClamp={1}>
+              {playing ? "Playing · " : ""}
+              {meta}
+            </Text>
+          </VStack>
+          <Menu.Root onSelect={(d) => act(d.value)} positioning={{ placement: "bottom-end" }}>
+            <Menu.Trigger asChild>
+              <IconButton
+                size="xs"
+                variant="ghost"
+                rounded="sm"
+                color="rack.silkscreen.muted"
+                aria-label={`More for ${name}`}
+              >
+                <LuEllipsis />
+              </IconButton>
+            </Menu.Trigger>
+            <Portal>
+              <Menu.Positioner>
+                <Menu.Content>
+                  <Menu.Item value="download">
+                    <LuDownload /> Download
+                  </Menu.Item>
+                  {onRename && (
+                    <Menu.Item value="rename">
+                      <LuPencil /> Rename
+                    </Menu.Item>
+                  )}
+                  {onMove && (
+                    <Menu.Root
+                      onSelect={(d) => act(d.value)}
+                      positioning={{ placement: "right-start", gutter: -2 }}
+                    >
+                      <Menu.TriggerItem>
+                        <LuFolderInput /> Move to folder
+                        <Text as="span" ml="auto" pl="2">
+                          <LuChevronRight />
+                        </Text>
+                      </Menu.TriggerItem>
+                      <Portal>
+                        <Menu.Positioner>
+                          <Menu.Content>
+                            <FolderMenuItems value={folder} folders={folders} onChange={onMove} />
+                          </Menu.Content>
+                        </Menu.Positioner>
+                      </Portal>
+                    </Menu.Root>
+                  )}
+                  {onDelete && (
+                    <Menu.Item value="delete" color="fg.error">
+                      <LuTrash2 /> Delete
+                    </Menu.Item>
+                  )}
+                </Menu.Content>
+              </Menu.Positioner>
+            </Portal>
+          </Menu.Root>
+        </HStack>
+      ) : (
+        <HStack gap="1" w="full">
           <Input
             size="sm"
             fontSize="md"
             rounded="sm"
-            value={draft}
-            aria-label={`New name for ${name}`}
+            value={draft.value}
+            placeholder={draft.kind === "folder" ? "Folder name" : undefined}
+            aria-label={draft.kind === "rename" ? `New name for ${name}` : "New folder name"}
             data-inline-field="true"
             autoFocus
-            onChange={(e) => setDraft(e.target.value)}
-            onBlur={() => endRename(true)}
+            onChange={(e) => setDraft({ ...draft, value: e.target.value })}
+            onBlur={() => endDraft(true)}
             onKeyDown={(e) => {
               if (e.key !== "Enter" && e.key !== "Escape") return
               e.preventDefault()
               if (e.key === "Escape") markEscape()
-              endRename(e.key === "Enter")
+              endDraft(e.key === "Enter")
             }}
           />
-        )}
-        <Text textStyle="silkscreen" color="rack.silkscreen.muted">
-          {playing ? "Playing · " : ""}
-          {meta}
-        </Text>
-      </VStack>
-      <IconButton
-        size="sm"
-        variant={playing ? "solid" : "subtle"}
-        colorPalette="orange"
-        rounded="sm"
-        aria-label={playing ? `Stop ${name}` : `Play ${name}`}
-        aria-pressed={playing}
-        onClick={() =>
-          playing ? stopTransport() : void playSong(songKey, getSong, name, onPlayed)
-        }
-      >
-        {playing ? <LuSquare /> : <LuPlay />}
-      </IconButton>
-      <IconButton
-        size="sm"
-        variant="ghost"
-        rounded="sm"
-        aria-label={`Download ${name}`}
-        onClick={() => void download()}
-      >
-        <LuDownload />
-      </IconButton>
-      {extra}
-      {onRename && (
-        <IconButton
-          size="sm"
-          variant="ghost"
-          rounded="sm"
-          aria-label={`Rename ${name}`}
-          onClick={startRename}
-        >
-          <LuPencil />
-        </IconButton>
+          {draft.kind === "folder" && (
+            <IconButton
+              size="sm"
+              rounded="sm"
+              variant="subtle"
+              aria-label="Create folder"
+              // Pointer down, not click: the field's blur would commit and unmount this first.
+              onPointerDown={(e) => e.preventDefault()}
+              onClick={() => endDraft(true)}
+            >
+              <LuFolderPlus />
+            </IconButton>
+          )}
+        </HStack>
       )}
-      {onDelete && (
-        <IconButton
-          size="sm"
-          variant="ghost"
-          rounded="sm"
-          color="fg.error"
-          aria-label={`Delete ${name}`}
-          onClick={onDelete}
-        >
-          <LuTrash2 />
-        </IconButton>
-      )}
-    </HStack>
+    </VStack>
   )
 }
 
 /** A song the user saved: deletable (with an Undo toast), renamable, movable between folders. */
-function SavedRow({
-  entry,
-  folders,
-  onPlayed,
-}: {
-  entry: LibraryEntry
-  folders: readonly string[]
-  onPlayed: () => void
-}) {
+function SavedCover({ entry, folders }: { entry: LibraryEntry; folders: readonly string[] }) {
   const { remove, restore, rename, setFolder } = useLibraryStore.getState()
   const del = async () => {
     const removed = await remove(entry.id)
@@ -252,23 +317,16 @@ function SavedRow({
     })
   }
   return (
-    <Row
+    <SongCover
       songKey={entry.id}
       name={entry.name}
       meta={`${entry.song.bpm} BPM · ${length(entry.song.chain.length)} · ${when(entry.savedAt)}`}
       getSong={() => Promise.resolve(entry.song)}
       onDelete={() => void del()}
       onRename={(name) => void rename(entry.id, name)}
-      extra={
-        <FolderPicker
-          compact
-          value={entry.folder ?? null}
-          folders={folders}
-          label={`Move ${entry.name} to a folder`}
-          onChange={(folder) => void setFolder(entry.id, folder)}
-        />
-      }
-      onPlayed={onPlayed}
+      onMove={(folder) => void setFolder(entry.id, folder)}
+      folder={entry.folder ?? null}
+      folders={folders}
     />
   )
 }
@@ -349,8 +407,6 @@ export function SongLibrary() {
     setDirty(false)
     toaster.create({ type: "info", title: "Changes discarded", description: current.name })
   }
-
-  const close = () => setOpen(false)
 
   return (
     <Drawer.Root
@@ -464,13 +520,13 @@ export function SongLibrary() {
                 </Text>
               )}
               {/* Songs at the top level first, then one collapsible group per folder. */}
-              <VStack as="ul" gap="0" align="stretch" listStyleType="none" aria-label="Saved songs">
+              <Grid as="ul" {...COVER_GRID} aria-label="Saved songs">
                 {entries
                   .filter((e) => !e.folder)
                   .map((entry) => (
-                    <SavedRow key={entry.id} entry={entry} folders={folders} onPlayed={close} />
+                    <SavedCover key={entry.id} entry={entry} folders={folders} />
                   ))}
-              </VStack>
+              </Grid>
               {folders.map((folder: string) => {
                 const inside = entries.filter((e) => e.folder === folder)
                 const isOpen = !closedFolders.has(folder)
@@ -515,7 +571,7 @@ export function SongLibrary() {
                             stopPlaylist()
                             stopTransport()
                           } else {
-                            void playFolder(folder, inside).then(close)
+                            void playFolder(folder, inside)
                           }
                         }}
                       >
@@ -523,23 +579,11 @@ export function SongLibrary() {
                       </IconButton>
                     </HStack>
                     {isOpen && (
-                      <VStack
-                        as="ul"
-                        gap="0"
-                        align="stretch"
-                        listStyleType="none"
-                        aria-label={`Songs in ${folder}`}
-                        pl="3"
-                      >
+                      <Grid as="ul" {...COVER_GRID} aria-label={`Songs in ${folder}`} pl="3">
                         {inside.map((entry) => (
-                          <SavedRow
-                            key={entry.id}
-                            entry={entry}
-                            folders={folders}
-                            onPlayed={close}
-                          />
+                          <SavedCover key={entry.id} entry={entry} folders={folders} />
                         ))}
-                      </VStack>
+                      </Grid>
                     )}
                   </VStack>
                 )
@@ -559,24 +603,17 @@ export function SongLibrary() {
                     {showDemos ? <LuChevronUp /> : <LuChevronDown />} Demos ({builtins.length})
                   </Button>
                   {showDemos && (
-                    <VStack
-                      as="ul"
-                      gap="0"
-                      align="stretch"
-                      listStyleType="none"
-                      aria-label="Demo songs"
-                    >
+                    <Grid as="ul" {...COVER_GRID} aria-label="Demo songs">
                       {builtins.map((b) => (
-                        <Row
+                        <SongCover
                           key={b.file}
                           songKey={builtinKey(b.file)}
                           name={b.name}
                           meta={`${b.bpm} BPM · ${length(b.bars)}`}
                           getSong={() => loadBuiltinSong(b.file)}
-                          onPlayed={close}
                         />
                       ))}
-                    </VStack>
+                    </Grid>
                   )}
                 </VStack>
               )}
