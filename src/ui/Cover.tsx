@@ -3,7 +3,7 @@ import type { ComponentProps } from "react"
 import { LuPlay, LuSquare } from "react-icons/lu"
 
 /**
- * A record sleeve: a plain, flat dark grey square with the song's name printed
+ * A record sleeve: a plain, flat grey square, a shade lighter than the drawer, with the song's name printed
  * on it. It is a button — the song's play/stop — with a play (or stop) mark in
  * the corner; `data-playing` marks a sounding song, `data-current` (an amber
  * frame) the one the rack holds.
@@ -23,10 +23,10 @@ export function Cover({
       overflow="hidden"
       cursor="pointer"
       textAlign="left"
-      bg="metal.800"
+      bg="metal.700"
       transitionProperty="background-color"
       transitionDuration="fast"
-      _hover={{ bg: "metal.700" }}
+      _hover={{ bg: "metal.600" }}
       _focusVisible={{ outline: "2px solid", outlineColor: "rack.led.on", outlineOffset: "2px" }}
       _motionReduce={{ transition: "none" }}
       css={{ "&[data-current]": { boxShadow: "0 0 0 2px {colors.rack.led.on}" } }}
@@ -38,10 +38,10 @@ export function Cover({
         right="8"
         bottom="2.5"
         fontFamily="display"
-        fontWeight="bold"
+        fontWeight="medium"
         fontSize="sm"
         lineHeight="shorter"
-        color="cream.100"
+        color="cream.200"
         lineClamp={3}
         aria-hidden="true"
       >
