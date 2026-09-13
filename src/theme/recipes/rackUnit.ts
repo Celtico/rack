@@ -61,7 +61,7 @@ export const rackUnitRecipe = defineSlotRecipe({
       bg: "finish.graphite.panel",
       // Plain graphite with a soft glow of the finish colour falling from the top-left corner.
       bgImage:
-        "radial-gradient(ellipse 1px 1px at 10% 50%, {colors.rack.panel} 0, transparent 800px)",
+        "radial-gradient(ellipse 1px 1px at 0.1% 0.1%, {colors.rack.panel} 0, transparent 400px)",
       color: "rack.silkscreen",
       borderWidth: "1px",
       borderColor: "rack.panel.edge",
