@@ -113,10 +113,15 @@ export function StepGrid<Id extends string>({ rows, onToggle }: StepGridProps<Id
   const stroke = useRef<{ to: boolean; done: Set<string> } | null>(null)
   const toggle = (row: string, step: number) => onToggle(row as Id, step)
 
+  // Whether the press in progress was handled here (mouse/pen), so its click must be dropped.
+  const pressed = useRef(false)
+
   const onPointerDown = (e: PointerEvent<HTMLDivElement>) => {
+    pressed.current = false
     if (e.pointerType === "touch" || e.button !== 0) return
     const cell = cellOf(e.target)
     if (!cell) return
+    pressed.current = true
     stroke.current = { to: !cell.on, done: new Set([`${cell.row}:${cell.step}`]) }
     toggle(cell.row, cell.step)
     // Keep the moves coming when the drag leaves the grid (jsdom has no capture).
@@ -136,10 +141,12 @@ export function StepGrid<Id extends string>({ rows, onToggle }: StepGridProps<Id
   const endStroke = () => {
     stroke.current = null
   }
-  // A press already toggled the cell; the click that follows it must not toggle it back.
-  // Keyboard activation (Enter / Space) sends no pointer events, so it still reaches the cell.
+  // A mouse press already toggled the cell; the click that follows it must not toggle it back.
+  // A finger's tap and keyboard activation never set `pressed`, so their click reaches the cell.
   const onClickCapture = (e: MouseEvent<HTMLDivElement>) => {
-    if (e.detail !== 0 && cellOf(e.target)) e.stopPropagation()
+    if (!pressed.current) return
+    pressed.current = false
+    if (cellOf(e.target)) e.stopPropagation()
   }
 
   return (
