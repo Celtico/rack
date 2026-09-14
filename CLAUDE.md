@@ -170,7 +170,9 @@ strict build order:
 
    - ✅ Extra — **no screws** anywhere any more (the `screw` slot is gone from the `rackUnit` recipe); every
      panel has `px: 4` and the header/body sit flush inside it.
-   - ✅ Extra — **phone layout** (below `md`): no rails or frame padding, panels square and edge to edge; the toolbar is the rack's first panel (`ToolbarPanel`, `src/ui/ToolbarPanel.tsx`: a `section` styled with the
+   - ✅ Extra — **phone layout** (below `md`): no rails or frame padding, panels square and edge to edge,
+     the toolbar panel alone drops the panel shadow below `md` (its 1 px inset top highlight sat at the
+     very top of the screen as a stray bright line; the other panels keep it); the toolbar is the rack's first panel (`ToolbarPanel`, `src/ui/ToolbarPanel.tsx`: a `section` styled with the
      `rackUnit` root, 50px / safe-area padding on top on a phone — the Songs and Add unit drawers' headers (and
      their close buttons) get the same top clearance — holding `toolbarButton` / `toolbarIconButton` from
      `src/ui/toolbar.ts`: one fold/unfold-all toggle, then Add unit and Songs (the library drawer, which also

@@ -16,6 +16,9 @@ export function ToolbarPanel({ children }: { children: ReactNode }) {
       aria-label="Toolbar"
       // A unit's minimum height is for controls; this strip is only as tall as its buttons.
       minH="0"
+      // The panel shadow's 1 px inset highlight sits at the very top of a phone's screen, under the
+      // status bar, where it reads as a stray bright line: this first panel goes without it there.
+      shadow={{ base: "none", md: "panel" }}
       pt={{ base: "max(50px, env(safe-area-inset-top))", md: "3" }}
       pb={{ base: "2", md: "3" }}
     >
