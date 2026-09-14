@@ -3,7 +3,7 @@ import * as Tone from "tone"
 import type { Instance, KindParams } from "../state/instances"
 import { PAD_IDS, type Kind, type PadId } from "../state/pattern"
 import { resolvePlayingPattern } from "../state/patterns"
-import { useRackStore, type FxParams, type PadParams } from "../state/store"
+import { useRackStore, type FxParams, type PadParams, type RackState } from "../state/store"
 import { BassVoice } from "./devices/bass"
 import { DrumKit } from "./devices/drums"
 import { MonoVoice } from "./devices/monoSynth"
@@ -39,6 +39,33 @@ interface Strip {
 export type LevelSource = string
 export type Levels = Readonly<Record<LevelSource, number>>
 
+/** What the graph is built from and what the scheduler resolves against, read fresh each time. */
+export type EngineState = Pick<
+  RackState,
+  | "swing"
+  | "masterVolume"
+  | "fx"
+  | "instances"
+  | "patterns"
+  | "activePattern"
+  | "chain"
+  | "followSong"
+>
+
+/**
+ * Where an engine gets its state: the live one reads the store and publishes
+ * the playhead back to it; an offline render reads a song and publishes nothing.
+ */
+export interface EngineSource {
+  getState: () => EngineState
+  onStep?: (step: number, patternIndex: number, bar: number) => void
+}
+
+const storeSource: EngineSource = {
+  getState: () => useRackStore.getState(),
+  onStep: (step, index, bar) => useRackStore.getState().setPlayhead(step, index, bar),
+}
+
 /** Ramp length for parameter changes — long enough to avoid clicks, short enough to feel direct. */
 const RAMP = 0.03
 /** Changing the reverb tail re-renders its impulse response; coalesce knob drags. */
@@ -69,16 +96,29 @@ export class AudioEngine {
   private scheduler: Scheduler | null = null
   private compressor: Tone.Compressor | null = null
   private limiter: Tone.Limiter | null = null
+  /** The context the graph was built in — the live one, or an offline render's. */
+  private context: Tone.BaseContext | null = null
+  private readonly source: EngineSource
+
+  constructor(source: EngineSource = storeSource) {
+    this.source = source
+  }
 
   get isBuilt(): boolean {
     return this.master !== null
   }
 
-  /** Create the node graph once. Safe to call repeatedly. */
+  /** The transport of the context the graph lives in; the global one until build(). */
+  private get transport(): ReturnType<typeof Tone.getTransport> {
+    return this.context?.transport ?? Tone.getTransport()
+  }
+
+  /** Create the node graph once, in whatever context is current. Safe to call repeatedly. */
   build(): this {
     if (this.master) return this
     installTonePatches()
-    const state = useRackStore.getState()
+    this.context = Tone.getContext()
+    const state = this.source.getState()
 
     // Master glue: a gentle bus compressor for punch and a brickwall so nothing clips —
     // the difference between a pile of synths and a mix.
@@ -110,14 +150,15 @@ export class AudioEngine {
 
     for (const inst of state.instances) this.addInstance(inst)
 
+    const { onStep } = this.source
     this.scheduler = new Scheduler({
       getPattern: (bar) => {
-        const s = useRackStore.getState()
+        const s = this.source.getState()
         // A slot picked from the bank loops on its own until the song is resumed.
         return resolvePlayingPattern(s.patterns, s.activePattern, s.followSong ? s.chain : [], bar)
       },
-      getSwing: () => useRackStore.getState().swing,
-      sixteenthSeconds: () => Tone.getTransport().toSeconds("16n"),
+      getSwing: () => this.source.getState().swing,
+      sixteenthSeconds: () => this.transport.toSeconds("16n"),
       trigger: (id, voice, time) => this.hit(id, voice, time),
       triggerNote: (id, note, time) => {
         const d = this.strips.get(id)?.device
@@ -133,12 +174,28 @@ export class AudioEngine {
       },
       // Draw callbacks queued before a stop still land after it; a stopped transport publishes nothing,
       // so the readout stays at "--" instead of freezing on the last step.
-      onStep: (step, index, bar) => {
-        if (Tone.getTransport().state !== "started") return
-        useRackStore.getState().setPlayhead(step, index, bar)
-      },
+      onStep: onStep
+        ? (step, index, bar) => {
+            if (this.transport.state === "started") onStep(step, index, bar)
+          }
+        : undefined,
     })
     return this
+  }
+
+  /**
+   * Resolves once everything asynchronous in the graph is in place: the
+   * reverb's impulse response and the samplers' stored samples. The live
+   * engine plays without waiting (a pad joins when it is decoded); an offline
+   * render must wait, or it renders silence for them.
+   */
+  async ready(): Promise<void> {
+    const pending: Promise<unknown>[] = []
+    if (this.reverb) pending.push(this.reverb.ready)
+    for (const { device } of this.strips.values()) {
+      if (device.kind === "sampler") pending.push(device.kit.ready)
+    }
+    await Promise.allSettled(pending)
   }
 
   /** Wire a new instance into the graph. No-op before build() — build() reads the store itself. */
@@ -165,11 +222,8 @@ export class AudioEngine {
         return { kind: inst.kind, kit: new DrumKit(output, inst.params) }
       case "perc":
         return { kind: inst.kind, kit: new PercKit(output, inst.params) }
-      case "sampler": {
-        const kit = new SamplerKit(output, inst.id, inst.params)
-        void kit.loadStored()
-        return { kind: inst.kind, kit }
-      }
+      case "sampler":
+        return { kind: inst.kind, kit: new SamplerKit(output, inst.id, inst.params) }
       case "synth":
         return { kind: inst.kind, voice: new MonoVoice(output, inst.params) }
       case "bass":
@@ -204,8 +258,13 @@ export class AudioEngine {
   async start(): Promise<void> {
     await Tone.start()
     this.build()
+    this.run()
+  }
+
+  /** Arm the sequence and start the graph's transport — now, or at a context time. Requires build(). */
+  run(at?: number): void {
     this.scheduler?.start()
-    Tone.getTransport().start()
+    this.transport.start(at)
   }
 
   /** True while the audio context is actually producing sound. */
@@ -224,15 +283,20 @@ export class AudioEngine {
 
   /** Stop the transport and rewind to the first step of the first bar. */
   stop(): void {
-    Tone.getTransport().stop()
+    this.transport.stop()
     this.scheduler?.reset()
+    this.release(this.transport.now())
+  }
+
+  /** Let go of anything a device holds open across steps (a BASS-2 slide) — the clock stopped at `time`. */
+  release(time: number): void {
     for (const { device } of this.strips.values()) {
-      if (device.kind === "bass") device.voice.reset()
+      if (device.kind === "bass") device.voice.reset(time)
     }
   }
 
   setBpm(bpm: number): void {
-    const transport = Tone.getTransport()
+    const transport = this.transport
     if (this.isBuilt) {
       transport.bpm.rampTo(bpm, 0.05)
     } else {
@@ -334,7 +398,7 @@ export class AudioEngine {
 
   /** Audition one voice of a kit instance now (outside the sequence). Requires build(). */
   triggerHit(id: string, voice: string): void {
-    this.hit(id, voice, Tone.now())
+    this.hit(id, voice, this.transport.now())
   }
 
   /**
@@ -429,6 +493,7 @@ export class AudioEngine {
     this.delay = null
     this.reverb = null
     this.master = null
+    this.context = null
   }
 }
 

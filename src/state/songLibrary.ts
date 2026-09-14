@@ -149,10 +149,10 @@ export const folderNames = (entries: readonly LibraryEntry[]): string[] =>
   )
 
 /** A file name for a song: its name, made safe. */
-export const songFileName = (name: string) =>
+export const songFileName = (name: string, extension = "json") =>
   `${
     name
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/^-|-$/g, "") || "song"
-  }.json`
+  }.${extension}`

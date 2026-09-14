@@ -89,9 +89,9 @@ export class BassVoice {
     }
   }
 
-  /** Let go of anything held — the transport stopped. */
-  reset(): void {
-    if (this.held) this.synth.triggerRelease(Tone.now())
+  /** Let go of anything held — the transport stopped at `time` (audio-clock seconds). */
+  reset(time: number): void {
+    if (this.held) this.synth.triggerRelease(time)
     this.held = false
   }
 

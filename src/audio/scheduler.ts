@@ -51,8 +51,8 @@ export interface SchedulerDeps {
   triggerBass: (id: string, event: BassStepEvent, time: number, stepSeconds: number) => void
   /** Sound a chord on a polyphonic instance. Only called when there are notes. */
   triggerPoly: (id: string, notes: string[], time: number) => void
-  /** UI-side playhead; invoked through Draw so it lands on the matching frame. */
-  onStep: (step: number, patternIndex: number, bar: number) => void
+  /** UI-side playhead; invoked through Draw so it lands on the matching frame. Absent when nothing watches (offline render). */
+  onStep?: (step: number, patternIndex: number, bar: number) => void
 }
 
 /**
@@ -120,6 +120,8 @@ export class Scheduler {
         }
       }
     }
-    Tone.getDraw().schedule(() => this.deps.onStep(step, index, bar), at)
+    // The sequence's own context: an offline render must not queue frames on the live Draw.
+    const { onStep } = this.deps
+    if (onStep) this.sequence?.context.draw.schedule(() => onStep(step, index, bar), at)
   }
 }

@@ -21,6 +21,8 @@ export class SamplerKit implements Kit<PadId> {
   private readonly levels: Record<PadId, Tone.Gain>
   private params: Readonly<Record<PadId, PadParams>>
   private readonly instanceId: string
+  /** Resolves once the pads hold whatever the browser had stored for them. */
+  readonly ready: Promise<void>
 
   constructor(
     output: Tone.ToneAudioNode,
@@ -35,12 +37,14 @@ export class SamplerKit implements Kit<PadId> {
       this.levels[id] = new Tone.Gain(params[id].level).connect(output)
       this.players[id] = new Tone.Player({ fadeOut: FADE_OUT }).connect(this.levels[id])
     }
+    this.ready = this.loadStored()
   }
 
   /** Bring back whatever the browser has kept for this instance's pads. */
-  async loadStored(): Promise<void> {
+  private async loadStored(): Promise<void> {
     const stored = await getAllSamples()
-    await Promise.all(
+    // Settled, not all: one pad that will not decode must not leave the others half loaded.
+    await Promise.allSettled(
       PAD_IDS.map(async (id) => {
         const sample = stored[sampleKey(this.instanceId, id)]
         if (sample) await this.setSample(id, sample.data)
@@ -50,9 +54,11 @@ export class SamplerKit implements Kit<PadId> {
 
   /** Decode a file's bytes and put them on a pad. */
   async setSample(id: PadId, data: ArrayBuffer): Promise<void> {
-    // decodeAudioData detaches the buffer; work on a copy so the caller keeps its bytes.
-    const decoded = await Tone.getContext().decodeAudioData(data.slice(0))
-    this.players[id].buffer.set(decoded)
+    const player = this.players[id]
+    // decodeAudioData detaches the buffer; work on a copy so the caller keeps its bytes. The
+    // player's own context, not the global one: an offline render decodes into its own graph.
+    const decoded = await player.context.decodeAudioData(data.slice(0))
+    player.buffer.set(decoded)
   }
 
   clearSample(id: PadId): void {

@@ -25,6 +25,11 @@ export function installTonePatches(): void {
     start.call(this, time)
     const node = this._oscillator
     if (!node) return
+    // An offline render (export) builds its native graph from recorded connections while it
+    // renders: detaching a signal from within that render silences the node for the whole take,
+    // as a short release then ends the oscillator mid-render. The context is thrown away after
+    // one render anyway, so there is nothing to leak.
+    if (this.context.isOffline) return
     const onended = node.onended
     node.onended = (source) => {
       try {
@@ -42,6 +47,7 @@ interface OscillatorLike {
   __rackPatched?: boolean
   _start(time: number): void
   _oscillator: ToneOscillatorNode | null
+  context: { isOffline: boolean }
   frequency: { disconnect(destination: unknown): unknown }
   detune: { disconnect(destination: unknown): unknown }
 }

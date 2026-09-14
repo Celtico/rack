@@ -23,6 +23,8 @@ const fake = vi.hoisted(() => {
     readonly callback: (time: number, step: number) => void
     readonly events: number[]
     readonly subdivision: string
+    /** What the scheduler reaches Draw through: the sequence's context. */
+    readonly context = { draw: { schedule: drawSchedule } }
     constructor(
       callback: (time: number, step: number) => void,
       events: number[],
@@ -48,7 +50,6 @@ const fake = vi.hoisted(() => {
 
 vi.mock("tone", () => ({
   Sequence: fake.FakeSequence,
-  getDraw: () => ({ schedule: fake.drawSchedule }),
 }))
 
 /** A rack with two DR-4s, so instance routing is exercised. */

@@ -155,6 +155,22 @@ const clampInstance = (inst: Instance): Instance =>
     send: clamp(inst.send, 0, 1),
   }) as Instance
 
+/**
+ * A song with every number pulled into range — what `loadSong` applies, and
+ * what an offline render must build from: `parseSong` is lenient on ranges,
+ * and a value like a zero reverb decay throws inside Tone.
+ */
+export const clampSong = (song: Song): Song => ({
+  ...song,
+  bpm: Math.round(clamp(song.bpm, BPM_MIN, BPM_MAX)),
+  swing: clamp(song.swing, 0, 1),
+  masterVolume: clamp(song.masterVolume, 0, 1),
+  instances: song.instances.map(clampInstance),
+  activePattern: slot(song.activePattern),
+  chain: song.chain.slice(0, MAX_CHAIN).map(slot),
+  fx: clampFx(song.fx),
+})
+
 const initialInstances = defaultInstances()
 
 /** Fold keys of the top panel's sections — they take part in Fold all / Unfold all. */
@@ -295,22 +311,25 @@ export const useRackStore = create<RackState>()((set, get) => ({
       folded: { ...state.folded, ...Object.fromEntries(units.map((u) => [u, folded])) },
     })),
 
-  loadSong: (song) =>
-    set((state) => ({
-      bpm: Math.round(clamp(song.bpm, BPM_MIN, BPM_MAX)),
-      swing: clamp(song.swing, 0, 1),
-      masterVolume: clamp(song.masterVolume, 0, 1),
-      instances: song.instances.map(clampInstance),
-      patterns: song.patterns,
-      activePattern: slot(song.activePattern),
-      chain: song.chain.slice(0, MAX_CHAIN).map(slot),
-      fx: clampFx(song.fx),
-      selectedPad: {},
-      // Every machine the song uses opens up; fixed units keep their fold state.
-      folded: Object.fromEntries(
-        Object.entries(state.folded).filter(([id]) => !song.instances.some((i) => i.id === id)),
-      ),
-    })),
+  loadSong: (raw) =>
+    set((state) => {
+      const song = clampSong(raw)
+      return {
+        bpm: song.bpm,
+        swing: song.swing,
+        masterVolume: song.masterVolume,
+        instances: song.instances,
+        patterns: song.patterns,
+        activePattern: song.activePattern,
+        chain: song.chain,
+        fx: song.fx,
+        selectedPad: {},
+        // Every machine the song uses opens up; fixed units keep their fold state.
+        folded: Object.fromEntries(
+          Object.entries(state.folded).filter(([id]) => !song.instances.some((i) => i.id === id)),
+        ),
+      }
+    }),
 }))
 
 const copyTrack = (t: Track): Track => {
