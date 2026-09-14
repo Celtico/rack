@@ -165,7 +165,8 @@ must supply yourself:
 - **Custom controls you hand-build** (the `Knob`): you own `role="slider"`, the ARIA value
   props (`aria-valuenow` / `aria-valuemin` / `aria-valuemax` / `aria-valuetext`), arrow-key
   handling, pointer events with capture, `touch-action: none`, and a visible focus ring via
-  `_focusVisible`. Chakra gives you none of this for a `Box`.
+  `_focus` — any focus, pointer included: the user wants a knob just turned to stay marked
+  (`_focusVisible` would show it for the keyboard only). Chakra gives you none of this for a `Box`.
 - Respect `prefers-reduced-motion`.
 
 ## Global CSS

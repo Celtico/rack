@@ -8,6 +8,9 @@ export interface FaderProps {
 
 const formatPercent = (v: number) => `${Math.round(v * 100)}%`
 
+/** Touch screens: a taller, thicker fader with a wide invisible strip to land a finger on. */
+const COARSE = "@media (pointer: coarse)"
+
 /** A vertical channel fader, 0–1. Chakra's Slider carries the keyboard and ARIA. */
 export function Fader({ label, value, onChange }: FaderProps) {
   return (
@@ -28,19 +31,26 @@ export function Fader({ label, value, onChange }: FaderProps) {
       alignItems="center"
       gap="1"
     >
-      <Slider.Control h="24">
-        <Slider.Track bg="rack.display.bg" borderWidth="1px" borderColor="rack.panel.edge">
+      <Slider.Control h="24" css={{ [COARSE]: { h: "32", px: "5" } }}>
+        <Slider.Track
+          bg="rack.display.bg"
+          borderWidth="1px"
+          borderColor="rack.panel.edge"
+          css={{ [COARSE]: { w: "2" } }}
+        >
           <Slider.Range bg="rack.display.dim" />
         </Slider.Track>
         <Slider.Thumb
           index={0}
           boxSize="4"
+          css={{ [COARSE]: { w: "7", h: "5" } }}
           rounded="xs"
           bg="rack.knob.body"
           borderWidth="1px"
           borderColor="rack.knob.edge"
           shadow="knob"
-          _focusVisible={{
+          // Any focus: a fader just moved stays marked, like the knobs.
+          _focus={{
             outline: "2px solid",
             outlineColor: "rack.led.on",
             outlineOffset: "2px",

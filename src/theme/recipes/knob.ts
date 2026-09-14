@@ -18,7 +18,11 @@ export const knobRecipe = defineRecipe({
     cursor: "ns-resize",
     touchAction: "none",
     userSelect: "none",
+    // iOS: a long press must not pop the copy/share callout over a knob being turned.
+    WebkitTouchCallout: "none",
     outline: "none",
+    // A finger needs 44 px: the small knobs grow to that on touch screens, the others already are.
+    "@media (pointer: coarse)": { minW: "11", minH: "11" },
     _before: {
       content: '""',
       position: "absolute",
@@ -32,11 +36,14 @@ export const knobRecipe = defineRecipe({
       transformOrigin: "50% 100%",
       transform: "rotate(var(--knob-angle, 0deg))",
     },
-    _focusVisible: {
+    // Any focus, not only the keyboard's: a knob just turned stays marked, like the one under a hand.
+    _focus: {
       outline: "2px solid",
       outlineColor: "rack.led.on",
       outlineOffset: "3px",
     },
+    // While it is being turned, the pointer line lights up.
+    "&[data-active]::before": { bg: "rack.led.on", shadow: "ledOn" },
   },
   variants: {
     size: {

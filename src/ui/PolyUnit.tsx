@@ -7,7 +7,6 @@ import {
   POLY_PARAMS_DEFAULT,
   POLY_RANGES,
   selectInstance,
-  selectTrack,
   STRINGS_PARAMS_DEFAULT,
   STRINGS_RANGES,
   useRackStore,
@@ -215,9 +214,8 @@ function GuitarControls({ id, inst }: { id: string; inst: InstanceOf<"strings"> 
 /** POLY-4, EP-1 or STR-6: a chord grid plus the controls of the kind. */
 export function PolyUnit({ id }: { id: string }) {
   const inst = useRackStore((s) => selectInstance(s, id)) as PolyInstance | undefined
-  const track = useRackStore((s) => selectTrack(s, id))
   const all = useRackStore((s) => s.instances)
-  if (!inst || !track || !("chords" in track)) return null
+  if (!inst) return null
 
   return (
     <RackUnit
@@ -230,7 +228,7 @@ export function PolyUnit({ id }: { id: string }) {
       instance
     >
       <Flex direction={{ base: "column", lg: "row" }} gap={{ base: "5", lg: "8" }} align="stretch">
-        <PolyGrid id={id} track={track} />
+        <PolyGrid id={id} />
         <VStack gap="4" align="flex-start" flexShrink={0}>
           {inst.kind === "poly" && <PadControls id={id} inst={inst} />}
           {inst.kind === "ep" && <PianoControls id={id} inst={inst} />}

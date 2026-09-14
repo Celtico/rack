@@ -7,6 +7,66 @@ import { fatOscillator } from "./oscillators"
 const RAMP = 0.03
 /** Pad unison: three oscillators well spread, then a slow chorus. */
 const UNISON = { count: 3, spread: 24 }
+/**
+ * Voices per polyphonic machine. Tone's `PolySynth` hands every struck note
+ * a fresh voice and gives it back only once the note has died away — a chord
+ * a beat with a two-second release keeps a dozen alive — and past its limit
+ * it *drops* notes ("Max polyphony exceeded"), heard as the part cutting out.
+ * So the machines here keep their own pool instead: a fixed set of voices
+ * allocated round-robin, and when none is free the oldest is struck again —
+ * what a hardware polysynth does. The pool also bounds the CPU on a phone.
+ */
+const PAD_VOICES = 8
+const EP_VOICES = 12
+
+/** A monophonic Tone voice the pool can hold. */
+interface PoolVoice {
+  triggerAttackRelease(note: string, duration: string, time: number): unknown
+  set(options: Record<string, unknown>): unknown
+  connect(destination: Tone.InputNode): unknown
+  dispose(): unknown
+}
+
+/**
+ * A fixed set of voices dealt round-robin. Re-striking a voice that still
+ * sounds restarts its envelopes (Tone cancels the release it had scheduled),
+ * so a busy part never loses a note, only the tail of an old one.
+ */
+class VoicePool<V extends PoolVoice> {
+  private readonly voices: V[]
+  /** When each voice was last struck: Tone refuses a restart at or before the previous start. */
+  private readonly struck: number[]
+  private next = 0
+
+  constructor(count: number, make: () => V, output: Tone.InputNode) {
+    this.voices = Array.from({ length: count }, () => {
+      const voice = make()
+      voice.connect(output)
+      return voice
+    })
+    this.struck = this.voices.map(() => -1)
+  }
+
+  trigger(notes: string[], duration: string, time: number): void {
+    for (const note of notes) {
+      const i = this.next
+      this.next = (this.next + 1) % this.voices.length
+      // A voice wrapped back to within the same tick (a stall replayed several steps at one
+      // time) is struck a hair later rather than thrown out by Tone.
+      const at = this.struck[i]! >= time ? this.struck[i]! + 0.001 : time
+      this.struck[i] = at
+      this.voices[i]!.triggerAttackRelease(note, duration, at)
+    }
+  }
+
+  set(options: Record<string, unknown>): void {
+    for (const voice of this.voices) voice.set(options)
+  }
+
+  dispose(): void {
+    for (const voice of this.voices) voice.dispose()
+  }
+}
 
 /** Something that plays chords from the grid. */
 export interface PolyInstrument {
@@ -15,12 +75,12 @@ export interface PolyInstrument {
 }
 
 /**
- * POLY-4: a subtractive pad — `PolySynth` of unison `Synth` voices into one
+ * POLY-4: a subtractive pad — a pool of unison `Synth` voices into one
  * shared 24 dB lowpass and a slow chorus. Chords are held a quarter note;
  * sustain and release shape the rest.
  */
 export class PolyPad implements PolyInstrument {
-  private readonly synth: Tone.PolySynth<Tone.Synth>
+  private readonly synth: VoicePool<Tone.Synth>
   private readonly filter: Tone.Filter
   private readonly chorus: Tone.Chorus
 
@@ -34,16 +94,20 @@ export class PolyPad implements PolyInstrument {
       rolloff: -24,
       Q: 1.2,
     }).connect(this.chorus)
-    this.synth = new Tone.PolySynth(Tone.Synth, {
-      volume: -14,
-      oscillator: fatOscillator(p.waveform, UNISON.count, UNISON.spread),
-      envelope: { attack: p.attack, decay: p.decay, sustain: p.sustain, release: p.release },
-    }).connect(this.filter)
-    this.synth.maxPolyphony = 8
+    this.synth = new VoicePool(
+      PAD_VOICES,
+      () =>
+        new Tone.Synth({
+          volume: -14,
+          oscillator: fatOscillator(p.waveform, UNISON.count, UNISON.spread),
+          envelope: { attack: p.attack, decay: p.decay, sustain: p.sustain, release: p.release },
+        }),
+      this.filter,
+    )
   }
 
   trigger(notes: string[], time: number): void {
-    this.synth.triggerAttackRelease(notes, "4n", time)
+    this.synth.trigger(notes, "4n", time)
   }
 
   set<K extends keyof PolyParams>(key: K, value: PolyParams[K]): void {
@@ -69,28 +133,33 @@ export class PolyPad implements PolyInstrument {
 }
 
 /**
- * EP-1: a two-operator FM electric piano. The modulation envelope decays
- * faster than the amp envelope, so every note starts with a bright bark and
- * settles into a sine — the classic tine.
+ * EP-1: a two-operator FM electric piano, a pool of `FMSynth` voices. The
+ * modulation envelope decays faster than the amp envelope, so every note
+ * starts with a bright bark and settles into a sine — the classic tine.
  */
 export class EPiano implements PolyInstrument {
-  private readonly synth: Tone.PolySynth<Tone.FMSynth>
+  private readonly synth: VoicePool<Tone.FMSynth>
 
   constructor(output: Tone.ToneAudioNode, p: EpParams) {
-    this.synth = new Tone.PolySynth(Tone.FMSynth, {
-      volume: -10,
-      harmonicity: p.tone,
-      modulationIndex: p.bright,
-      oscillator: { type: "sine" },
-      modulation: { type: "sine" },
-      envelope: { attack: 0.005, decay: p.decay, sustain: 0.05, release: p.release },
-      modulationEnvelope: { attack: 0.005, decay: 0.35, sustain: 0.1, release: 0.5 },
-    }).connect(output)
-    this.synth.maxPolyphony = 8
+    this.synth = new VoicePool(
+      EP_VOICES,
+      () =>
+        new Tone.FMSynth({
+          volume: -10,
+          harmonicity: p.tone,
+          modulationIndex: p.bright,
+          oscillator: { type: "sine" },
+          modulation: { type: "sine" },
+          envelope: { attack: 0.005, decay: p.decay, sustain: 0.05, release: p.release },
+          modulationEnvelope: { attack: 0.005, decay: 0.35, sustain: 0.1, release: 0.5 },
+        }),
+      output,
+    )
   }
 
+  /** An eighth: the tine is percussive (sustain 0.05), so the hold hardly shows. */
   trigger(notes: string[], time: number): void {
-    this.synth.triggerAttackRelease(notes, "4n", time)
+    this.synth.trigger(notes, "8n", time)
   }
 
   set<K extends keyof EpParams>(key: K, value: EpParams[K]): void {

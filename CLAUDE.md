@@ -50,7 +50,9 @@ strict build order:
      The scheduler calls `triggerBass` on _every_ step, rests included, so a held slide can release.
    - ✅ Extra — polyphonic instruments sharing `Pattern.poly[instrument]: number[][16]`, `togglePolyNote`,
      `PolyGrid` and `PolyInstrument` (`src/audio/devices/polySynths.ts`): POLY-4 (`PolySynth<Synth>` →
-     lowpass, ADSR), EP-1 (`PolySynth<FMSynth>`, tone/bright/decay/release), STR-6 (six `PluckSynth`
+     lowpass, ADSR), EP-1 (`PolySynth<FMSynth>`, tone/bright/decay/release; `maxPolyphony` 16 and an `8n` hold — Tone gives
+     every struck note a fresh voice and frees it only once silent, so 3-note chords every eighth with a
+     long decay overran the old limit of 8 and dropped notes, heard as the part cutting out; POLY-4 has 12), STR-6 (six `PluckSynth`
      round-robin — `PluckSynth` is not `Monophonic`, so `PolySynth` cannot host it).
    - ✅ Extra — SMP-8 (`SamplerKit`, `src/audio/devices/sampler.ts`): eight `Player`s; sample bytes live in
      IndexedDB (`src/audio/sampleStore.ts`), the song keeps only name/pitch/decay/level per pad.
@@ -84,8 +86,15 @@ strict build order:
      add button, under it one row per existing instance — tap to `scrollToUnit` (panels carry `id="unit-<id>"`),
      trash to remove — then "Put back" rows for hidden units; `removeInstanceWithUndo` in
      `src/ui/removeInstance.ts` is shared with the grip menu), Fold all / Unfold all
-     (`setFolded`). Folded instances show a `MiniGrid` on the right of the header: the instance's pattern in
-     miniature (one dot per step, playhead column lit; `miniGrid` slot recipe). Fixed units pass their own
+     (`setFolded`). Folded instances show, on the right of the header, a `MiniGrid`: the instance's
+     pattern in miniature as an LED matrix on a small display (3 px round dots, on = `rack.led.on` with the
+     `stepOn` glow; `miniGrid` slot recipe; the playhead arithmetic in `MiniGrid.tsx` includes the 4 px
+     padding) — no meter: the matrix shows what plays. Folded BANK shows `MiniBank` (16 slot LEDs: `data-dim`
+     = has a pattern, `data-active` = on screen, `data-on` = sounding) and folded SONG `MiniSong` (one LED per
+     bar of the chain, 16 to a row, the sounding one lit), both on the `miniGrid` recipe. The folded transport
+     shows its run switch (`RunButton`, `src/ui/RunButton.tsx`, shared with the `Transport` body; header
+     buttons never fold the panel, `foldOnClick`) and, with it, FX-2 too, `LevelMeter size="sm" orientation="horizontal"` — a row of 3 px lit dots (`meter` recipe
+     compound variant) — on phones too (the user wants every signal indicator kept when folded). Fixed units pass their own
      `RackUnit.preview`: FX-2 one meter per machine (`LevelMeter orientation="horizontal"`). The bank's slots reuse the
      timeline `block` — grey, lit while sounding, `data-active` outline on the slot being edited. TRANSPORT is fixed.
 
@@ -100,14 +109,21 @@ strict build order:
      reorderable stack (`MASTER_SECTIONS` in the store: CLOCK, PATTERN, SONG; Fold all / Unfold all include
      them; PATTERN and SONG start folded). `Transport` is two rows on a phone and, from `md`, one row spread
      evenly across the panel (`display: contents` dissolves the rows and groups). The bank
-     and the song are two **sticky** panels right under it: `PinnedUnits` (`src/ui/PinnedUnits.tsx`, one
-     `position: sticky; top: 0` box holding `RackUnit id="PATTERN"` BANK (finish `green`) and `RackUnit id="SONG"`
+     and the song are two panels right under it (they used to be sticky; the user asked for that to go, so
+     they scroll with the rack): `PinnedUnits` (`src/ui/PinnedUnits.tsx`, one
+     box holding `RackUnit id="PATTERN"` BANK (finish `green`) and `RackUnit id="SONG"`
      SONG (finish `pink`), both `pinned`: they fold, and swap places with each other by grip, drag or menu
      (`layout.pinnedOrder`, persisted; `moveUnit`/`nudgeUnit` route pinned ids there and never into the stack;
      a pinned id outside `PINNED_UNITS`, like the transport, gets no grip), and can be hidden like FX-2
      (`HIDEABLE_UNITS` = FX-2 + the pinned ids, `layout.hidden`; "Remove from rack" in the grip menu, back via
-     "Add unit → Put back"; the transport alone can never leave)), so the slots and the bars stay in view while the rack scrolls; fold either to a
-     thin bar when it is in the way. `FIXED_UNITS` is now just `FX-2`; `rack-layout` persist version 3 drops the old ids.
+     "Add unit → Put back"; the transport (`TRANSPORT_UNIT` = CLOCK) is hideable too — its grip only holds
+     "Remove from rack", it never moves. A fresh browser shows every panel (`hidden` defaults to `[]`; an
+     all-hidden first visit was tried and dropped); the persist `merge` returns `current` untouched when
+     nothing is stored)); fold either to a thin bar when it is in the way. **An empty rack shows the demos**: `DemoShelf` (`src/ui/DemoShelf.tsx`, a `rackUnit`-styled
+     section of the built-in songs as `SongCover` sleeves — `COVER_GRID` / `songLength` live in
+     `src/ui/coverGrid.ts`, shared with the Songs panel) renders only when nothing is visible at all (no instance,
+     transport, bank, song or FX-2 — someone took everything out); playing one loads its machines, puts back
+     every hidden panel (`showAll()`) and the shelf goes. `FIXED_UNITS` is now just `FX-2`; `rack-layout` persist version 3 drops the old ids.
      `autoplay()` (`src/ui/transportControl.ts`) starts the clock after the factory song loads and re-tries on the
      first pointer/key, since browsers keep audio suspended until a gesture. `installWakeLock()`
      (`src/ui/wakeLock.ts`, also from `App`) holds a Screen Wake Lock while `playing`, re-taken when the tab comes
@@ -130,13 +146,19 @@ strict build order:
      `addInstance`, `removeInstance` → `RemovedInstance` for `restoreInstance` — the × button's Undo toast).
      Engine keeps a `Strip` (input, send, meter, device) per id; `addInstance` / `removeInstance` build
      and dispose devices live; `syncFromStore()` reconciles after a load. Sample keys are `${id}:${pad}`.
-     `Rack` renders `layout.order` (fixed units + instance ids, `syncUnits`); its "Add unit" menu dims kinds absent
-     from the rack, shows ×count for present ones and colours icons by finish. `InstanceUnit` picks the panel
+     `Rack` renders `layout.order` (fixed units + instance ids, `syncUnits`); its "Add unit" panel shows ×count for kinds present in the rack
+     and colours icons by finish (rows are never dimmed). `InstanceUnit` picks the panel
      by kind; per-kind finish/icon/labels live in `src/ui/unitMeta.tsx`. Song is **version 2**
      (`instances` + `patterns[].tracks`); `src/state/songV1.ts` lifts v1 files (each channel the file names → `${kind}-1`; unnamed ones are not created).
      Zustand selectors must return stored values — a `.map()` in a selector loops React (`FxUnit`).
-   - ✅ Extra — playhead performance: nothing but the moving parts subscribes to `currentStep`. `StepGrid` reads
-     it itself and its `StepCell`s are `memo`ised (two cells per row re-render per step); `MiniGrid` draws a
+   - ✅ Extra — playhead performance: nothing but the moving parts subscribes to `currentStep`. `StepGrid` no
+     longer renders for a step at all: a store subscription in an effect flips `data-playing` on the cells of
+     the old and new column on the DOM (like the meters); `StepCell` is `memo`ised and gets one stable
+     `onToggle` (a ref inside `StepGrid`), and each unit's grid is its own component owning the track
+     subscription (`KitGrid` / `SynthGrid` / `BassGrid` in `src/ui/TrackGrids.tsx`, `PolyGrid`), so a bar
+     change re-renders grids, not units. Measured with Chrome long tasks while "Open Road" played, six units
+     unfolded: before, a ~70 ms React commit on every sixteenth (934 ms busy per 5 s; with 4× CPU throttling
+     the audio lost the beat); after, three ~70 ms tasks per 10 s, one per bar change (218 ms busy per 10 s). `MiniGrid` draws a
      separate `MiniPlayhead` bar over memoised cells; Transport's `StepReadout` and SONG's `BarProgress` are
      their own components. Meters share one rAF loop (`src/ui/levels.ts`, `subscribeLevels`) and light their
      segments by flipping `data-lit` on the DOM from that loop — no React render per bounce (a meter re-rendering
@@ -158,7 +180,9 @@ strict build order:
      BEAT LEDs + BPM/STEP displays + OUT meter; side by side from `md`. The bank is a `repeat(8, minmax(0, 4rem))` grid (16 in a row from `xl`);
      song bars are `12` wide instead of `16` (`BAR_WIDTH` in the timeline recipe). Touch screens
      (`@media (pointer: coarse)` inside the recipes — no custom condition, Chakra's typegen would be needed for
-     `_coarse`) get 28px-minimum step cells and 32px header buttons/grip. `vite.config.ts` has `server.host: true`
+     `_coarse`) get 28px-minimum step cells, 32px header buttons/grip, 44px-minimum knobs (`knob` recipe;
+     `Knob` also uses a 100px sweep for `pointerType === "touch"` instead of 150, and blocks the iOS callout)
+     and a bigger FX-2 `Fader` (128px tall, 8px track, 28×20px thumb, a 40px-wide touch strip on the control). `vite.config.ts` has `server.host: true`
      so a phone on the LAN can open the dev server.
 
    - ✅ Extra — **drag-painting** on every `StepGrid`: a mouse/pen press toggles a cell and sets the stroke's
@@ -183,6 +207,51 @@ strict build order:
      side, so every finished node stayed reachable — ~100 oscillators/s with a hat on every sixteenth, the
      iPhone died after minutes. The patch wraps `Oscillator.prototype._start` and detaches both signals from the
      node in its `onended`. Verified with `Runtime.queryObjects` after forced GC: flat instead of thousands.
+
+   - ✅ Extra — **Export WAV / MP3** from a sleeve's `⋯` menu (`src/ui/exportAudio.ts`, one `toaster.promise`
+     from "Rendering…" to done). `renderSong()` (`src/audio/render.ts`) builds a **second `AudioEngine`** from the
+     song (`clampSong`, the store's own clamps — `parseSong` is lenient and a zero reverb decay throws in
+     Tone) in an explicit `Tone.OfflineContext`: **not `Tone.Offline`**, which swaps the global context for
+     the whole awaited callback, so a Play / Add unit / load meanwhile would build live nodes into the
+     throwaway context; here `setContext(ctx)` wraps one synchronous `build()` + `run(0)` (the `Tone.Sequence` is a node and
+     must be born in the offline context — armed outside the window it ticked the live clock and the render
+     came out silent) + the scheduled stop, restored in a `finally`; then `ready()` and `ctx.render()`. The engine takes an `EngineSource` (`getState` + optional `onStep`; the
+     default reads the store and publishes the playhead) and keeps the context it was built in (`this.transport`,
+     never `Tone.getTransport()`: `Tone.Offline` restores the live context _before_ rendering, so anything
+     global would hit the live clock). `engine.ready()` awaits the reverb IR and the samplers' stored samples
+     (`SamplerKit.ready`, decoded through the player's own context); `run(0)` starts the offline clock, which
+     stops a millisecond before the last bar line, and a transport `"stop"` releases a held BASS-2 slide
+     (`engine.release(time)`). The chain plays once (a chainless song loops `LOOP_BARS` = 4), plus a tail of
+     `reverbDecay + 1` s capped at 8 (`renderPlan`, pure). `encodeWav` (`src/audio/wav.ts`, 16-bit PCM, pure)
+     and `encodeMp3` (`src/audio/mp3.ts`, `@breezystack/lamejs` loaded on first use, 192 kbps, yields to the
+     event loop between blocks). The scheduler reaches Draw through its sequence's context and skips it when
+     `onStep` is absent. **The oscillator leak patch skips offline contexts**: detaching a signal inside an
+     offline render silences that node for the whole take (a release under ~0.3 s ended the oscillator
+     mid-render — MONO-1, BASS-2, POLY-4 and EP-1 came out silent until this). Sampler pads render whatever
+     samples the browser holds under the instance ids, as a load would. A background tab renders slowly (the
+     offline clock yields with `setTimeout`, throttled to 1 s).
+
+   - ✅ Extra — **side panels** (`src/ui/SidePanel.tsx`, `src/ui/panels.ts`): Add unit and Songs are one
+     `SidePanel` each (`AddUnitPanel` / `SongsPanel`, their toolbar buttons `AddUnitButton` / `SongsButton`),
+     driven by `usePanelStore` (`panel: "add" | "songs" | null`, UI-only) so only one is ever open. Below `lg`
+     it is the Chakra `Drawer` as before; from `lg` (`useDocked()`) it is an `aside` docked to the rack's
+     right — `Rack` is a `Flex` of the `Container` (`flex: 1`) and the two panels — `w="md"`, sticky, full
+     viewport height, scrolling on its own, Escape closes it (the inline-field guard still applies). Docked,
+     Add unit stays open after adding; the drawer closes as it did. The Songs panel's on-open work (dirty
+     check, suggested name) runs from a `usePanelStore.subscribe` rather than an effect.
+     Hairlines between rows and sections use `rack.panel.divider` (`metal.700`; `rack.panel.edge` is the
+     panel's own colour and shows nothing): under each machine group and put-back row in Add unit, under the
+     save form and the Load row, above each folder and above Demos in Songs, and under both panel headers.
+     One rhythm around every hairline in Songs: 12 px (`3`) before and after; `COVER_GRID` is `pt 2 / pb 3`,
+     folder and Demos sections `pt 3` and `pb 3` while closed; the Demos toggle is a folder-style row; no
+     indent on a folder's grid, so all sleeves line up.
+     In Add unit every row is one full-width `chakra.button` (icon, name, title; the `+` / undo mark at the
+     end is decoration) — pressing anywhere on it adds or puts back; an instance row under a machine carries
+     its own hairline starting at its indent (`ml="11"` + `borderTop`).
+     Sleeves (`Cover`) print no name any more (it is under the sleeve): they show a vinyl record —
+     `VINYL` gradient layers: spindle hole + `amber.500` label, a conic sheen, `repeating-radial-gradient`
+     grooves — drawn on a `::after` so the spin (`cover-spin`, while `playing`, off under reduced motion)
+     does not fight the centring transform; hover brightens the whole sleeve with a filter.
 
 **All extras above are done.** Other ideas: LCD readouts per synth, drag-reorder on the timeline, per-step
 velocity on the kits.
@@ -265,7 +334,9 @@ All UI goes through Chakra. No loose CSS files, no styled-components.
 ## Cross-cutting requirements
 
 - `Knob` is a hand-built accessible control: `role="slider"`, ARIA value props, arrow-key handling,
-  pointer events with capture, `touch-action: none`, visible focus via `_focusVisible`.
+  pointer events with capture, `touch-action: none`, visible focus via `_focus` (any focus, pointer included —
+  the user wants a knob just turned to stay marked; the `Fader` thumb does the same) and `data-active` while
+  it is being turned (the pointer line lights amber).
 - Responsive down to 360 px. The step grid may scroll horizontally; the controls may not.
 - Respect `prefers-reduced-motion`.
 - Tests to keep green: the scheduler fires the correct steps under a mocked transport, and store toggles

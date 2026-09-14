@@ -1,10 +1,8 @@
 import { Flex, HStack, SegmentGroup, Text, VStack } from "@chakra-ui/react"
 
 import { instanceLabel, KIND_TITLE, type InstanceOf } from "../state/instances"
-import { SYNTH_NOTES, type SynthNote } from "../state/pattern"
 import {
   selectInstance,
-  selectTrack,
   SYNTH_PARAMS_DEFAULT,
   SYNTH_RANGES,
   useRackStore,
@@ -13,7 +11,7 @@ import {
 } from "../state/store"
 import { Knob } from "./Knob"
 import { RackUnit } from "./RackUnit"
-import { StepGrid } from "./StepGrid"
+import { SynthGrid } from "./TrackGrids"
 import {
   changeParams,
   formatHz,
@@ -24,24 +22,15 @@ import {
   WAVE_LABELS,
 } from "./unitMeta"
 
-/** Highest note on top, like a piano roll. */
-const NOTE_ROWS = [...SYNTH_NOTES].reverse()
-
 const isWaveform = (v: string | null): v is Waveform => WAVEFORMS.includes(v as Waveform)
 
 /** MONO-1: one note per column on an 8-row grid, with waveform, filter and decay. */
 export function MonoSynth({ id }: { id: string }) {
   const inst = useRackStore((s) => selectInstance(s, id)) as InstanceOf<"synth"> | undefined
-  const track = useRackStore((s) => selectTrack(s, id))
   const all = useRackStore((s) => s.instances)
-  const { toggleNote } = useRackStore.getState()
-  if (!inst || track?.kind !== "synth") return null
+  if (!inst) return null
 
   const params = inst.params
-  const rows = NOTE_ROWS.map((note) => {
-    const rowIndex = SYNTH_NOTES.indexOf(note)
-    return { id: note, label: note, steps: track.notes.map((r) => r === rowIndex) }
-  })
 
   return (
     <RackUnit
@@ -54,10 +43,7 @@ export function MonoSynth({ id }: { id: string }) {
       instance
     >
       <Flex direction={{ base: "column", lg: "row" }} gap={{ base: "5", lg: "8" }} align="stretch">
-        <StepGrid
-          rows={rows}
-          onToggle={(note: SynthNote, step) => toggleNote(id, step, SYNTH_NOTES.indexOf(note))}
-        />
+        <SynthGrid id={id} />
 
         <VStack gap="4" align="flex-start" flexShrink={0}>
           <VStack gap="2" align="flex-start">

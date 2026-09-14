@@ -1,6 +1,8 @@
 import { chakra, useSlotRecipe, type SystemStyleObject } from "@chakra-ui/react"
 import {
   memo,
+  useCallback,
+  useEffect,
   useMemo,
   useRef,
   type CSSProperties,
@@ -37,24 +39,15 @@ interface StepCellProps {
   label: string
   step: number
   on: boolean
-  playing: boolean
   onToggle: (row: never, step: number) => void
 }
 
 /**
- * One toggle button. Memoised so a moving playhead only re-renders the two
- * cells per row that change — a grid of 128 Chakra buttons is expensive to
- * restyle sixteen times a bar.
+ * One toggle button. Memoised, and the playhead is not a prop: the grid
+ * lights the sounding column on the DOM itself (`data-playing`), so a step
+ * costs no React render at all.
  */
-const StepCell = memo(function StepCell({
-  css,
-  rowId,
-  label,
-  step,
-  on,
-  playing,
-  onToggle,
-}: StepCellProps) {
+const StepCell = memo(function StepCell({ css, rowId, label, step, on, onToggle }: StepCellProps) {
   return (
     <chakra.button
       type="button"
@@ -62,7 +55,6 @@ const StepCell = memo(function StepCell({
       aria-label={`${label} step ${step + 1}`}
       aria-pressed={on}
       data-accent={step % 4 === 0 ? "" : undefined}
-      data-playing={playing ? "" : undefined}
       data-row={rowId}
       data-step={step}
       style={COLUMN_STYLE[step]}
@@ -97,8 +89,11 @@ function cellAt(x: number, y: number): Cell | null {
 /**
  * One toggle button per (row, step). The viewport scrolls horizontally on
  * narrow screens; row labels stay pinned. Accents mark the first step of each
- * beat and the playhead follows the store's `currentStep` — read here, so the
- * unit around the grid does not re-render on every step.
+ * beat and the playhead follows the store's `currentStep` — not through
+ * React: a store subscription flips `data-playing` on the cells of the old
+ * and the new column, the way the meters light their segments. Every grid
+ * re-rendering on every sixteenth was the biggest cost of a playing rack
+ * (a full commit of ~70 ms on a laptop, worse on a phone).
  *
  * A mouse (or pen) paints: press on a cell and drag, and every cell passed
  * over takes the state the first one was given. Fingers keep scrolling the
@@ -107,7 +102,34 @@ function cellAt(x: number, y: number): Cell | null {
 export function StepGrid<Id extends string>({ rows, onToggle }: StepGridProps<Id>) {
   const recipe = useSlotRecipe({ key: "stepGrid" })
   const styles = useMemo(() => recipe(), [recipe])
-  const currentStep = useRackStore((s) => s.currentStep)
+  const gridRef = useRef<HTMLDivElement>(null)
+
+  // Units pass a fresh `onToggle` closure every render; the cells get one stable function instead,
+  // so a bar change (the whole unit re-renders) re-renders only the cells whose state differs.
+  const onToggleRef = useRef(onToggle)
+  useEffect(() => {
+    onToggleRef.current = onToggle
+  })
+  const toggleCell = useCallback((row: never, step: number) => onToggleRef.current(row, step), [])
+
+  // The playhead, on the DOM: light the cells of the sounding column, unlight the previous one.
+  useEffect(() => {
+    const grid = gridRef.current
+    if (!grid) return
+    let lit = -1
+    const light = (step: number) => {
+      if (step === lit) return
+      if (lit >= 0)
+        for (const cell of grid.querySelectorAll(`[data-step="${lit}"]`))
+          cell.removeAttribute("data-playing")
+      if (step >= 0)
+        for (const cell of grid.querySelectorAll(`[data-step="${step}"]`))
+          cell.setAttribute("data-playing", "")
+      lit = step
+    }
+    light(useRackStore.getState().currentStep)
+    return useRackStore.subscribe((s) => light(s.currentStep))
+  }, [])
 
   // The stroke in progress: the state being painted and the cells already done.
   const stroke = useRef<{ to: boolean; done: Set<string> } | null>(null)
@@ -152,6 +174,7 @@ export function StepGrid<Id extends string>({ rows, onToggle }: StepGridProps<Id
   return (
     <chakra.div css={styles.root}>
       <chakra.div
+        ref={gridRef}
         css={styles.grid}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
@@ -170,8 +193,7 @@ export function StepGrid<Id extends string>({ rows, onToggle }: StepGridProps<Id
                 label={row.label}
                 step={step}
                 on={row.steps[step] === true}
-                playing={step === currentStep}
-                onToggle={onToggle as (row: never, step: number) => void}
+                onToggle={toggleCell}
               />
             ))}
           </chakra.div>

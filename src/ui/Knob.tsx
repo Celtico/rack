@@ -1,5 +1,12 @@
 import { chakra, Text, useRecipe, VStack, type RecipeVariantProps } from "@chakra-ui/react"
-import { useId, useRef, type CSSProperties, type KeyboardEvent, type PointerEvent } from "react"
+import {
+  useId,
+  useRef,
+  useState,
+  type CSSProperties,
+  type KeyboardEvent,
+  type PointerEvent,
+} from "react"
 
 import type { knobRecipe } from "../theme/recipes/knob"
 
@@ -25,8 +32,9 @@ export interface KnobProps extends KnobVariants {
 
 /** Degrees of rotation from min to max. */
 const SWEEP = 270
-/** Vertical pointer travel (px) for a full sweep. */
+/** Vertical pointer travel (px) for a full sweep — a mouse, and a thumb, which has less room. */
 const DRAG_PX = 150
+const DRAG_PX_TOUCH = 100
 /** Keyboard nudge on a log knob, as a fraction of the travel. */
 const KEY_TRAVEL = 0.02
 
@@ -54,6 +62,7 @@ export function Knob({
   const styles = recipe({ size })
   const labelId = useId()
   const drag = useRef<{ y: number; pos: number } | null>(null)
+  const [turning, setTurning] = useState(false)
 
   // Travel ∈ [0, 1] ↔ value.
   const toPos = (v: number) =>
@@ -87,18 +96,21 @@ export function Knob({
     e.currentTarget.setPointerCapture(e.pointerId)
     e.currentTarget.focus()
     drag.current = { y: e.clientY, pos: toPos(value) }
+    setTurning(true)
   }
 
   const onPointerMove = (e: PointerEvent<HTMLDivElement>) => {
     if (!drag.current) return
     const fine = e.shiftKey ? 0.2 : 1
-    const pos = drag.current.pos + ((drag.current.y - e.clientY) / DRAG_PX) * fine
+    const travel = e.pointerType === "touch" ? DRAG_PX_TOUCH : DRAG_PX
+    const pos = drag.current.pos + ((drag.current.y - e.clientY) / travel) * fine
     commit(fromPos(clamp(pos, 0, 1)))
   }
 
   const onPointerUp = (e: PointerEvent<HTMLDivElement>) => {
     if (!drag.current) return
     drag.current = null
+    setTurning(false)
     e.currentTarget.releasePointerCapture(e.pointerId)
   }
 
@@ -150,6 +162,7 @@ export function Knob({
         aria-orientation="vertical"
         css={styles}
         style={{ "--knob-angle": `${angle}deg` } as CSSProperties}
+        data-active={turning ? "" : undefined}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
