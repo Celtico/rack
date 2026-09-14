@@ -18,9 +18,12 @@ export type PinnedUnitId = (typeof PINNED_UNITS)[number]
 export const isPinnedUnit = (id: string): id is PinnedUnitId =>
   (PINNED_UNITS as readonly string[]).includes(id)
 
+/** The transport: never moved, but it can leave and come back like the rest. */
+export const TRANSPORT_UNIT = "CLOCK"
+
 /** Units that can be taken out of view and put back (instances are removed instead). */
-export type HideableUnitId = FixedUnitId | PinnedUnitId
-export const HIDEABLE_UNITS: readonly HideableUnitId[] = ["FX-2", ...PINNED_UNITS]
+export type HideableUnitId = FixedUnitId | PinnedUnitId | typeof TRANSPORT_UNIT
+export const HIDEABLE_UNITS: readonly HideableUnitId[] = [TRANSPORT_UNIT, "FX-2", ...PINNED_UNITS]
 export const isHideableUnit = (id: string): id is HideableUnitId =>
   (HIDEABLE_UNITS as readonly string[]).includes(id)
 
@@ -38,6 +41,8 @@ export interface LayoutState {
   nudgeUnit: (id: string, direction: -1 | 1) => void
   hideUnit: (id: string) => void
   showUnit: (id: string) => void
+  /** Put every hidden panel back — a demo from the empty rack brings the whole rack with it. */
+  showAll: () => void
   /** Make sure every id is in the order (appended) and nothing else is. */
   syncUnits: (ids: readonly string[]) => void
 }
@@ -111,6 +116,7 @@ export const useLayoutStore = create<LayoutState>()(
           isHideableUnit(id) && !s.hidden.includes(id) ? { hidden: [...s.hidden, id] } : s,
         ),
       showUnit: (id) => set((s) => ({ hidden: s.hidden.filter((x) => x !== id) })),
+      showAll: () => set({ hidden: [] }),
       syncUnits: (ids) =>
         set((s) => {
           const order = ensureOrder(s.order, ids)
@@ -123,7 +129,9 @@ export const useLayoutStore = create<LayoutState>()(
       name: "rack-layout",
       version: 3,
       merge: (persisted, current) => {
-        const saved = (persisted as Partial<LayoutState> | undefined) ?? {}
+        // Nothing stored — a first visit: the defaults stand (an empty rack), nothing to reconcile.
+        if (!persisted) return current
+        const saved = persisted as Partial<LayoutState>
         const order = (saved.order ?? []).filter(
           (id): id is string => typeof id === "string" && (isFixedUnit(id) || id.includes("-")),
         )

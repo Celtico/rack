@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest"
 
-import { ensureOrder, moveWithin, useLayoutStore } from "./layout"
+import { ensureOrder, HIDEABLE_UNITS, moveWithin, useLayoutStore } from "./layout"
 
 describe("moveWithin", () => {
   const order = ["a", "b", "c", "d"] as const
@@ -58,17 +58,32 @@ describe("layout store", () => {
     expect(useLayoutStore.getState().order).toEqual(ORDER)
   })
 
-  it("hides and shows FX-2, BANK and SONG, never an instance or the transport", () => {
+  it("hides and shows the transport, FX-2, BANK and SONG, never an instance", () => {
     const s = useLayoutStore.getState()
     s.hideUnit("FX-2")
     s.hideUnit("FX-2")
     s.hideUnit("drums-1")
     s.hideUnit("SONG")
     s.hideUnit("CLOCK")
-    expect(useLayoutStore.getState().hidden).toEqual(["FX-2", "SONG"])
+    expect(useLayoutStore.getState().hidden).toEqual(["FX-2", "SONG", "CLOCK"])
     s.showUnit("FX-2")
     s.showUnit("SONG")
+    s.showUnit("CLOCK")
     expect(useLayoutStore.getState().hidden).toEqual([])
+    s.hideUnit("FX-2")
+    s.hideUnit("CLOCK")
+    s.showAll()
+    expect(useLayoutStore.getState().hidden).toEqual([])
+  })
+
+  it("starts a fresh browser with every panel showing, and hydration leaves the defaults alone", async () => {
+    expect(HIDEABLE_UNITS).toContain("CLOCK")
+    expect(useLayoutStore.getInitialState().hidden).toEqual([])
+    // Nothing stored: the defaults stand, whatever they are, rather than being rebuilt from nothing.
+    localStorage.removeItem("rack-layout")
+    useLayoutStore.setState({ ...useLayoutStore.getInitialState(), hidden: ["FX-2"] })
+    await useLayoutStore.persist.rehydrate()
+    expect(useLayoutStore.getState().hidden).toEqual(["FX-2"])
   })
 
   it("syncs the order with the units that exist, keeping the arrangement", () => {

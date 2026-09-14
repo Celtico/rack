@@ -4,6 +4,7 @@
  */
 export const toolbarButton = {
   size: "sm",
+  // A dark fill, so the three read as buttons on the strip (tried without: the user wants it back).
   variant: "subtle",
   rounded: "sm",
   flex: { base: "1 1 0", md: "0 0 auto" },

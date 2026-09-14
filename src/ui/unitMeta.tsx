@@ -69,3 +69,17 @@ export const WAVE_LABELS: Readonly<Record<Waveform, string>> = {
   triangle: "Tri",
   sine: "Sin",
 }
+
+/** What the kit rows and level knobs call each voice. */
+export const VOICE_LABELS: Readonly<Record<string, string>> = {
+  kick: "Kick",
+  snare: "Snare",
+  clap: "Clap",
+  hat: "Hat",
+  tomLo: "Tom lo",
+  tomHi: "Tom hi",
+  rim: "Rim",
+  cowbell: "Cowbell",
+  shaker: "Shaker",
+  crash: "Crash",
+}

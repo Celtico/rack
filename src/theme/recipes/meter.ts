@@ -46,7 +46,15 @@ export const meterRecipe = defineSlotRecipe({
     },
   },
   compoundVariants: [
-    { size: "sm", orientation: "horizontal", css: { segment: { w: "1", h: "2.5" } } },
+    // The folded-header meter: a row of 3 px lit dots, the most compact the glow still reads at.
+    {
+      size: "sm",
+      orientation: "horizontal",
+      css: {
+        root: { p: "0.5", px: "1", gap: "0.5" },
+        segment: { w: "3px", h: "3px", rounded: "full" },
+      },
+    },
   ],
   defaultVariants: { size: "md", orientation: "vertical" },
 })

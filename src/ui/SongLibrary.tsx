@@ -1,7 +1,5 @@
 import {
   Button,
-  CloseButton,
-  Drawer,
   Grid,
   HStack,
   IconButton,
@@ -18,6 +16,7 @@ import {
   LuChevronUp,
   LuDownload,
   LuEllipsis,
+  LuFileAudio,
   LuFolder,
   LuFolderInput,
   LuFolderPlus,
@@ -41,30 +40,23 @@ import {
   useLibraryStore,
   type LibraryEntry,
 } from "../state/songLibrary"
-import { toSong, useRackStore } from "../state/store"
+import { toSong, useRackStore, type RackState } from "../state/store"
 import { loadBuiltinSong, loadBuiltinSongs, type BuiltinSong } from "./builtinSongs"
 import { downloadJson } from "./download"
-import { escapeIsForField, markEscape } from "./escapeGuard"
+import { markEscape } from "./escapeGuard"
+import { exportSongAudio, type AudioFormat } from "./exportAudio"
 import { Cover } from "./Cover"
+import { COVER_GRID, songLength } from "./coverGrid"
 import { FolderMenuItems, FolderPicker, NEW_FOLDER } from "./FolderPicker"
 import { LoadSongButton } from "./LoadSongButton"
 import { playFolder, stopPlaylist, usePlaylistStore } from "./playlist"
+import { usePanelStore } from "./panels"
+import { SidePanel } from "./SidePanel"
 import { toolbarButton } from "./toolbar"
 import { startTransport, stopTransport } from "./transportControl"
 
 const when = (ms: number) =>
   new Date(ms).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })
-
-/** Sleeves side by side, as many as fit, wrapping. */
-const COVER_GRID = {
-  templateColumns: "repeat(auto-fill, minmax(7.5rem, 1fr))",
-  gap: "3",
-  rowGap: "4",
-  listStyleType: "none",
-  py: "2",
-} as const
-
-const length = (bars: number) => (bars ? `${bars} bar${bars === 1 ? "" : "s"}` : "loop")
 
 /**
  * Play a song from the top: stop (rewinds), load, start. The audio context is
@@ -101,6 +93,8 @@ interface SongCoverProps {
   /** Under the name: tempo, length, when. */
   meta: string
   getSong: () => Promise<Song>
+  /** Runs when the sleeve is pressed to play — not for a download or an export. */
+  onPlay?: () => void
   /** Absent for built-in songs, which cannot be deleted. */
   onDelete?: () => void
   /** Absent for built-in songs, which cannot be renamed. */
@@ -120,11 +114,12 @@ type Draft = { kind: "rename" | "folder"; value: string }
  * a folder and delete. The song the rack holds wears an amber frame. The drawer
  * stays open through all of it.
  */
-function SongCover({
+export function SongCover({
   songKey,
   name,
   meta,
   getSong,
+  onPlay,
   onDelete,
   onRename,
   onMove,
@@ -167,8 +162,20 @@ function SongCover({
       })
     }
   }
+  const exportAudio = async (format: AudioFormat) => {
+    try {
+      await exportSongAudio(await getSong(), name, format)
+    } catch (err) {
+      toaster.create({
+        type: "error",
+        title: "Could not export",
+        description: err instanceof Error ? err.message : String(err),
+      })
+    }
+  }
   const act = (value: string) => {
     if (value === "download") void download()
+    else if (value === "wav" || value === "mp3") void exportAudio(value)
     else if (value === "rename") startDraft("rename")
     else if (value === "delete") onDelete?.()
     else if (value === NEW_FOLDER) startDraft("folder")
@@ -192,7 +199,14 @@ function SongCover({
         aria-pressed={playing}
         data-current={current ? "" : undefined}
         data-playing={playing ? "" : undefined}
-        onClick={() => (playing ? stopTransport() : void playSong(songKey, getSong, name))}
+        onClick={() => {
+          if (playing) {
+            stopTransport()
+            return
+          }
+          onPlay?.()
+          void playSong(songKey, getSong, name)
+        }}
       />
       {draft === null ? (
         <HStack gap="0" align="flex-start" w="full" minW="0">
@@ -230,6 +244,13 @@ function SongCover({
                 <Menu.Content>
                   <Menu.Item value="download">
                     <LuDownload /> Download
+                  </Menu.Item>
+                  {/* Rendered offline from the saved song, not from what the rack plays. */}
+                  <Menu.Item value="wav">
+                    <LuFileAudio /> Export WAV
+                  </Menu.Item>
+                  <Menu.Item value="mp3">
+                    <LuFileAudio /> Export MP3
                   </Menu.Item>
                   {onRename && (
                     <Menu.Item value="rename">
@@ -321,7 +342,7 @@ function SavedCover({ entry, folders }: { entry: LibraryEntry; folders: readonly
     <SongCover
       songKey={entry.id}
       name={entry.name}
-      meta={`${entry.song.bpm} BPM · ${length(entry.song.chain.length)} · ${when(entry.savedAt)}`}
+      meta={`${entry.song.bpm} BPM · ${songLength(entry.song.chain.length)} · ${when(entry.savedAt)}`}
       getSong={() => Promise.resolve(entry.song)}
       onDelete={() => void del()}
       onRename={(name) => void rename(entry.id, name)}
@@ -332,17 +353,33 @@ function SavedCover({ entry, folders }: { entry: LibraryEntry; folders: readonly
   )
 }
 
+/** The toolbar button that opens (and closes) the Songs panel. */
+export function SongsButton() {
+  const open = usePanelStore((s) => s.panel === "songs")
+  const { toggle } = usePanelStore.getState()
+  return (
+    <Button
+      {...toolbarButton}
+      aria-expanded={open}
+      aria-pressed={open}
+      onClick={() => toggle("songs")}
+    >
+      <LuLibrary /> Songs
+    </Button>
+  )
+}
+
 /**
- * The song library, in a drawer: the songs shipped with the rack, then the
+ * The song library, in a side panel: the songs shipped with the rack, then the
  * user's own — save what is in the rack under a name, and play, download or
  * delete anything saved before. Saved songs live in IndexedDB; nothing leaves
  * the browser unless it is downloaded.
  */
-export function SongLibrary() {
+export function SongsPanel() {
   const entries = useLibraryStore((s) => s.entries)
   const loaded = useLibraryStore((s) => s.loaded)
   const { refresh, save } = useLibraryStore.getState()
-  const [open, setOpen] = useState(false)
+  const open = usePanelStore((s) => s.panel === "songs")
   const [builtins, setBuiltins] = useState<BuiltinSong[]>([])
   const [showDemos, setShowDemos] = useState(false)
   // The saved song the rack holds, and whether the rack has drifted from it — checked when the
@@ -350,17 +387,10 @@ export function SongLibrary() {
   const nowPlaying = useLibraryStore((s) => s.nowPlaying)
   const current = entries.find((e) => e.id === nowPlaying) ?? null
   const [dirty, setDirty] = useState(false)
-  const checkDirty = (entry: LibraryEntry | null) =>
-    setDirty(
-      entry !== null &&
-        serializeSong(toSong(useRackStore.getState())) !== serializeSong(entry.song),
-    )
   // Folders start folded; one opens on its row, or when a song has just been saved into it.
   const [openFolders, setOpenFolders] = useState<ReadonlySet<string>>(new Set())
   const playingFolder = usePlaylistStore((s) => s.folder)
   const unsaved = useLibraryStore((s) => s.nowPlaying === null)
-  const unsavedName = useLibraryStore((s) => s.unsavedName)
-  const bpm = useRackStore((s) => s.bpm)
   const [name, setName] = useState("")
   const [saveFolder, setSaveFolder] = useState<string | null>(null)
   const folders = folderNames(entries)
@@ -378,12 +408,45 @@ export function SongLibrary() {
     void loadBuiltinSongs().then(setBuiltins)
   }, [open, loaded, refresh])
 
-  // What the rack holds is in no list: on opening, offer a name — the file it came from, or a numbered one.
-  const onOpenChange = (next: boolean) => {
-    setOpen(next)
-    if (next) checkDirty(current)
-    if (next && unsaved && !name) setName(unsavedName ?? `Song ${entries.length + 1} · ${bpm} BPM`)
-  }
+  // The moment the panel opens, when what the rack holds is in no list: offer a name for it —
+  // the file it came from, or a numbered one.
+  useEffect(
+    () =>
+      usePanelStore.subscribe((s, prev) => {
+        if (s.panel !== "songs" || prev.panel === "songs") return
+        const lib = useLibraryStore.getState()
+        if (lib.nowPlaying === null)
+          setName(
+            (n) =>
+              n ||
+              (lib.unsavedName ??
+                `Song ${lib.entries.length + 1} · ${useRackStore.getState().bpm} BPM`),
+          )
+      }),
+    [],
+  )
+
+  // Has the rack drifted from its saved song? Checked while the panel is open — docked, it stays
+  // open while the rack is edited — but only when something a song holds changes, not on every
+  // step: comparing whole songs is not free.
+  useEffect(() => {
+    if (!open || !current) return
+    const check = (s: RackState) =>
+      setDirty(serializeSong(toSong(s)) !== serializeSong(current.song))
+    check(useRackStore.getState())
+    return useRackStore.subscribe((s, prev) => {
+      if (
+        s.patterns !== prev.patterns ||
+        s.instances !== prev.instances ||
+        s.fx !== prev.fx ||
+        s.chain !== prev.chain ||
+        s.bpm !== prev.bpm ||
+        s.swing !== prev.swing ||
+        s.masterVolume !== prev.masterVolume
+      )
+        check(s)
+    })
+  }, [open, current])
 
   const updateCurrent = async () => {
     if (!current) return
@@ -412,237 +475,230 @@ export function SongLibrary() {
   }
 
   return (
-    <Drawer.Root
-      open={open}
-      onOpenChange={(d) => onOpenChange(d.open)}
-      onEscapeKeyDown={(e) => {
-        if (escapeIsForField()) e.preventDefault()
-      }}
-      placement="end"
-      size="sm"
-    >
-      <Drawer.Trigger asChild>
-        <Button {...toolbarButton}>
-          <LuLibrary /> Songs
-        </Button>
-      </Drawer.Trigger>
-      <Portal>
-        <Drawer.Backdrop />
-        <Drawer.Positioner>
-          <Drawer.Content bg="rack.panel" color="rack.silkscreen">
-            <Drawer.Header
-              borderBottomWidth="1px"
-              borderColor="rack.panel.edge"
-              // On a phone the drawer reaches under the status bar: same top clearance as the toolbar.
-              pt={{ base: "max(50px, env(safe-area-inset-top))", md: "4" }}
+    <SidePanel id="songs" title="Songs">
+      {/* The rack holds a saved song, changed since: update it, or put it back. */}
+      {current && dirty && (
+        <VStack
+          gap="2"
+          align="stretch"
+          p="3"
+          mx="-3"
+          mb="4"
+          rounded="sm"
+          bg="rack.led.off"
+          role="group"
+          aria-label={`${current.name} has changes`}
+        >
+          <Text textStyle="silkscreen" color="rack.led.on">
+            {current.name} · changed since it was saved
+          </Text>
+          <HStack gap="2">
+            <Button
+              size="sm"
+              rounded="sm"
+              colorPalette="orange"
+              onClick={() => void updateCurrent()}
             >
-              <Drawer.Title textStyle="silkscreen" fontSize="sm">
-                Songs
-              </Drawer.Title>
-              <Drawer.CloseTrigger asChild>
-                <CloseButton
-                  size="sm"
-                  position="absolute"
-                  // Rides down with the header's phone clearance.
-                  top={{ base: "calc(max(50px, env(safe-area-inset-top)) - 4px)", md: "3" }}
-                  right="3"
-                />
-              </Drawer.CloseTrigger>
-            </Drawer.Header>
-            <Drawer.Body px="4" py="3">
-              {/* The rack holds a saved song, changed since: update it, or put it back. */}
-              {current && dirty && (
-                <VStack
-                  gap="2"
-                  align="stretch"
-                  p="3"
-                  mx="-3"
-                  mb="4"
-                  rounded="sm"
-                  bg="rack.led.off"
-                  role="group"
-                  aria-label={`${current.name} has changes`}
-                >
-                  <Text textStyle="silkscreen" color="rack.led.on">
-                    {current.name} · changed since it was saved
-                  </Text>
-                  <HStack gap="2">
-                    <Button
-                      size="sm"
-                      rounded="sm"
-                      colorPalette="orange"
-                      onClick={() => void updateCurrent()}
-                    >
-                      <LuRefreshCw /> Update {current.name}
-                    </Button>
-                    <Button size="sm" rounded="sm" variant="outline" onClick={discardChanges}>
-                      <LuUndo2 /> Discard
-                    </Button>
-                  </HStack>
-                  <Text textStyle="silkscreen" color="rack.silkscreen.muted">
-                    Or save it as a new song below.
-                  </Text>
-                </VStack>
-              )}
-              <VStack
-                as="form"
-                gap="2"
-                align="stretch"
-                onSubmit={onSave}
-                mb="4"
-                // Unsaved: the form lights up so it is not missed.
-                p={unsaved ? "3" : undefined}
-                mx={unsaved ? "-3" : undefined}
+              <LuRefreshCw /> Update {current.name}
+            </Button>
+            <Button size="sm" rounded="sm" variant="outline" onClick={discardChanges}>
+              <LuUndo2 /> Discard
+            </Button>
+          </HStack>
+          <Text textStyle="silkscreen" color="rack.silkscreen.muted">
+            Or save it as a new song below.
+          </Text>
+        </VStack>
+      )}
+      <VStack
+        as="form"
+        gap="2"
+        align="stretch"
+        onSubmit={onSave}
+        pb="3"
+        mb="3"
+        borderBottomWidth="1px"
+        borderColor="rack.panel.divider"
+        // Unsaved: the form lights up so it is not missed.
+        p={unsaved ? "3" : undefined}
+        mx={unsaved ? "-3" : undefined}
+        rounded="sm"
+        bg={unsaved ? "rack.led.off" : undefined}
+      >
+        <Text textStyle="silkscreen" color={unsaved ? "rack.led.on" : "rack.silkscreen.muted"}>
+          {unsaved ? "Playing now · not in the library" : "Save what is in the rack"}
+        </Text>
+        <HStack gap="2">
+          <Input
+            size="md"
+            // 16px: under that, iOS Safari zooms the page when the field takes focus.
+            fontSize="md"
+            rounded="sm"
+            placeholder="Song name"
+            aria-label="Song name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+          />
+          <FolderPicker
+            value={saveFolder}
+            folders={folders}
+            label="Folder to save into"
+            onChange={setSaveFolder}
+          />
+          <Button type="submit" size="md" rounded="sm" colorPalette="orange" flexShrink={0}>
+            <LuSave /> Save
+          </Button>
+        </HStack>
+      </VStack>
+
+      {/* A file from this device: a rack song, or a MIDI file put onto the grid. */}
+      <HStack
+        gap="3"
+        pb="3"
+        mb="3"
+        align="center"
+        borderBottomWidth="1px"
+        borderColor="rack.panel.divider"
+      >
+        <Text textStyle="silkscreen" color="rack.silkscreen.muted" flex="1">
+          From a file on this device
+        </Text>
+        <LoadSongButton onLoaded={setName} />
+      </HStack>
+
+      <Text textStyle="silkscreen" color="rack.silkscreen.muted" mb="1">
+        Saved
+      </Text>
+      {loaded && entries.length === 0 && (
+        <Text textStyle="silkscreen" color="rack.silkscreen.muted">
+          Nothing saved yet.
+        </Text>
+      )}
+      {/* Songs at the top level first, then one collapsible group per folder. */}
+      <Grid as="ul" {...COVER_GRID} aria-label="Saved songs">
+        {entries
+          .filter((e) => !e.folder)
+          .map((entry) => (
+            <SavedCover key={entry.id} entry={entry} folders={folders} />
+          ))}
+      </Grid>
+      {folders.map((folder: string) => {
+        const inside = entries.filter((e) => e.folder === folder)
+        const isOpen = openFolders.has(folder)
+        return (
+          <VStack
+            key={folder}
+            align="stretch"
+            gap="0"
+            pt="3"
+            // Closed, the row itself needs the room before the next hairline; open, the grid has it.
+            pb={isOpen ? "0" : "3"}
+            borderTopWidth="1px"
+            borderColor="rack.panel.divider"
+          >
+            <HStack gap="1" mx="-2">
+              <Button
+                size="sm"
+                variant="ghost"
                 rounded="sm"
-                bg={unsaved ? "rack.led.off" : undefined}
+                justifyContent="flex-start"
+                px="2"
+                flex="1"
+                minW="0"
+                color="rack.silkscreen"
+                aria-expanded={isOpen}
+                aria-label={`${isOpen ? "Fold" : "Expand"} folder ${folder}`}
+                onClick={() => toggleFolder(folder)}
               >
-                <Text
-                  textStyle="silkscreen"
-                  color={unsaved ? "rack.led.on" : "rack.silkscreen.muted"}
-                >
-                  {unsaved ? "Playing now · not in the library" : "Save what is in the rack"}
+                <LuFolder /> {folder}
+                <Text as="span" textStyle="silkscreen" color="rack.silkscreen.muted" ml="1">
+                  {inside.length}
                 </Text>
-                <HStack gap="2">
-                  <Input
-                    size="md"
-                    // 16px: under that, iOS Safari zooms the page when the field takes focus.
-                    fontSize="md"
-                    rounded="sm"
-                    placeholder="Song name"
-                    aria-label="Song name"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                  />
-                  <FolderPicker
-                    value={saveFolder}
-                    folders={folders}
-                    label="Folder to save into"
-                    onChange={setSaveFolder}
-                  />
-                  <Button type="submit" size="md" rounded="sm" colorPalette="orange" flexShrink={0}>
-                    <LuSave /> Save
-                  </Button>
-                </HStack>
-              </VStack>
-
-              {/* A file from this device: a rack song, or a MIDI file put onto the grid. */}
-              <HStack gap="3" mb="5" align="center">
-                <Text textStyle="silkscreen" color="rack.silkscreen.muted" flex="1">
-                  From a file on this device
+                <Text as="span" ml="auto" color="rack.silkscreen.muted">
+                  {isOpen ? <LuChevronUp /> : <LuChevronDown />}
                 </Text>
-                <LoadSongButton onLoaded={setName} />
-              </HStack>
-
-              <Text textStyle="silkscreen" color="rack.silkscreen.muted" mb="1">
-                Saved
-              </Text>
-              {loaded && entries.length === 0 && (
-                <Text textStyle="silkscreen" color="rack.silkscreen.muted">
-                  Nothing saved yet.
-                </Text>
-              )}
-              {/* Songs at the top level first, then one collapsible group per folder. */}
-              <Grid as="ul" {...COVER_GRID} aria-label="Saved songs">
-                {entries
-                  .filter((e) => !e.folder)
-                  .map((entry) => (
-                    <SavedCover key={entry.id} entry={entry} folders={folders} />
-                  ))}
+              </Button>
+              {/* The whole folder, one song after another, round and round. */}
+              <IconButton
+                size="sm"
+                variant={playingFolder === folder ? "solid" : "subtle"}
+                colorPalette="orange"
+                rounded="sm"
+                aria-label={
+                  playingFolder === folder ? `Stop folder ${folder}` : `Play folder ${folder}`
+                }
+                aria-pressed={playingFolder === folder}
+                onClick={() => {
+                  if (playingFolder === folder) {
+                    stopPlaylist()
+                    stopTransport()
+                  } else {
+                    void playFolder(folder, inside)
+                  }
+                }}
+              >
+                {playingFolder === folder ? <LuSquare /> : <LuPlay />}
+              </IconButton>
+            </HStack>
+            {isOpen && (
+              <Grid as="ul" {...COVER_GRID} aria-label={`Songs in ${folder}`}>
+                {inside.map((entry) => (
+                  <SavedCover key={entry.id} entry={entry} folders={folders} />
+                ))}
               </Grid>
-              {folders.map((folder: string) => {
-                const inside = entries.filter((e) => e.folder === folder)
-                const isOpen = openFolders.has(folder)
-                return (
-                  <VStack key={folder} align="stretch" gap="0" mt="2">
-                    <HStack gap="1" mx="-2">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        rounded="sm"
-                        justifyContent="flex-start"
-                        px="2"
-                        flex="1"
-                        minW="0"
-                        color="rack.silkscreen"
-                        aria-expanded={isOpen}
-                        aria-label={`${isOpen ? "Fold" : "Expand"} folder ${folder}`}
-                        onClick={() => toggleFolder(folder)}
-                      >
-                        <LuFolder /> {folder}
-                        <Text as="span" textStyle="silkscreen" color="rack.silkscreen.muted" ml="1">
-                          {inside.length}
-                        </Text>
-                        <Text as="span" ml="auto" color="rack.silkscreen.muted">
-                          {isOpen ? <LuChevronUp /> : <LuChevronDown />}
-                        </Text>
-                      </Button>
-                      {/* The whole folder, one song after another, round and round. */}
-                      <IconButton
-                        size="sm"
-                        variant={playingFolder === folder ? "solid" : "subtle"}
-                        colorPalette="orange"
-                        rounded="sm"
-                        aria-label={
-                          playingFolder === folder
-                            ? `Stop folder ${folder}`
-                            : `Play folder ${folder}`
-                        }
-                        aria-pressed={playingFolder === folder}
-                        onClick={() => {
-                          if (playingFolder === folder) {
-                            stopPlaylist()
-                            stopTransport()
-                          } else {
-                            void playFolder(folder, inside)
-                          }
-                        }}
-                      >
-                        {playingFolder === folder ? <LuSquare /> : <LuPlay />}
-                      </IconButton>
-                    </HStack>
-                    {isOpen && (
-                      <Grid as="ul" {...COVER_GRID} aria-label={`Songs in ${folder}`} pl="3">
-                        {inside.map((entry) => (
-                          <SavedCover key={entry.id} entry={entry} folders={folders} />
-                        ))}
-                      </Grid>
-                    )}
-                  </VStack>
-                )
-              })}
+            )}
+          </VStack>
+        )
+      })}
 
-              {/* The songs shipped with the rack, out of the way: a small toggle at the bottom. */}
-              {builtins.length > 0 && (
-                <VStack align="stretch" gap="1" mt="6">
-                  <Button
-                    size="xs"
-                    variant="ghost"
-                    alignSelf="flex-start"
-                    color="rack.silkscreen.muted"
-                    aria-expanded={showDemos}
-                    onClick={() => setShowDemos((v) => !v)}
-                  >
-                    {showDemos ? <LuChevronUp /> : <LuChevronDown />} Demos ({builtins.length})
-                  </Button>
-                  {showDemos && (
-                    <Grid as="ul" {...COVER_GRID} aria-label="Demo songs">
-                      {builtins.map((b) => (
-                        <SongCover
-                          key={b.file}
-                          songKey={builtinKey(b.file)}
-                          name={b.name}
-                          meta={`${b.bpm} BPM · ${length(b.bars)}`}
-                          getSong={() => loadBuiltinSong(b.file)}
-                        />
-                      ))}
-                    </Grid>
-                  )}
-                </VStack>
-              )}
-            </Drawer.Body>
-          </Drawer.Content>
-        </Drawer.Positioner>
-      </Portal>
-    </Drawer.Root>
+      {/* The songs shipped with the rack, at the bottom: a row like a folder's, same spacing. */}
+      {builtins.length > 0 && (
+        <VStack
+          align="stretch"
+          gap="0"
+          pt="3"
+          pb={showDemos ? "0" : "3"}
+          borderTopWidth="1px"
+          borderColor="rack.panel.divider"
+        >
+          <HStack gap="1" mx="-2">
+            <Button
+              size="sm"
+              variant="ghost"
+              rounded="sm"
+              justifyContent="flex-start"
+              px="2"
+              flex="1"
+              minW="0"
+              color="rack.silkscreen"
+              aria-expanded={showDemos}
+              aria-label={`${showDemos ? "Fold" : "Expand"} demos`}
+              onClick={() => setShowDemos((v) => !v)}
+            >
+              <LuLibrary /> Demos
+              <Text as="span" textStyle="silkscreen" color="rack.silkscreen.muted" ml="1">
+                {builtins.length}
+              </Text>
+              <Text as="span" ml="auto" color="rack.silkscreen.muted">
+                {showDemos ? <LuChevronUp /> : <LuChevronDown />}
+              </Text>
+            </Button>
+          </HStack>
+          {showDemos && (
+            <Grid as="ul" {...COVER_GRID} aria-label="Demo songs">
+              {builtins.map((b) => (
+                <SongCover
+                  key={b.file}
+                  songKey={builtinKey(b.file)}
+                  name={b.name}
+                  meta={`${b.bpm} BPM · ${songLength(b.bars)}`}
+                  getSong={() => loadBuiltinSong(b.file)}
+                />
+              ))}
+            </Grid>
+          )}
+        </VStack>
+      )}
+    </SidePanel>
   )
 }

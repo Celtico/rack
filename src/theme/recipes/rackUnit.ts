@@ -48,7 +48,8 @@ export const rackUnitRecipe = defineSlotRecipe({
       position: "relative",
       bg: "finish.graphite.panel",
       // Plain graphite with a soft glow of the finish colour falling from the top-left corner.
-      // bgImage: "radial-gradient(ellipse 1px 1px at 0.1% 0.1%, transparent 1800px, {colors.rack.panel} 0, transparent 1800px)",
+      bgImage:
+        "radial-gradient(ellipse 100px 10px at calc(100% + 500px) 0%, {colors.rack.panel} 0, transparent 1000px)",
       color: "rack.silkscreen",
       borderWidth: "1px",
       borderColor: "rack.panel.edge",
@@ -81,6 +82,8 @@ export const rackUnitRecipe = defineSlotRecipe({
     },
     preview: {
       display: "inline-flex",
+      alignItems: "center",
+      gap: "3",
       // Sits on the free side of the header, right before the controls.
       ml: "auto",
       mr: "2",

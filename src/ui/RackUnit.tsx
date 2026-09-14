@@ -76,8 +76,9 @@ export function RackUnit({
   // The grip arms dragging; the whole panel is only draggable while it is held.
   const [armed, setArmed] = useState(false)
   const [over, setOver] = useState(false)
-  // Instances are removed, FX-2 / BANK / SONG are hidden (and put back from "Add unit"); the transport stays.
+  // Instances are removed; the transport, FX-2, BANK and SONG are hidden (and put back from "Add unit").
   const removable = !fixed && (instance || isHideableUnit(id))
+  // The transport is pinned outside the swap pair: it has a grip for its menu, but never moves.
   const movable = !fixed && (!pinned || isPinnedUnit(id))
 
   const setMute = (next: boolean) => {
@@ -143,6 +144,7 @@ export function RackUnit({
         {title && <chakra.span css={styles.title}>{title}</chakra.span>}
         {folded && (preview || instance) && (
           <chakra.span css={styles.preview} data-part="preview">
+            {/* A folded machine: its pattern in miniature — the matrix shows what plays; no meter. */}
             {preview ?? <MiniGrid id={id} label={model} />}
           </chakra.span>
         )}
@@ -175,7 +177,7 @@ export function RackUnit({
             </IconButton>
           )}
         </chakra.div>
-        {movable && (
+        {(movable || removable) && (
           <Menu.Root
             onSelect={(details) => onGripSelect(details.value)}
             positioning={{ placement: "bottom-end" }}
@@ -184,8 +186,8 @@ export function RackUnit({
               <chakra.button
                 type="button"
                 css={styles.grip}
-                aria-label={`Move ${model}`}
-                onPointerDown={() => setArmed(true)}
+                aria-label={movable ? `Move ${model}` : `Options for ${model}`}
+                onPointerDown={() => movable && setArmed(true)}
                 onPointerUp={() => setArmed(false)}
               >
                 <LuEllipsisVertical />
@@ -194,12 +196,16 @@ export function RackUnit({
             <Portal>
               <Menu.Positioner>
                 <Menu.Content>
-                  <Menu.Item value="up">
-                    <LuArrowUp /> Move up
-                  </Menu.Item>
-                  <Menu.Item value="down">
-                    <LuArrowDown /> Move down
-                  </Menu.Item>
+                  {movable && (
+                    <>
+                      <Menu.Item value="up">
+                        <LuArrowUp /> Move up
+                      </Menu.Item>
+                      <Menu.Item value="down">
+                        <LuArrowDown /> Move down
+                      </Menu.Item>
+                    </>
+                  )}
                   {removable && (
                     <Menu.Item value="remove" color="fg.error">
                       <LuX /> Remove from rack

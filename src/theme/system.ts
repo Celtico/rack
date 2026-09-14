@@ -204,6 +204,8 @@ const config = defineConfig({
           panel: {
             DEFAULT: { value: "{colors.metal.900}" },
             edge: { value: "{colors.metal.900}" },
+            /** A hairline between rows and sections on a panel — a shade up from it, so it shows. */
+            divider: { value: "{colors.metal.700}" },
           },
           screw: { value: "{colors.metal.500}" },
           silkscreen: {

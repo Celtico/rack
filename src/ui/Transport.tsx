@@ -1,5 +1,4 @@
-import { Flex, HStack, IconButton, Text, VStack } from "@chakra-ui/react"
-import { LuPlay, LuSquare } from "react-icons/lu"
+import { Flex, HStack, Text, VStack } from "@chakra-ui/react"
 
 import { getEngine } from "../audio/engine"
 import { STEP_COUNT } from "../state/pattern"
@@ -8,7 +7,7 @@ import { Display } from "./Display"
 import { Knob } from "./Knob"
 import { Led } from "./Led"
 import { LevelMeter } from "./LevelMeter"
-import { startTransport, stopTransport } from "./transportControl"
+import { RunButton } from "./RunButton"
 
 const formatBpm = (bpm: number) => `${bpm} BPM`
 const formatPercent = (level: number) => `${Math.round(level * 100)}%`
@@ -67,8 +66,6 @@ export function Transport() {
   const masterVolume = useRackStore((s) => s.masterVolume)
   const { setBpm, setSwing, setMasterVolume } = useRackStore.getState()
 
-  const togglePlay = () => (playing ? stopTransport() : startTransport())
-
   const changeBpm = (next: number) => {
     setBpm(next)
     getEngine().setBpm(next)
@@ -89,17 +86,7 @@ export function Transport() {
     >
       <HStack display={GROUP} justify="space-between" align="flex-end" gap="4">
         <HStack display={GROUP} gap="3" align="flex-end">
-          <IconButton
-            aria-label={playing ? "Stop" : "Play"}
-            aria-pressed={playing}
-            onClick={togglePlay}
-            size="lg"
-            variant="subtle"
-            colorPalette={playing ? "orange" : "gray"}
-            rounded="sm"
-          >
-            {playing ? <LuSquare /> : <LuPlay />}
-          </IconButton>
+          <RunButton />
           <VStack gap="1" align="center">
             <Led on={playing} label="Run" />
             <Text textStyle="silkscreen" color="rack.silkscreen.muted">

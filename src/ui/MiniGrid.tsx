@@ -34,13 +34,14 @@ function rowsFor(track: Track): boolean[][] {
 
 const BEATS = [0, 4, 8, 12]
 
-/** Cell and gap sizes of the recipe, in px — the playhead is placed by arithmetic on them. */
-const CELL = 4
+/** Cell, gap and padding sizes of the recipe, in px — the playhead is placed by arithmetic on them. */
+const CELL = 3
 const CELL_GAP = 2
 const BEAT_GAP = 4
+const PAD = 4
 const BEAT_WIDTH = 4 * CELL + 3 * CELL_GAP
 const playheadLeft = (step: number) =>
-  Math.floor(step / 4) * (BEAT_WIDTH + BEAT_GAP) + (step % 4) * (CELL + CELL_GAP)
+  PAD + Math.floor(step / 4) * (BEAT_WIDTH + BEAT_GAP) + (step % 4) * (CELL + CELL_GAP)
 
 type Styles = ReturnType<ReturnType<typeof useSlotRecipe>>
 

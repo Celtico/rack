@@ -44,10 +44,10 @@ describe("<MiniGrid />", () => {
     const cells = grid.querySelectorAll("span:not([data-step])")
     expect(cells).toHaveLength(8 * 16)
     expect(cells[0]).toHaveAttribute("data-on")
-    // One playhead bar over column 6: past one beat (16 + 4 px) and one cell (4 + 2 px).
+    // One playhead bar over column 6: the 4 px padding, one beat (18 + 4 px) and one cell (3 + 2 px).
     const playhead = grid.querySelector("[data-step]")
     expect(playhead).toHaveAttribute("data-step", "5")
-    expect(playhead).toHaveStyle({ left: "32px" })
+    expect(playhead).toHaveStyle({ left: "31px" })
   })
 
   it("follows the slot the song is playing, not the one being edited", () => {

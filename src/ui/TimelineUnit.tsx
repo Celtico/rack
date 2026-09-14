@@ -35,7 +35,9 @@ export function TimelineUnit() {
   const { appendToChain, setChainSlot, removeChainSlot, clearChain, setFollowSong } =
     useRackStore.getState()
 
-  const playingIndex = playingBar >= 0 && chain.length > 0 ? playingBar % chain.length : -1
+  // A slot picked from the bank loops on its own: no bar of the song is sounding then.
+  const playingIndex =
+    followSong && playingBar >= 0 && chain.length > 0 ? playingBar % chain.length : -1
 
   return (
     <VStack gap="3" align="stretch">
