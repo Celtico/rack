@@ -1,9 +1,30 @@
+import { execSync } from "node:child_process"
+
 import react from "@vitejs/plugin-react"
 import { VitePWA } from "vite-plugin-pwa"
 import { defineConfig } from "vitest/config"
 
+/** A number that only goes up: the count of commits on the branch, read from git at build time. */
+function gitVersion(): { version: string; commit: string } {
+  const run = (cmd: string) =>
+    execSync(cmd, { stdio: ["ignore", "pipe", "ignore"] })
+      .toString()
+      .trim()
+  try {
+    return { version: run("git rev-list --count HEAD"), commit: run("git rev-parse --short HEAD") }
+  } catch {
+    // No git (a build without the repository): whatever the environment says, or "dev".
+    return { version: process.env.RACK_VERSION ?? "dev", commit: process.env.RACK_COMMIT ?? "" }
+  }
+}
+const { version, commit } = gitVersion()
+
 // https://vite.dev/config/
 export default defineConfig({
+  define: {
+    __RACK_VERSION__: JSON.stringify(version),
+    __RACK_COMMIT__: JSON.stringify(commit),
+  },
   plugins: [
     react(),
     // Installable, works offline: the app shell is precached; songs, samples and MIDI are

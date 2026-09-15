@@ -135,11 +135,10 @@ strict build order:
      comes up, and it puts the rack on the lock screen.
    - ✅ Extra — **PWA**: `vite-plugin-pwa` in `vite.config.ts` (`registerType: "autoUpdate"`, manifest name RACK,
      standalone, icons in `public/icons/` rendered from `favicon.svg` (the user's own logo, from `~/Desktop/logo.svg`: three black tiles —
-     top-left, bottom-left, top-right — on an amber angular sweep: the Figma export shades it with a
-     `foreignObject` conic-gradient that no image context renders, so `favicon.svg` rebuilds it as a fan of
-     180 wedges (`#FFAA00` at the bottom, fading clockwise into the dark ground `#121314`); the tile is rounded by
-     a clipPath `rx="300"`, and the full-bleed variants are the same SVG with the radius stripped, filling
-     the square — the tiles sit inside the maskable safe zone as drawn) by `scripts/render-icons.sh` — headless Chrome shots at 512
+     top-left, bottom-left, top-right — and a black diamond bottom-right, mid-sized, on white; the tile is
+     rounded by a clipPath `rx="300"`; the Apple icon is the same SVG with the radius stripped, and the
+     maskable one also shrinks the `art` group to 72 % about the centre so nothing of it falls outside
+     Android's safe circle) by `scripts/render-icons.sh` — headless Chrome shots at 512
      and `sips` scales down; the Apple and maskable icons are full-bleed with the panel shrunk inside; the app shell is precached, `songs/`,
      `samples/`, `midi/` and the factory song are cached stale-while-revalidate as `rack-content`). `index.html`
      carries the iOS home-screen metas and `viewport-fit=cover`. `sw.js` and the manifest must be served
@@ -403,15 +402,17 @@ strict build order:
      current state as a version first, then loads it — the autosave then makes it current) and delete.
      Tests fake only the clock (`toFake: ["Date"]`, plus `setTimeout` for the debounce): fake-indexeddb
      delivers through real timers.
-   - ✅ Extra — **Random / Reset sound** buttons in every machine's header (dice and rotate icons, next to
-     mute/solo, on every screen size — a phone's header fits them): `randomizeInstanceSound(id, rng?)` → `randomizeInstance` in `src/state/random.ts` (pure,
+   - ✅ Extra — **Random / Reset sound** — no longer in the UI (the user took them out of the header and
+     then the grip menu; the panel's Filter Random/Reset and the pattern Random cover what they want). The
+     store actions stay: `randomizeInstanceSound(id, rng?)` → `randomizeInstance` in `src/state/random.ts` (pure,
      rng-injected: params by kind — log-uniform for frequencies and times, tasteful sub-ranges for resonance,
      drive 0–0.6, tune ±6; a random strip filter is mostly open, a highpass never above 600 Hz; sampler pads
      are kept; LFOs, random source and macros untouched) and `resetInstanceSound(id)` (params, strip filter
      and the whole mod block back to defaults; patterns stay). One undo step each; `pushSound(id)` in
      `unitMeta` hands the engine params, filter and mod afterwards.
-   - ✅ Extra — **Random notes / Random beat** (`PartTools`, `src/ui/PartTools.tsx`, a "Pattern N" group at
-     the end of every unit's controls row): `randomizePart(id, rng?)` replaces the machine's track in the
+   - ✅ Extra — **Random part** (`PartTools`, `src/ui/PartTools.tsx`, a "Pattern N" group at the end of
+     every unit's controls row; the button reads just "Random" — the group name says what it is of; the
+     accessible label still says notes or beat): `randomizePart(id, rng?)` replaces the machine's track in the
      pattern on screen with `randomTrack(kind, rng)` from `src/state/randomPart.ts` (pure, rng-injected):
      a line that walks the scale rows in small steps and rests off the beat (`randomLine`), an acid line
      with accents and slides only into a following note (`randomBass`), chords of stacked thirds on the
@@ -474,6 +475,13 @@ strict build order:
      (36×24 coarse), the control padded `px: 3` so the cap has room.
    - ✅ Extra — FX-2's **strips are cards**: each machine's meter, fader and send sit in a bordered box
      (`blackAlpha.300`, `rack.panel.divider`) headed by the kind's icon in its finish accent and its label.
+   - ✅ Extra — the **fold chevron closes the unit header**, after the grip menu (mute, solo, ⋮, then the
+     chevron), so the panel's own fold sits at the very edge.
+   - ✅ Extra — a **version number** by the toolbar mark: `v<n>`, the commit count on the branch
+     (`git rev-list --count HEAD`), with the short hash as the tooltip — read in `vite.config.ts` at build
+     time into `define`d `__RACK_VERSION__` / `__RACK_COMMIT__` (declared in `vite-env.d.ts`); without git
+     it falls back to `RACK_VERSION` / `RACK_COMMIT` from the environment, else "dev". The Docker build
+     installs git and `.dockerignore` no longer drops `.git` (34 MB), so the container shows the real number.
    - ✅ Extra — the toolbar's add button is labelled just **"Add"** (rack icon + "Add"); the panel it opens
      is titled "Add machine". Ids, files and store names keep `add` / `AddUnit`.
 

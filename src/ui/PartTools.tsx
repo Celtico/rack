@@ -42,7 +42,7 @@ export function PartTools({ id, kind }: { id: string; kind: Kind }) {
             aria-label={`Random ${notes ? "notes" : "beat"} for pattern ${activePattern + 1}`}
             onClick={() => randomizePart(id)}
           >
-            <LuDices /> {notes ? "Random notes" : "Random beat"}
+            <LuDices /> Random
           </Button>
         </HStack>
       </VStack>

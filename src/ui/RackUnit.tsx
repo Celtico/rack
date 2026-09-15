@@ -17,10 +17,8 @@ import {
   LuClipboardPaste,
   LuCopy,
   LuCopyPlus,
-  LuDices,
   LuEllipsisVertical,
   LuHeadphones,
-  LuRotateCcw,
   LuVolume2,
   LuVolumeX,
   LuX,
@@ -44,7 +42,6 @@ import { Fold } from "./Fold"
 import { foldOnClick } from "./foldOnClick"
 import { MiniGrid } from "./MiniGrid"
 import { removeInstanceWithUndo, scrollToUnit, unitDomId } from "./removeInstance"
-import { pushSound } from "./unitMeta"
 
 type RackUnitVariants = RecipeVariantProps<typeof rackUnitRecipe>
 
@@ -100,8 +97,6 @@ export function RackUnit({
     copyInstance,
     duplicateInstance,
     setTrack,
-    resetInstanceSound,
-    randomizeInstanceSound,
   } = useRackStore.getState()
   const activePattern = useRackStore((s) => s.activePattern)
   const part = useClipboardStore((s) => s.part)
@@ -208,14 +203,6 @@ export function RackUnit({
     moveUnit(source, id)
   }
   // The grip's menu: what drag does, for keyboards and touch screens (no HTML5 drag there).
-  const randomSound = () => {
-    randomizeInstanceSound(id)
-    pushSound(id)
-  }
-  const factorySound = () => {
-    resetInstanceSound(id)
-    pushSound(id)
-  }
   const onGripSelect = (value: string) => {
     if (value === "up") nudgeUnit(id, -1)
     else if (value === "down") nudgeUnit(id, 1)
@@ -290,45 +277,6 @@ export function RackUnit({
               _pressed={{ color: "rack.led.on" }}
             >
               <LuHeadphones />
-            </IconButton>
-          )}
-          {instance && (
-            <>
-              {/* The sound only: the part in the grid stays. Both are one undo step. */}
-              <IconButton
-                size="xs"
-                variant="ghost"
-                color="inherit"
-                aria-label={`Random sound for ${model}`}
-                title="Random sound"
-                onClick={randomSound}
-              >
-                <LuDices />
-              </IconButton>
-              <IconButton
-                size="xs"
-                variant="ghost"
-                color="inherit"
-                aria-label={`Reset ${model} to factory sound`}
-                title="Factory sound"
-                onClick={factorySound}
-              >
-                <LuRotateCcw />
-              </IconButton>
-            </>
-          )}
-          {!fixed && (
-            <IconButton
-              size="xs"
-              variant="ghost"
-              color="inherit"
-              aria-label={folded ? `Expand ${model}` : `Fold ${model}`}
-              aria-expanded={!folded}
-              // Chakra's ghost button paints a box while "expanded"; on a light finish it reads as a black square.
-              _expanded={{ bg: "transparent" }}
-              onClick={() => toggleFold(id)}
-            >
-              {folded ? <LuChevronDown /> : <LuChevronUp />}
             </IconButton>
           )}
         </chakra.div>
@@ -433,6 +381,22 @@ export function RackUnit({
               </Menu.Positioner>
             </Portal>
           </Menu.Root>
+        )}
+        {/* The fold chevron closes the header, after the grip menu. */}
+        {!fixed && (
+          <IconButton
+            size="xs"
+            variant="ghost"
+            color="rack.silkscreen.muted"
+            flexShrink={0}
+            aria-label={folded ? `Expand ${model}` : `Fold ${model}`}
+            aria-expanded={!folded}
+            // Chakra's ghost button paints a box while "expanded"; on a light finish it reads as a black square.
+            _expanded={{ bg: "transparent" }}
+            onClick={() => toggleFold(id)}
+          >
+            {folded ? <LuChevronDown /> : <LuChevronUp />}
+          </IconButton>
         )}
       </chakra.header>
       <Fold open={!folded}>

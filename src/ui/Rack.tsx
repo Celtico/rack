@@ -86,6 +86,20 @@ export function Rack() {
                 rounded="sm"
                 flexShrink={0}
               />
+              {/* Which build this is: the commit count, small, by the mark; the hash on hover. */}
+              <chakra.span
+                textStyle="silkscreen"
+                fontSize="2xs"
+                color="rack.silkscreen.muted"
+                flexShrink={0}
+                // Down at the mark's baseline, like a footnote to it.
+                alignSelf="flex-end"
+                lineHeight="1"
+                mb="0.5"
+                title={__RACK_COMMIT__ ? `commit ${__RACK_COMMIT__}` : undefined}
+              >
+                v{__RACK_VERSION__}
+              </chakra.span>
               <UndoRedoButtons />
               {/* Pushes the buttons to the far side on a desktop; on a phone they share the width. */}
               <Box flex="1" hideBelow="md" />

@@ -2,8 +2,8 @@
 FROM node:24-alpine AS build
 WORKDIR /app
 
-# pnpm version comes from package.json#packageManager
-RUN corepack enable
+# pnpm version comes from package.json#packageManager; git reads the version number at build time
+RUN corepack enable && apk add --no-cache git
 
 COPY package.json pnpm-lock.yaml ./
 RUN pnpm install --frozen-lockfile
