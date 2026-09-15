@@ -265,7 +265,13 @@ export function ModPanel({ id }: { id: string }) {
   const targets = modTargetsFor(inst.kind)
 
   return (
-    <Collapsible.Root open={open} onOpenChange={(d) => setOpen(d.open)} mt="4">
+    <Collapsible.Root
+      open={open}
+      onOpenChange={(d) => setOpen(d.open)}
+      mt="4"
+      lazyMount
+      unmountOnExit
+    >
       <Collapsible.Trigger asChild>
         <chakra.button
           type="button"

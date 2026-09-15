@@ -11,7 +11,7 @@ const engine = {
   stop: vi.fn(),
   setBpm: vi.fn(),
   setMasterVolume: vi.fn(),
-  getLevels: () => ({ master: 0 }),
+  getLevel: () => 0,
 }
 
 vi.mock("../audio/engine", () => ({

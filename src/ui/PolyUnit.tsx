@@ -217,13 +217,14 @@ function GuitarControls({ id, inst }: { id: string; inst: InstanceOf<"strings"> 
 /** POLY-4, EP-1 or STR-6: a chord grid plus the controls of the kind. */
 export function PolyUnit({ id }: { id: string }) {
   const inst = useRackStore((s) => selectInstance(s, id)) as PolyInstance | undefined
-  const all = useRackStore((s) => s.instances)
+  // A string, so another machine's knob does not re-render this one; it changes only when a sibling comes or goes.
+  const label = useRackStore((s) => (inst ? instanceLabel(inst, s.instances) : ""))
   if (!inst) return null
 
   return (
     <RackUnit
       id={id}
-      model={instanceLabel(inst, all)}
+      model={label}
       title={KIND_TITLE[inst.kind]}
       units={3}
       finish={KIND_FINISH[inst.kind]}

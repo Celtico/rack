@@ -6,7 +6,7 @@ import { LevelMeter } from "./LevelMeter"
 import { litSegments } from "./meterScale"
 
 vi.mock("../audio/engine", () => ({
-  getEngine: () => ({ getLevels: () => ({ master: 0.55, drums: 0 }) }),
+  getEngine: () => ({ getLevel: (s: string) => ({ master: 0.55, drums: 0 })[s] ?? 0 }),
 }))
 
 describe("litSegments", () => {

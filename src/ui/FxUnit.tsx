@@ -1,4 +1,4 @@
-import { Flex, HStack, SegmentGroup, Separator, Text, VStack } from "@chakra-ui/react"
+import { Box, Flex, HStack, SegmentGroup, Separator, Text, VStack } from "@chakra-ui/react"
 import type { ReactNode } from "react"
 import { LuSlidersHorizontal } from "react-icons/lu"
 
@@ -15,8 +15,9 @@ import {
 import { Fader } from "./Fader"
 import { Knob } from "./Knob"
 import { LevelMeter } from "./LevelMeter"
+import { finishAccent } from "../theme/recipes/rackUnit"
 import { RackUnit } from "./RackUnit"
-import { formatPercent } from "./unitMeta"
+import { formatPercent, KIND_FINISH, kindIcon } from "./unitMeta"
 
 const DELAY_LABELS: Record<DelayTime, string> = {
   "16n": "1/16",
@@ -39,16 +40,39 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
   )
 }
 
-/** One mixer strip: meter, fader and FX send of an instance. */
+/** One mixer strip, on a card of its own: the machine's icon and name, then meter, fader and FX send. */
 function Strip({ id }: { id: string }) {
   const inst = useRackStore((s) => s.instances.find((i) => i.id === id))
-  const all = useRackStore((s) => s.instances)
+  const label = useRackStore((s) => (inst ? instanceLabel(inst, s.instances) : ""))
   const { setInstanceLevel, setInstanceSend } = useRackStore.getState()
   if (!inst) return null
-  const label = instanceLabel(inst, all)
 
   return (
-    <Section title={label}>
+    <VStack
+      gap="2"
+      align="flex-start"
+      p="3"
+      rounded="sm"
+      bg="blackAlpha.300"
+      borderWidth="1px"
+      borderColor="rack.panel.divider"
+      role="group"
+      aria-label={label}
+    >
+      <HStack gap="2">
+        <Box
+          as="span"
+          display="inline-flex"
+          fontSize="lg"
+          color={finishAccent(KIND_FINISH[inst.kind])}
+          aria-hidden="true"
+        >
+          {kindIcon(inst.kind)}
+        </Box>
+        <Text textStyle="silkscreen" color="rack.silkscreen.muted">
+          {label}
+        </Text>
+      </HStack>
       <HStack gap="2" align="flex-end">
         <LevelMeter source={id} label={`${label} level`} size="sm" />
         <Fader
@@ -74,7 +98,7 @@ function Strip({ id }: { id: string }) {
           }}
         />
       </HStack>
-    </Section>
+    </VStack>
   )
 }
 

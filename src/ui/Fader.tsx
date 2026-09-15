@@ -31,19 +31,22 @@ export function Fader({ label, value, onChange }: FaderProps) {
       alignItems="center"
       gap="1"
     >
-      <Slider.Control h="24" css={{ [COARSE]: { h: "32", px: "5" } }}>
+      <Slider.Control h="24" px="3" css={{ [COARSE]: { h: "32", px: "5" } }}>
+        {/* A wide slot and a wide cap: a channel fader, not a hairline. */}
         <Slider.Track
           bg="rack.display.bg"
           borderWidth="1px"
           borderColor="rack.panel.edge"
-          css={{ [COARSE]: { w: "2" } }}
+          w="2.5"
+          css={{ [COARSE]: { w: "3" } }}
         >
           <Slider.Range bg="rack.display.dim" />
         </Slider.Track>
         <Slider.Thumb
           index={0}
-          boxSize="4"
-          css={{ [COARSE]: { w: "7", h: "5" } }}
+          w="8"
+          h="5"
+          css={{ [COARSE]: { w: "9", h: "6" } }}
           rounded="xs"
           bg="rack.knob.body"
           borderWidth="1px"

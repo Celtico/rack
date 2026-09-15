@@ -16,7 +16,8 @@ type KitInstance = InstanceOf<"drums"> | InstanceOf<"perc">
 /** DR-4 or PERC-6: one-shot voices on a 16-step grid, with a level per voice. */
 export function KitUnit({ id }: { id: string }) {
   const inst = useRackStore((s) => selectInstance(s, id)) as KitInstance | undefined
-  const all = useRackStore((s) => s.instances)
+  // A string, so another machine's knob does not re-render this one; it changes only when a sibling comes or goes.
+  const label = useRackStore((s) => (inst ? instanceLabel(inst, s.instances) : ""))
   if (!inst) return null
 
   const voices = inst.kind === "drums" ? DRUM_VOICES : PERC_VOICES
@@ -25,7 +26,7 @@ export function KitUnit({ id }: { id: string }) {
   return (
     <RackUnit
       id={id}
-      model={instanceLabel(inst, all)}
+      model={label}
       title={KIND_TITLE[inst.kind]}
       units={3}
       finish={KIND_FINISH[inst.kind]}

@@ -3,7 +3,6 @@ import {
   IconButton,
   Menu,
   Portal,
-  useBreakpointValue,
   useSlotRecipe,
   type RecipeVariantProps,
 } from "@chakra-ui/react"
@@ -32,7 +31,13 @@ import { toaster } from "../components/ui/toaster"
 import { instanceLabel } from "../state/instances"
 import { isHideableUnit, isPinnedUnit, useLayoutStore } from "../state/layout"
 import { PATTERN_COUNT } from "../state/patterns"
-import { copyTrack, selectTrack, silencedBySolo, useRackStore } from "../state/store"
+import {
+  copyTrack,
+  selectInstance,
+  selectTrack,
+  silencedBySolo,
+  useRackStore,
+} from "../state/store"
 import type { rackUnitRecipe } from "../theme/recipes/rackUnit"
 import { useClipboardStore } from "./clipboard"
 import { Fold } from "./Fold"
@@ -84,8 +89,6 @@ export function RackUnit({
   const recipe = useSlotRecipe({ key: "rackUnit" })
   const styles = recipe({ units, finish })
   const folded = useRackStore((s) => !fixed && s.folded[id] === true)
-  // A phone's header keeps mute and solo; the dice and the reset move into the grip menu there.
-  const compact = useBreakpointValue({ base: true, md: false }) ?? false
   const muted = useRackStore((s) => s.instances.find((i) => i.id === id)?.mute ?? false)
   const soloed = useRackStore((s) => s.solo[id] === true)
   // Another machine is soloed and this one is not: it plays on but is not heard.
@@ -103,12 +106,25 @@ export function RackUnit({
   const activePattern = useRackStore((s) => s.activePattern)
   const part = useClipboardStore((s) => s.part)
   const { moveUnit, nudgeUnit, hideUnit, placeAfter } = useLayoutStore.getState()
-  // The other machines of this kind — where this one's sound and part can be copied to.
-  const instances = useRackStore((s) => s.instances)
-  const self = instance ? instances.find((i) => i.id === id) : undefined
-  const siblings = self ? instances.filter((i) => i.kind === self.kind && i.id !== id) : []
+  // The other machines of this kind — where this one's sound and part can be copied to. Selected as
+  // one string, so a knob turned on another unit does not re-render every header in the rack.
+  const kind = useRackStore((s) => (instance ? selectInstance(s, id)?.kind : undefined))
+  const siblingKey = useRackStore((s) =>
+    kind
+      ? s.instances
+          .filter((i) => i.kind === kind && i.id !== id)
+          .map((i) => `${i.id}\u0000${instanceLabel(i, s.instances)}`)
+          .join("\u0001")
+      : "",
+  )
+  const siblings = siblingKey
+    ? siblingKey.split("\u0001").map((s) => {
+        const [sid, label] = s.split("\u0000") as [string, string]
+        return { id: sid, label }
+      })
+    : []
   // The clipboard holds a part of this kind: it can be pasted here.
-  const pasteable = self !== undefined && part !== null && part.track.kind === self.kind
+  const pasteable = kind !== undefined && part !== null && part.track.kind === kind
   // The grip arms dragging; the whole panel is only draggable while it is held.
   const [armed, setArmed] = useState(false)
   const [over, setOver] = useState(false)
@@ -206,8 +222,6 @@ export function RackUnit({
     else if (value === "remove") remove()
     else if (value === "copy-part") copyPart()
     else if (value === "paste-part") pastePart(activePattern)
-    else if (value === "random-sound") randomSound()
-    else if (value === "factory-sound") factorySound()
   }
 
   return (
@@ -278,9 +292,9 @@ export function RackUnit({
               <LuHeadphones />
             </IconButton>
           )}
-          {instance && !compact && (
+          {instance && (
             <>
-              {/* The sound only: the part in the grid stays. Both are one undo step. On a phone: the grip menu. */}
+              {/* The sound only: the part in the grid stays. Both are one undo step. */}
               <IconButton
                 size="xs"
                 variant="ghost"
@@ -337,17 +351,6 @@ export function RackUnit({
             <Portal>
               <Menu.Positioner>
                 <Menu.Content>
-                  {/* What a phone's header does not show. */}
-                  {instance && compact && (
-                    <>
-                      <Menu.Item value="random-sound">
-                        <LuDices /> Random sound
-                      </Menu.Item>
-                      <Menu.Item value="factory-sound">
-                        <LuRotateCcw /> Factory sound
-                      </Menu.Item>
-                    </>
-                  )}
                   {movable && (
                     <>
                       <Menu.Item value="up">
@@ -377,7 +380,7 @@ export function RackUnit({
                             </Menu.Item>
                             {siblings.map((s) => (
                               <Menu.Item key={s.id} value={s.id}>
-                                {instanceLabel(s, instances)}
+                                {s.label}
                               </Menu.Item>
                             ))}
                           </Menu.Content>

@@ -134,8 +134,9 @@ strict build order:
      Android from suspending the audio session (and the Web Audio graph) when the screen locks or another app
      comes up, and it puts the rack on the lock screen.
    - ✅ Extra — **PWA**: `vite-plugin-pwa` in `vite.config.ts` (`registerType: "autoUpdate"`, manifest name RACK,
-     standalone, icons in `public/icons/` rendered from `favicon.svg` (a flat amber **disc** — a full circle, `amber.400` — with a near-black bold "R", a filled
-     path with an even-odd counter; no font, no gradient; the full-bleed variants use the same amber) by `scripts/render-icons.sh` — headless Chrome shots at 512
+     standalone, icons in `public/icons/` rendered from `favicon.svg` (the user's own logo, from `~/Desktop/logo.svg`: an amber disc with a blocky
+     R cut out of it over a dark ground `#121314`; the SVG keeps only the disc on a dark circle, and the
+     full-bleed variants paint the dark tile around it) by `scripts/render-icons.sh` — headless Chrome shots at 512
      and `sips` scales down; the Apple and maskable icons are full-bleed with the panel shrunk inside; the app shell is precached, `songs/`,
      `samples/`, `midi/` and the factory song are cached stale-while-revalidate as `rack-content`). `index.html`
      carries the iOS home-screen metas and `viewport-fit=cover`. `sw.js` and the manifest must be served
@@ -171,6 +172,29 @@ strict build order:
      1.55 s to 1.12 s per 5 s after these two changes; `contain: paint` / `will-change` on meters and grids
      gained nothing. Recipe results are `useMemo`d so memoised children keep the same `css` object.
 
+   - ✅ Extra — a folded unit's **thumbnail sits on the left on a phone** (right after the nameplate) and
+     **on the right on a desktop** (by the controls): `preview` is `ml: { base: 0, md: auto }` and `controls`
+     drop their `ml: auto` from `md` when a preview precedes them.
+   - ✅ Extra — a **folded unit on a phone shows no text**: the `model` slot is `display: none` below `md`
+     under `[data-folded]` (the title already hides below `sm`); the icon, the thumbnail and the buttons stay.
+   - ✅ Extra — the step grids' **sticky row labels** sit on a band of `finish.graphite.panel` — what every
+     unit root is painted with — that fades out to the right (`bgImage` on the `label` slot), so
+     cells scrolling under them vanish rather than show through; the label stretches to the row's height and
+     bleeds a full row gap (`my: -2.5` / `py: 2.5`, the grid pads `py: 2.5` for it — a lit cell's glow reaches
+     past its box) so the band is
+     unbroken from top to bottom. The `backdropFilter: blur` that did this
+     before is gone — a backdrop blur per label was GPU work on a phone.
+   - ✅ Extra — **phone CPU pass** (after the modulation work): (1) an LFO's `Tone.LFO` exists only while
+     its target reaches something — `Strip.lfos` holds `null` for "off" (two free-running oscillators per
+     machine were the biggest new always-on cost); (2) `Fold` and the `ModPanel` collapsible are
+     `lazyMount unmountOnExit`, so a folded unit (how the rack opens) mounts no grid, knobs or per-step
+     playhead work — grid scroll position is lost on fold, accepted; (3) units subscribe to their **label
+     string** (`instanceLabel(inst, s.instances)`) and `RackUnit` to a sibling key string instead of the
+     whole `instances` list, so turning a knob on one machine no longer re-renders every unit; (4) the
+     levels loop (`subscribeLevels(source, cb)`) reads only the analysers someone shows (`engine.getLevel`);
+     (5) `MiniPlayhead` mounts while the clock runs and moves on the DOM (`data-step`, `left`) from a store
+     subscription, no render per step. `Strip.id` and `hooksOf(device)` replace the strip-by-identity and
+     device-narrowing repeats in the engine.
    - ✅ Extra — **no screws** anywhere any more (the `screw` slot is gone from the `rackUnit` recipe); every
      panel has `px: 4` and the header/body sit flush inside it.
    - ✅ Extra — **phone layout** (below `md`): no rails or frame padding, panels square and edge to edge,
@@ -330,8 +354,7 @@ strict build order:
      Tests fake only the clock (`toFake: ["Date"]`, plus `setTimeout` for the debounce): fake-indexeddb
      delivers through real timers.
    - ✅ Extra — **Random / Reset sound** buttons in every machine's header (dice and rotate icons, next to
-     mute/solo; **below `md`** (`useBreakpointValue`) the two are not rendered in the header — mute and solo
-     stay — and the grip menu offers Random sound and Factory sound instead): `randomizeInstanceSound(id, rng?)` → `randomizeInstance` in `src/state/random.ts` (pure,
+     mute/solo, on every screen size — a phone's header fits them): `randomizeInstanceSound(id, rng?)` → `randomizeInstance` in `src/state/random.ts` (pure,
      rng-injected: params by kind — log-uniform for frequencies and times, tasteful sub-ranges for resonance,
      drive 0–0.6, tune ±6; a random strip filter is mostly open, a highpass never above 600 Hz; sampler pads
      are kept; LFOs, random source and macros untouched) and `resetInstanceSound(id)` (params, strip filter
@@ -395,6 +418,13 @@ strict build order:
      `installUndoKeys()` (from `App`): ⌘Z / Ctrl+Z, ⇧⌘Z / Ctrl+Y, skipped inside text fields; `UndoRedoButtons`
      sit after the mark on the toolbar (`hideBelow="md"`: not on a phone), disabled via `selectCanUndo` /
      `selectCanRedo`.
+
+   - ✅ Extra — the FX-2 **fader is wide** on every pointer: track `w: 2.5` (`3` coarse), thumb 32×20 px
+     (36×24 coarse), the control padded `px: 3` so the cap has room.
+   - ✅ Extra — FX-2's **strips are cards**: each machine's meter, fader and send sit in a bordered box
+     (`blackAlpha.300`, `rack.panel.divider`) headed by the kind's icon in its finish accent and its label.
+   - ✅ Extra — the toolbar's add button is labelled just **"Add"** (rack icon + "Add"); the panel it opens
+     is titled "Add machine". Ids, files and store names keep `add` / `AddUnit`.
 
 **All extras above are done.** Other ideas: LCD readouts per synth, drag-reorder on the timeline, per-step
 velocity on the kits.

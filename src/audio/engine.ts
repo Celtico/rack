@@ -20,6 +20,7 @@ import { installTonePatches } from "./tonePatches"
 import { SamplerKit } from "./devices/sampler"
 import { deleteSample, putSample, sampleKey } from "./sampleStore"
 import { Scheduler } from "./scheduler"
+import type { ModHooks } from "./types"
 
 /** The sound-making object behind one instance. */
 type Device =
@@ -34,6 +35,7 @@ type Device =
 
 /** One instance in the graph: its mixer strip, analysers and device. */
 interface Strip {
+  id: string
   input: Tone.Gain
   send: Tone.Gain
   meter: Tone.Meter
@@ -46,7 +48,8 @@ interface Strip {
   /** A gain the level modulators move — separate from `input`, which mute and solo own. */
   trem: Tone.Gain
   tremBase: Tone.Signal
-  lfos: [Tone.LFO, Tone.LFO]
+  /** Each LFO exists only while it points somewhere: a running oscillator is not free on a phone. */
+  lfos: [Tone.LFO | null, Tone.LFO | null]
   /** Where each LFO is connected, to know when to rewire. */
   lfoTargets: [ModTarget, ModTarget]
   /** Per-step random offset, rolled by the scheduler's tick. */
@@ -64,7 +67,6 @@ interface Strip {
 
 /** Where a level meter can look: an instance id, or the master. */
 export type LevelSource = string
-export type Levels = Readonly<Record<LevelSource, number>>
 
 /** What the graph is built from and what the scheduler resolves against, read fresh each time. */
 export type EngineState = Pick<
@@ -93,6 +95,10 @@ const storeSource: EngineSource = {
   getState: () => useRackStore.getState(),
   onStep: (step, index, bar) => useRackStore.getState().setPlayhead(step, index, bar),
 }
+
+/** The melodic devices' modulation hooks; a kit has none. */
+const hooksOf = (device: Device): ModHooks | null =>
+  "kit" in device ? null : "voice" in device ? device.voice : device.poly
 
 /** Ramp length for parameter changes — long enough to avoid clicks, short enough to feel direct. */
 const RAMP = 0.03
@@ -254,6 +260,7 @@ export class AudioEngine {
         )
       : null
     const strip: Strip = {
+      id: inst.id,
       input,
       send,
       meter,
@@ -262,7 +269,7 @@ export class AudioEngine {
       drive,
       trem,
       tremBase,
-      lfos: [this.makeLfo(inst.mod.lfo[0]), this.makeLfo(inst.mod.lfo[1])],
+      lfos: [null, null],
       lfoTargets: ["off", "off"],
       random: new Tone.Signal(0),
       randomTarget: "off",
@@ -307,7 +314,7 @@ export class AudioEngine {
     if (!strip) return
     this.strips.delete(id)
     this.disposeDevice(strip.device)
-    for (const lfo of strip.lfos) lfo.dispose()
+    for (const lfo of strip.lfos) lfo?.dispose()
     strip.random.dispose()
     strip.filterBase?.dispose()
     strip.filter?.dispose()
@@ -454,19 +461,27 @@ export class AudioEngine {
 
   private applyMod(strip: Strip, mod: ModParams): void {
     strip.drive.wet.rampTo(mod.drive, RAMP)
-    const hooks =
-      "kit" in strip.device
-        ? null
-        : "voice" in strip.device
-          ? strip.device.voice
-          : strip.device.poly
-    hooks?.setTune(mod.tune)
+    hooksOf(strip.device)?.setTune(mod.tune)
     mod.lfo.forEach((p, i) => {
-      const lfo = strip.lfos[i]!
+      const targets = this.targetParams(strip, p.target)
+      // Nothing to reach: no oscillator at all.
+      if (targets.length === 0) {
+        strip.lfos[i]?.dispose()
+        strip.lfos[i] = null
+        strip.lfoTargets[i] = p.target
+        return
+      }
+      let lfo = strip.lfos[i]
+      if (!lfo) {
+        lfo = this.makeLfo(p)
+        strip.lfos[i] = lfo
+        strip.lfoTargets[i] = "off"
+      }
       lfo.type = p.shape
       lfo.frequency.rampTo(p.rate, RAMP)
       if (strip.lfoTargets[i] !== p.target) {
-        this.wire(strip, lfo, p.target)
+        lfo.disconnect()
+        for (const param of targets) lfo.connect(param)
         strip.lfoTargets[i] = p.target
       }
       const swing = modSwing(p.target, p.amount, strip.cutoffHz)
@@ -482,18 +497,13 @@ export class AudioEngine {
   }
 
   /** Connect a modulator to whatever `target` means on this strip; "off" (or nothing to reach) leaves it loose. */
-  private wire(strip: Strip, source: Tone.LFO | Tone.Signal, target: ModTarget): void {
+  private wire(strip: Strip, source: Tone.Signal, target: ModTarget): void {
     source.disconnect()
     for (const param of this.targetParams(strip, target)) source.connect(param)
   }
 
   private targetParams(strip: Strip, target: ModTarget): Tone.InputNode[] {
-    const hooks =
-      "kit" in strip.device
-        ? null
-        : "voice" in strip.device
-          ? strip.device.voice
-          : strip.device.poly
+    const hooks = hooksOf(strip.device)
     switch (target) {
       case "cutoff": {
         const param = strip.filter ? strip.filter.frequency : hooks?.cutoffInput()
@@ -512,7 +522,7 @@ export class AudioEngine {
   private setCutoffHz(strip: Strip, hz: number): void {
     strip.cutoffHz = hz
     strip.lfos.forEach((lfo, i) => {
-      if (strip.lfoTargets[i] !== "cutoff") return
+      if (!lfo || strip.lfoTargets[i] !== "cutoff") return
       const p = this.modOf(strip)?.lfo[i]
       if (!p) return
       const swing = modSwing("cutoff", p.amount, hz)
@@ -522,9 +532,7 @@ export class AudioEngine {
   }
 
   private modOf(strip: Strip): ModParams | undefined {
-    for (const [id, s] of this.strips)
-      if (s === strip) return this.source.getState().instances.find((i) => i.id === id)?.mod
-    return undefined
+    return this.source.getState().instances.find((i) => i.id === strip.id)?.mod
   }
 
   /** One sixteenth begins: every strip with a random source rolls a new offset for it. */
@@ -631,10 +639,9 @@ export class AudioEngine {
    * amplitude (RMS, smoothed). Zeros before build(). Read from a UI animation
    * frame — it allocates one small object.
    */
-  getLevels(): Levels {
-    const out: Record<string, number> = { master: this.readMeter(this.masterMeter) }
-    for (const [id, strip] of this.strips) out[id] = this.readMeter(strip.meter)
-    return out
+  /** One meter, 0–1 — read only for the meters on screen, an analyser read is not free. */
+  getLevel(source: LevelSource): number {
+    return this.readMeter(source === "master" ? this.masterMeter : this.strips.get(source)?.meter)
   }
 
   private readMeter(meter: Tone.Meter | null | undefined): number {

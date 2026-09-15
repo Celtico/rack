@@ -28,8 +28,8 @@ export function LevelMeter({ source, label, size, orientation }: LevelMeterProps
 
   useEffect(() => {
     let last = -1
-    return subscribeLevels((levels) => {
-      const next = litSegments(levels[source] ?? 0)
+    return subscribeLevels(source, (level) => {
+      const next = litSegments(level)
       const el = root.current
       if (next === last || !el) return
       last = next

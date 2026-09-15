@@ -31,7 +31,8 @@ const formatSemitones = (v: number) => `${v > 0 ? "+" : ""}${v} st`
 export function SamplerUnit({ id }: { id: string }) {
   const inst = useRackStore((s) => selectInstance(s, id)) as InstanceOf<"sampler"> | undefined
   const track = useRackStore((s) => selectTrack(s, id))
-  const all = useRackStore((s) => s.instances)
+  // A string, so another machine's knob does not re-render this one; it changes only when a sibling comes or goes.
+  const label = useRackStore((s) => (inst ? instanceLabel(inst, s.instances) : ""))
   const selected = useRackStore((s) => s.selectedPad[id] ?? "pad1")
   const { toggleStep, selectPad, setInstanceParams } = useRackStore.getState()
   const fileInput = useRef<HTMLInputElement>(null)
@@ -104,7 +105,7 @@ export function SamplerUnit({ id }: { id: string }) {
   return (
     <RackUnit
       id={id}
-      model={instanceLabel(inst, all)}
+      model={label}
       title={KIND_TITLE.sampler}
       units={2}
       finish={KIND_FINISH.sampler}

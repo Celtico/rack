@@ -49,7 +49,7 @@ export const rackUnitRecipe = defineSlotRecipe({
       bg: "finish.graphite.panel",
       // Plain graphite with a soft glow of the finish colour falling from the top-left corner.
       bgImage:
-        "radial-gradient(ellipse 100px 10px at calc(100% + 500px) 0%, {colors.rack.panel} 0, transparent 2000px)",
+        "radial-gradient(ellipse 15px 10px at calc(100% + 500px) 10%, {colors.rack.panel} 0, transparent 800px)",
       color: "rack.silkscreen",
       borderWidth: "1px",
       borderColor: "rack.panel.edge",
@@ -88,8 +88,8 @@ export const rackUnitRecipe = defineSlotRecipe({
       display: "inline-flex",
       alignItems: "center",
       gap: "3",
-      // Sits on the free side of the header, right before the controls.
-      ml: "auto",
+      // On a phone right after the nameplate, on the left; on a desktop on the free side, by the controls.
+      ml: { base: "0", md: "auto" },
       mr: "2",
       minW: "0",
       overflow: "hidden",
@@ -120,6 +120,9 @@ export const rackUnitRecipe = defineSlotRecipe({
       color: "rack.silkscreen",
       // "FX-2" must not break into two lines on a phone.
       whiteSpace: "nowrap",
+      // A folded unit on a phone is its icon and its thumbnail: no text at all (the panel keeps its
+      // accessible name on the section).
+      "[data-folded] &": { display: { base: "none", md: "block" } },
     },
     title: {
       textStyle: "silkscreen",
@@ -136,8 +139,8 @@ export const rackUnitRecipe = defineSlotRecipe({
       color: "rack.silkscreen.muted",
       // The header's icon buttons are `xs`; on a touch screen they get a finger-sized box.
       "@media (pointer: coarse)": { "& > button": { minW: "8", minH: "8" } },
-      // Only when a preview sits before them does it take the free space instead.
-      "[data-part=preview] + &": { ml: "0" },
+      // On a desktop the preview before them takes the free space instead.
+      "[data-part=preview] + &": { ml: { base: "auto", md: "0" } },
     },
     body: {},
   },

@@ -171,7 +171,7 @@ function InstanceRow({ id, label, onGo }: { id: string; label: string; onGo: () 
 }
 
 /**
- * "Add unit" as a drawer, like the song library: one row per kind of machine
+ * "Add machine" as a drawer, like the song library: one row per kind of machine
  * (add as many as you like) with the ones already in the rack listed under it
  * — tap one to scroll to it, or take it out — then the panels that were
  * hidden, to put back.
@@ -205,7 +205,7 @@ export function AddUnitPanel() {
   }
 
   return (
-    <SidePanel id="add" title="Add unit">
+    <SidePanel id="add" title="Add machine">
       <Text textStyle="silkscreen" color="rack.silkscreen.muted" mb="1">
         New machine
       </Text>
@@ -276,7 +276,7 @@ export function AddUnitPanel() {
   )
 }
 
-/** The toolbar button that opens (and closes) the Add unit panel. */
+/** The toolbar button that opens (and closes) the Add machine panel. */
 export function AddUnitButton() {
   const open = usePanelStore((s) => s.panel === "add")
   const { toggle } = usePanelStore.getState()
@@ -288,9 +288,6 @@ export function AddUnitButton() {
       onClick={() => toggle("add")}
     >
       <LuServer /> Add
-      <Box as="span" hideBelow="md">
-        &nbsp;unit
-      </Box>
     </Button>
   )
 }

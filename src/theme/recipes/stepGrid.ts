@@ -45,6 +45,8 @@ export const stepGridRecipe = defineSlotRecipe({
       rowGap: "2.5",
       alignItems: "center",
       width: "full",
+      // Room for the labels' vertical bleed (below), so it never becomes a scrollbar.
+      py: "2.5",
     },
     row: {
       display: "contents",
@@ -52,15 +54,31 @@ export const stepGridRecipe = defineSlotRecipe({
     label: {
       gridColumn: "1",
       position: "sticky",
-      left: "0",
+      // The scroller pads 4 px for focus rings; the band sticks past that padding, at the very edge,
+      // so no cell scrolls into view on its left.
+      left: "-1",
+      ml: "-1",
       zIndex: "1",
       textStyle: "silkscreen",
       color: "rack.silkscreen.muted",
-      // No flat fill (the panel is a gradient); cells scrolling underneath are blurred out instead.
-      backdropFilter: "blur(6px)",
-      pr: "3",
+      // A band of the units' graphite (what every panel is painted with, under its tint glow) under the
+      // text, fading out to the right: cells scrolling underneath disappear behind it instead of showing
+      // through, and it is invisible when nothing scrolls. (A backdrop blur did this before.)
+      bgImage:
+        "linear-gradient(to right, {colors.finish.graphite.panel} 0, {colors.finish.graphite.panel} 70%, transparent 100%)",
+      // Air on both sides of the text: the band starts at the panel's edge, the word does not.
+      pl: "3",
+      pr: "4",
       minW: "12",
       whiteSpace: "nowrap",
+      // The whole row's height, plus the row gap above and below (more than half: a lit cell's glow
+      // reaches past its box): one unbroken band from the top of the grid to the bottom, nothing
+      // peeping through between or past the labels while the grid scrolls.
+      alignSelf: "stretch",
+      display: "inline-flex",
+      alignItems: "center",
+      my: "-2.5",
+      py: "2.5",
     },
     step: {
       w: "full",

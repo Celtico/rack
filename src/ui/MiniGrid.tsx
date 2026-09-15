@@ -1,5 +1,5 @@
 import { chakra, useSlotRecipe } from "@chakra-ui/react"
-import { memo, useMemo } from "react"
+import { memo, useEffect, useMemo, useRef } from "react"
 
 import {
   BASS_NOTES,
@@ -67,19 +67,31 @@ const MiniCells = memo(function MiniCells({ rows, styles }: { rows: boolean[][];
   )
 })
 
-/** A translucent bar over the sounding column — the only thing that moves. */
+/**
+ * A translucent bar over the sounding column — the only thing that moves, and
+ * it moves on the DOM: React mounts it when the clock runs and a store
+ * subscription sets its column, so a step costs no render for any folded unit.
+ */
 function MiniPlayhead({ styles }: { styles: Styles }) {
-  const currentStep = useRackStore((s) => s.currentStep)
-  if (currentStep < 0) return null
-  const step = currentStep % STEP_COUNT
-  return (
-    <chakra.span
-      css={styles.playhead}
-      data-step={step}
-      style={{ left: `${playheadLeft(step)}px` }}
-      aria-hidden="true"
-    />
-  )
+  const running = useRackStore((s) => s.currentStep >= 0)
+  const ref = useRef<HTMLSpanElement>(null)
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    let shown = -1
+    const move = (currentStep: number) => {
+      if (currentStep < 0) return
+      const step = currentStep % STEP_COUNT
+      if (step === shown) return
+      shown = step
+      el.dataset.step = String(step)
+      el.style.left = `${playheadLeft(step)}px`
+    }
+    move(useRackStore.getState().currentStep)
+    return useRackStore.subscribe((s) => move(s.currentStep))
+  }, [running])
+  if (!running) return null
+  return <chakra.span ref={ref} css={styles.playhead} data-step="" aria-hidden="true" />
 }
 
 /** The track being heard: the slot the song is playing, or the one on screen when stopped. */
