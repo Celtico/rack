@@ -112,6 +112,11 @@ export function randomPads(rng: Rng): KitRows {
   )
 }
 
+/** VID-1: the gate mostly open, a few chops on the off-beats. */
+export function randomGate(rng: Rng): KitRows {
+  return { gate: row((s) => (s % 4 === 0 ? 0.95 : s % 2 === 0 ? 0.8 : 0.55), rng) }
+}
+
 /** A random part of the kind, one bar long. */
 export function randomTrack(kind: Kind, rng: Rng): Track {
   switch (kind) {
@@ -121,6 +126,8 @@ export function randomTrack(kind: Kind, rng: Rng): Track {
       return { kind, rows: randomPerc(rng) } as Track
     case "sampler":
       return { kind, rows: randomPads(rng) } as Track
+    case "video":
+      return { kind, rows: randomGate(rng) } as Track
     case "synth":
       return { kind, notes: randomLine(SYNTH_NOTES.length, rng) }
     case "bass":

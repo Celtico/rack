@@ -16,6 +16,7 @@ import {
   POLY_PARAMS_DEFAULT,
   STRINGS_PARAMS_DEFAULT,
   SYNTH_PARAMS_DEFAULT,
+  VIDEO_PARAMS_DEFAULT,
   WAVEFORMS,
   type BassParams,
   type EpParams,
@@ -301,6 +302,8 @@ export function parseSongV1(s: Record<string, unknown>): Song {
       "song.stringsParams",
       STRINGS_PARAMS_DEFAULT,
     ),
+    // No version-1 file ever had a video loop.
+    video: VIDEO_PARAMS_DEFAULT,
   }
 
   // One instance per named channel, id `${kind}-1`, in the classic order.

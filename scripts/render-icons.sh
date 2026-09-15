@@ -15,16 +15,15 @@ OUT=public/icons
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
-# An HTML page that shows the icon edge to edge, so a window-sized screenshot is the icon.
-page() { # $1 = html file, $2 = "rounded" | "bleed", $3 = content scale for bleed
-  local body
-  if [ "$2" = rounded ]; then
-    body="<img src=\"$PWD/$SVG\" style=\"width:100vw;height:100vh;display:block\">"
-  else
-    body="<div style=\"width:100vw;height:100vh;background:#121314;display:grid;place-items:center\">
-      <img src=\"$PWD/$SVG\" style=\"width:calc(100vw * $3);height:calc(100vh * $3);display:block\"></div>"
-  fi
-  printf '<!doctype html><meta charset="utf-8"><style>html,body{margin:0;background:transparent}</style>%s' "$body" > "$1"
+# An HTML page that shows the icon edge to edge, so a window-sized screenshot is the icon. The
+# full-bleed variants (Apple, maskable) use the same art on the square: the SVG with its corner
+# radius stripped, filling the window — the tiles sit inside the maskable safe zone as drawn.
+SQUARE="$TMP/square.svg"
+sed 's/ rx="300"//' "$SVG" > "$SQUARE"
+page() { # $1 = html file, $2 = "rounded" | "bleed"
+  local src="$PWD/$SVG"
+  [ "$2" = bleed ] && src="$SQUARE"
+  printf '<!doctype html><meta charset="utf-8"><style>html,body{margin:0;background:transparent}</style><img src="file://%s" style="width:100vw;height:100vh;display:block">' "$src" > "$1"
 }
 
 # Chrome will not open a window under ~500 px, so every icon is shot at 512 and scaled down with sips.
@@ -35,11 +34,10 @@ shot() { # $1 = html, $2 = size, $3 = png
 }
 
 page "$TMP/rounded.html" rounded
-page "$TMP/bleed.html" bleed 0.84
-page "$TMP/maskable.html" bleed 0.7
+page "$TMP/bleed.html" bleed
 
 shot "$TMP/rounded.html" 192 "$OUT/icon-192.png"
 shot "$TMP/rounded.html" 512 "$OUT/icon-512.png"
 shot "$TMP/bleed.html" 180 "$OUT/apple-touch-icon.png"
-shot "$TMP/maskable.html" 512 "$OUT/icon-maskable-512.png"
+shot "$TMP/bleed.html" 512 "$OUT/icon-maskable-512.png"
 ls -la "$OUT"

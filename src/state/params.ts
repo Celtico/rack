@@ -219,6 +219,45 @@ export const STRINGS_RANGES = {
 
 export const STRINGS_PARAMS_DEFAULT: StringsParams = { damp: 3200, sustain: 0.97, release: 1 }
 
+/** VID-1: a video loop whose soundtrack is the instrument. */
+export const VIDEO_BARS = [1, 2, 4, 8] as const
+export type VideoBars = (typeof VIDEO_BARS)[number]
+
+export interface VideoParams {
+  /** The file on the pad, for the panel; the bytes live in the browser. */
+  videoName: string | null
+  /** The loop starts over every this many bars. */
+  bars: VideoBars
+  /** Where in the file the loop begins, seconds. */
+  start: number
+  /** Where it ends, seconds; 0 means the file's end. */
+  end: number
+  filterType: FilterType
+  cutoff: number
+  resonance: number
+  /** How much the frame's brightness moves the cutoff, 0–1. */
+  toCutoff: number
+}
+
+export const VIDEO_RANGES = {
+  start: { min: 0, max: 3600 },
+  end: { min: 0, max: 3600 },
+  cutoff: { min: 40, max: 20000 },
+  resonance: { min: 0.1, max: 20 },
+  toCutoff: { min: 0, max: 1 },
+} as const
+
+export const VIDEO_PARAMS_DEFAULT: VideoParams = {
+  videoName: null,
+  bars: 4,
+  start: 0,
+  end: 0,
+  filterType: "lowpass",
+  cutoff: 20000,
+  resonance: 0.1,
+  toCutoff: 0,
+}
+
 /** Echo time in transport notation, so it follows the tempo. */
 export const DELAY_TIMES = ["16n", "8n", "8n.", "4n"] as const
 export type DelayTime = (typeof DELAY_TIMES)[number]

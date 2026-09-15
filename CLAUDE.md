@@ -134,9 +134,12 @@ strict build order:
      Android from suspending the audio session (and the Web Audio graph) when the screen locks or another app
      comes up, and it puts the rack on the lock screen.
    - ✅ Extra — **PWA**: `vite-plugin-pwa` in `vite.config.ts` (`registerType: "autoUpdate"`, manifest name RACK,
-     standalone, icons in `public/icons/` rendered from `favicon.svg` (the user's own logo, from `~/Desktop/logo.svg`: an amber disc with a blocky
-     R cut out of it over a dark ground `#121314`; the SVG keeps only the disc on a dark circle, and the
-     full-bleed variants paint the dark tile around it) by `scripts/render-icons.sh` — headless Chrome shots at 512
+     standalone, icons in `public/icons/` rendered from `favicon.svg` (the user's own logo, from `~/Desktop/logo.svg`: three black tiles —
+     top-left, bottom-left, top-right — on an amber angular sweep: the Figma export shades it with a
+     `foreignObject` conic-gradient that no image context renders, so `favicon.svg` rebuilds it as a fan of
+     180 wedges (`#FFAA00` at the bottom, fading clockwise into the dark ground `#121314`); the tile is rounded by
+     a clipPath `rx="300"`, and the full-bleed variants are the same SVG with the radius stripped, filling
+     the square — the tiles sit inside the maskable safe zone as drawn) by `scripts/render-icons.sh` — headless Chrome shots at 512
      and `sips` scales down; the Apple and maskable icons are full-bleed with the panel shrunk inside; the app shell is precached, `songs/`,
      `samples/`, `midi/` and the factory song are cached stale-while-revalidate as `rack-content`). `index.html`
      carries the iOS home-screen metas and `viewport-fit=cover`. `sw.js` and the manifest must be served
@@ -326,6 +329,53 @@ strict build order:
      default size now (they were `sm`) and kits are `units={3}`. `clampParams` lays the defaults under a synth's
      params, so an in-memory instance from before a field existed (HMR) gets it on its next edit; the curve
      draws an unknown type as lowpass rather than NaN.
+   - ✅ Extra — **VID-1 · Video loop** (kind `video`, finish `cyan`, `LuClapperboard`): a video file the
+     user loads (kept in the samples store under `${id}:video`, `StoredSample.type` carries its media type)
+     whose **soundtrack is the instrument** — a "loop manager with audio filters". Track: a one-voice kit
+     (`KIT_KINDS` includes `video`, `VIDEO_VOICES = ["gate"]`) whose 16 steps open the gate for a sixteenth
+     each (starts all on; an all-open gate counts as "empty"). Params (`VideoParams`): `videoName`,
+     `bars` (`VIDEO_BARS` 1/2/4/8, the loop restarts every N bars), `start` / `end` (seconds; `end` 0 = the file's end — the
+     **trimmer** under the screen: a filmstrip of `STRIP_FRAMES` = 16 thumbnails (`buildStrip`, on a scratch
+     element, sequential seeks, `drawCover` squares of the middle of each frame) with a two-thumb `Slider`
+     over it for the in/out points; a moved handle `previewAt`s that frame while stopped; the loop runs
+     from `start`, the 15 fps `tick` sends it back to `start` at `regionEnd(end, duration)`, an `ended`
+     event does the same, the element is not `loop`ed; Reset/Random sound keep name, bars, start and end), `filterType` / `cutoff` / `resonance`
+     (its own filter, like the synths — not a strip filter), `toCutoff` (the frame's brightness moves the
+     cutoff by ±90 % × amount). Audio (`src/audio/devices/videoLoop.ts`, `VideoLoop`): source → gate →
+     filter → strip; `attach(element)` turns the UI's `<video>` into a `MediaElementAudioSourceNode` of
+     the engine's context (once per element; `engine.attachVideoAudio`), the scheduler's `triggerVideo(id, open, time)` dep
+     calls `gateStep(open, time)` **every step** (a muted part sends `false`) and the device moves the gate
+     only on a change (4 ms ramp) — per-step open/close left a dip between lit steps and a gap under swing;
+     `reset(time)` shuts it on stop, `hitsForStep` skips video tracks, `voice("gate")` is only the
+     audition; `setBrightness` (`engine.setVideoBrightness`)
+     feeds a signal summed into the filter's frequency. An offline render has no element: VID-1 is silent
+     there. UI (`src/ui/videoLoops.ts`, `installVideoLoops()` from `App`): one hidden `<video>` per VID-1
+     (`playsInline`, `loop`), fed from storage as a blob URL; plays while the transport runs, rewinds on
+     stop, and on step 0 of a bar where `restartsAt(bar, bars)` jumps to 0; while playing a 20×20 canvas
+     samples a frame at `VIDEO_FPS` = 15 (`willReadFrequently`), fans it to `subscribeFrames` listeners and
+     sends `brightnessOf` (mean luma) to the engine — the 20×20 read is the whole per-frame cost; the
+     browser's decoder does the rest, so a small clip (240 px, H.264) is what a phone wants. `VideoUnit`
+     (`src/ui/VideoUnit.tsx`): the gate `StepGrid`, name display + Load/Clear (the 20×20 `VideoScreen` canvas was
+     dropped at the user's request — the filmstrip is the picture; the 20×20 read still feeds the
+     brightness, `subscribeFrames` stays for anything that wants frames), the Loop bars `SegmentGroup`, filter block,
+     Cutoff/Res/"Video→cut" knobs, `PartTools`, `ModPanel` (no tune; LFO targets cutoff/level). Random
+     sound keeps the file and the loop length. **Converter** (`convertVideo`): the file plays once on a scratch element (audio through an
+     `AudioContext` of its own into a `MediaStreamAudioDestinationNode`, picture drawn per frame into a
+     canvas of the chosen height, `captureStream`) and a `MediaRecorder` writes the chosen format —
+     `videoFormats()` lists what `MediaRecorder.isTypeSupported` accepts (MP4/H.264 on Safari and recent
+     Chrome, WebM VP9/VP8 elsewhere), `VIDEO_HEIGHTS` 180–480p; real time; the result replaces the stored
+     file (`importVideo`) and is named `<name>-<h>p.<ext>`. **Every upload is converted at once** to
+     `uploadFormat()` (MP4 if writable, else the first WebM) at `UPLOAD_HEIGHT` = 240p, with a loading
+     toast counting %; the panel also offers Convert (whole file) / Trim (only the region) with format and
+     height selects. This is what makes HEVC `.mov` from a phone usable everywhere and cheap to decode.
+   - ✅ Extra — the BANK's **slot buttons head the parts matrix**: `StepGrid` gained an optional
+     `header?: (step) => ReactNode` row (one element per column on the same tracks as the cells, an empty
+     label cell in front), and `PartsMatrix` renders the sixteen slot blocks there — a pattern's number sits
+     over its column; the matrix renders with no rows on an empty rack so the slots stay. The separate
+     two-row slot grid and the "copy active → next slot" button are gone (`copyActivePatternTo` stays in the
+     store, unused by the UI; Copy part / Paste to pattern cover the need).
+   - ✅ Extra — a folded unit's `MiniGrid` goes **dark while the machine is not heard** (`selectSilent`: sits
+     the sounding slot out, muted, or silenced by another's solo) — the matrix shows what plays, not the part.
    - ✅ Extra — **parts per pattern**: `Pattern.muted?: string[]` — instance ids that keep their part but
      sit that slot out (`isMutedIn`, `togglePartMute` in `pattern.ts`; `withTrack` now spreads the pattern
      so the list survives edits, `withoutTrack` drops the id). Saved in the song (`parseSong` keeps only known

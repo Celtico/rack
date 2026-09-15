@@ -4,6 +4,7 @@ import { KitUnit } from "./KitUnit"
 import { MonoSynth } from "./MonoSynth"
 import { PolyUnit } from "./PolyUnit"
 import { SamplerUnit } from "./SamplerUnit"
+import { VideoUnit } from "./VideoUnit"
 
 /** The panel for one machine, by kind. */
 export function InstanceUnit({ id, kind }: { id: string; kind: Kind }) {
@@ -21,5 +22,7 @@ export function InstanceUnit({ id, kind }: { id: string; kind: Kind }) {
     case "ep":
     case "strings":
       return <PolyUnit id={id} />
+    case "video":
+      return <VideoUnit id={id} />
   }
 }

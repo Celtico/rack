@@ -516,7 +516,17 @@ export const useRackStore = create<RackState>()((set, get) => ({
         (i) =>
           ({
             ...i,
-            params: defaultParams(i.kind),
+            params:
+              i.kind === "video"
+                ? // A VID-1's file and loop region are not "sound": they stay.
+                  {
+                    ...defaultParams(i.kind),
+                    videoName: i.params.videoName,
+                    bars: i.params.bars,
+                    start: i.params.start,
+                    end: i.params.end,
+                  }
+                : defaultParams(i.kind),
             ...(hasStripFilter(i.kind) ? { filter: { ...FILTER_DEFAULT } } : {}),
             mod: defaultMod(),
           }) as Instance,
@@ -532,7 +542,7 @@ export const useRackStore = create<RackState>()((set, get) => ({
       ...remember(state),
       ...editInstance(state, id, (i) => {
         if (i.filter) return { ...i, filter: clampFilter(randomFilter(rng)) }
-        if (i.kind === "synth" || i.kind === "bass" || i.kind === "poly") {
+        if (i.kind === "synth" || i.kind === "bass" || i.kind === "poly" || i.kind === "video") {
           return {
             ...i,
             params: clampParams(i.kind, { ...i.params, ...randomSynthFilter(i.kind, rng) }),
@@ -546,7 +556,7 @@ export const useRackStore = create<RackState>()((set, get) => ({
       ...remember(state),
       ...editInstance(state, id, (i) => {
         if (i.filter) return { ...i, filter: { ...FILTER_DEFAULT } }
-        if (i.kind === "synth" || i.kind === "bass" || i.kind === "poly") {
+        if (i.kind === "synth" || i.kind === "bass" || i.kind === "poly" || i.kind === "video") {
           const d = defaultParams(i.kind)
           return {
             ...i,
@@ -737,6 +747,7 @@ export const copyTrack = (t: Track): Track => {
     case "drums":
     case "perc":
     case "sampler":
+    case "video":
       return { kind: t.kind, rows: structuredClone(t.rows) } as Track
     case "synth":
       return { kind: t.kind, notes: [...t.notes] }

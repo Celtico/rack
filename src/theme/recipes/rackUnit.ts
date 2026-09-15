@@ -13,6 +13,7 @@ export const FINISHES = [
   "yellow",
   "green",
   "pink",
+  "cyan",
 ] as const
 export type Finish = (typeof FINISHES)[number]
 

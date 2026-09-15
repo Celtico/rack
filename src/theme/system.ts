@@ -132,6 +132,12 @@ const config = defineConfig({
             ink: { value: "#d4d2cc" },
             inkMuted: { value: "#a5a39e" },
           },
+          cyan: {
+            panel: { value: "#0f5a63" },
+            edge: { value: "#072b30" },
+            ink: { value: "#d4d2cc" },
+            inkMuted: { value: "#a5a39e" },
+          },
           cream: {
             panel: { value: "#675a32" },
             edge: { value: "#302a17" },

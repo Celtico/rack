@@ -8,6 +8,7 @@ import {
   type CSSProperties,
   type PointerEvent,
   type MouseEvent,
+  type ReactNode,
 } from "react"
 
 import { STEP_COUNT } from "../state/pattern"
@@ -26,6 +27,8 @@ export interface StepGridProps<Id extends string> {
   columnName?: string
   /** Which column the store says is sounding; the step by default, a bank slot for the parts matrix. */
   playheadOf?: (s: RackState) => number
+  /** A row above the cells, one element per column on the very same tracks — the bank's slot buttons. */
+  header?: (step: number) => ReactNode
 }
 
 const STEPS = Array.from({ length: STEP_COUNT }, (_, i) => i)
@@ -119,6 +122,7 @@ export function StepGrid<Id extends string>({
   onToggle,
   columnName = "step",
   playheadOf = stepPlayhead,
+  header,
 }: StepGridProps<Id>) {
   const recipe = useSlotRecipe({ key: "stepGrid" })
   const styles = useMemo(() => recipe(), [recipe])
@@ -206,6 +210,16 @@ export function StepGrid<Id extends string>({
         onPointerCancel={endStroke}
         onClickCapture={onClickCapture}
       >
+        {header && (
+          <chakra.div css={styles.row} role="presentation">
+            <chakra.span css={styles.label} aria-hidden="true" />
+            {STEPS.map((step) => (
+              <chakra.div key={step} style={COLUMN_STYLE[step]} display="flex" minW="0">
+                {header(step)}
+              </chakra.div>
+            ))}
+          </chakra.div>
+        )}
         {rows.map((row) => (
           <chakra.div key={row.id} css={styles.row} role="group" aria-label={row.label}>
             <chakra.span css={styles.label}>{row.label}</chakra.span>

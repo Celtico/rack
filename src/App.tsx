@@ -6,6 +6,7 @@ import { Rack } from "./ui/Rack"
 import { installBackgroundAudio } from "./ui/backgroundAudio"
 import { autoplay } from "./ui/transportControl"
 import { installUndoKeys } from "./ui/undoRedo"
+import { installVideoLoops } from "./ui/videoLoops"
 import { installWakeLock } from "./ui/wakeLock"
 
 export default function App() {
@@ -21,7 +22,9 @@ export default function App() {
     const releaseBackgroundAudio = installBackgroundAudio()
     const releaseUndoKeys = installUndoKeys()
     const releaseAutosave = installAutosave()
+    const releaseVideoLoops = installVideoLoops()
     return () => {
+      releaseVideoLoops()
       stop?.()
       releaseWakeLock()
       releaseBackgroundAudio()

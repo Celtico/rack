@@ -189,4 +189,13 @@ describe("patterns", () => {
     expect(withoutTrack(out, "drums-1").muted).toBeUndefined()
     expect(withoutTrack(togglePartMute(out, "synth-1"), "drums-1").muted).toEqual(["synth-1"])
   })
+
+  it("gives a video loop a gate that starts open everywhere, and counts that as empty", () => {
+    const track = emptyTrack("video")
+    expect(track.kind).toBe("video")
+    const gate = "rows" in track ? (track.rows as Record<string, readonly boolean[]>).gate! : []
+    expect(gate).toHaveLength(16)
+    expect(gate.every(Boolean)).toBe(true)
+    expect(isTrackEmpty(track)).toBe(true)
+  })
 })

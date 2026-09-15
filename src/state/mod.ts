@@ -6,6 +6,7 @@ import {
   POLY_RANGES,
   STRINGS_RANGES,
   SYNTH_RANGES,
+  VIDEO_RANGES,
 } from "./params"
 import { DRUM_VOICES, PERC_VOICES, type Kind } from "./pattern"
 
@@ -230,6 +231,13 @@ export function macroTargetsFor(kind: Kind, stripFilter: boolean): MacroTargetIn
       for (const v of PERC_VOICES) out.push(range("param", v, `${v} level`, { min: 0, max: 1 }))
       break
     case "sampler":
+      break
+    case "video":
+      out.push(
+        range("param", "cutoff", "Cutoff", VIDEO_RANGES.cutoff),
+        range("param", "resonance", "Res", VIDEO_RANGES.resonance),
+        range("param", "toCutoff", "Video → cutoff", VIDEO_RANGES.toCutoff),
+      )
       break
   }
   if (stripFilter) {

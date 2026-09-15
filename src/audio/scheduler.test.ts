@@ -62,6 +62,7 @@ const OWNERS: TrackOwner[] = [
   { id: "bass-1", kind: "bass" },
   { id: "poly-1", kind: "poly" },
   { id: "strings-1", kind: "strings" },
+  { id: "video-1", kind: "video" },
 ]
 const empty = () => createEmptyPattern(OWNERS)
 
@@ -83,6 +84,7 @@ function makeScheduler(initial: Pattern, chain: number[] = []) {
   const triggerNote = vi.fn()
   const triggerBass = vi.fn()
   const triggerPoly = vi.fn()
+  const triggerVideo = vi.fn()
   const onStep = vi.fn()
   const onTick = vi.fn()
   const getPattern = vi.fn((bar: number) => resolvePlayingPattern(patterns, active, chain, bar))
@@ -95,6 +97,7 @@ function makeScheduler(initial: Pattern, chain: number[] = []) {
     triggerNote,
     triggerBass,
     triggerPoly,
+    triggerVideo,
     onStep,
   })
   return {
@@ -103,6 +106,7 @@ function makeScheduler(initial: Pattern, chain: number[] = []) {
     triggerNote,
     triggerBass,
     triggerPoly,
+    triggerVideo,
     onStep,
     onTick,
     getPattern,
@@ -211,6 +215,22 @@ describe("Scheduler", () => {
     expect(trigger.mock.calls).toEqual([["drums-2", "kick", 0]])
     expect(triggerBass).toHaveBeenCalledTimes(16)
     expect(triggerBass.mock.calls[0]?.[1]).toEqual({ note: null, accent: false, slide: false })
+  })
+
+  it("tells a video loop's gate to open and shut only where the grid changes, every step", () => {
+    let pattern = empty()
+    // The gate starts fully open; shut steps 4–7.
+    for (const step of [4, 5, 6, 7]) pattern = hit(pattern, "video-1", "gate", step)
+    const { scheduler, triggerVideo, trigger } = makeScheduler(pattern)
+    scheduler.start()
+    playBar(fake.sequences[0]!, 0)
+    expect(triggerVideo).toHaveBeenCalledTimes(16)
+    expect(triggerVideo.mock.calls.map((c) => c[1])).toEqual(
+      Array.from({ length: 16 }, (_, i) => !(i >= 4 && i <= 7)),
+    )
+    expect(triggerVideo.mock.calls[4]?.[2]).toBe(0.5)
+    // Not as a kit hit.
+    expect(trigger.mock.calls.filter((c) => c[0] === "video-1")).toHaveLength(0)
   })
 
   it("fires the synth note of a column, and nothing on rests", () => {

@@ -295,6 +295,28 @@ describe("song save/load", () => {
     })
     expect(instOf<"synth">(parseSong(JSON.stringify(noFilter)), "synth-1").filter).toBeUndefined()
 
+    // A VID-1: its file name (or null) and loop length round-trip; a bad length falls back.
+    const vid = useRackStore.getState().addInstance("video")
+    useRackStore.getState().setInstanceParams(vid.id, { videoName: "clip.mov", bars: 8 })
+    const withVideo = parseSong(serializeSong(toSong(useRackStore.getState())))
+    expect(instOf<"video">(withVideo, vid.id).params).toMatchObject({
+      videoName: "clip.mov",
+      bars: 8,
+    })
+    expect(withVideo.patterns[0]!.tracks[vid.id]).toMatchObject({ kind: "video" })
+    const badBars = JSON.parse(serializeSong(withVideo)) as {
+      instances: { id: string; params: { bars?: number; videoName?: unknown } }[]
+    }
+    badBars.instances.find((i) => i.id === vid.id)!.params.bars = 3
+    badBars.instances.find((i) => i.id === vid.id)!.params.videoName = null
+    useRackStore.getState().loadSong(parseSong(JSON.stringify(badBars)))
+    const loaded = useRackStore
+      .getState()
+      .instances.find((i) => i.id === vid.id) as InstanceOf<"video">
+    expect(loaded.params.bars).toBe(4)
+    expect(loaded.params.videoName).toBeNull()
+    useRackStore.getState().removeInstance(vid.id)
+
     // Parts sitting a slot out round-trip; unknown ids are dropped, a missing list means everyone plays.
     useRackStore.getState().togglePartMute("drums-1", 2)
     const withMuted = parseSong(serializeSong(toSong(useRackStore.getState())))

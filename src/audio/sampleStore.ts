@@ -4,6 +4,8 @@ import { getAllFromStore, STORES, withStore } from "../state/db"
 export interface StoredSample {
   name: string
   data: ArrayBuffer
+  /** The file's media type — a video needs it to play; samples never set it. */
+  type?: string
 }
 
 /** Storage key of one pad of one sampler instance. */

@@ -9,6 +9,7 @@ import {
   POLY_RANGES,
   STRINGS_RANGES,
   SYNTH_RANGES,
+  VIDEO_RANGES,
   WAVEFORMS,
   type FilterParams,
   type FilterType,
@@ -93,16 +94,29 @@ export function randomParams<K extends Kind>(kind: K, rng: Rng): KindParams[K] {
         sustain: uniform(rng, STRINGS_RANGES.sustain),
         release: logUniform(rng, STRINGS_RANGES.release),
       } as KindParams[K]
+    case "video":
+      return {
+        ...defaultParams(kind),
+        ...randomSynthFilter("video", rng),
+        toCutoff: uniform(rng, VIDEO_RANGES.toCutoff),
+      } as KindParams[K]
   }
   return defaultParams(kind)
 }
 
 /** A random setting for a synth's own filter (MONO-1, BASS-2, POLY-4): type, cutoff and Q in its ranges. */
 export function randomSynthFilter(
-  kind: "synth" | "bass" | "poly",
+  kind: "synth" | "bass" | "poly" | "video",
   rng: Rng,
 ): { filterType: FilterType; cutoff: number; resonance: number } {
-  const ranges = kind === "synth" ? SYNTH_RANGES : kind === "bass" ? BASS_RANGES : POLY_RANGES
+  const ranges =
+    kind === "synth"
+      ? SYNTH_RANGES
+      : kind === "bass"
+        ? BASS_RANGES
+        : kind === "poly"
+          ? POLY_RANGES
+          : VIDEO_RANGES
   return {
     filterType:
       kind === "bass"
@@ -138,8 +152,19 @@ export function randomMod(kind: Kind, mod: ModParams, rng: Rng): ModParams {
 export function randomizeInstance(inst: Instance, rng: Rng): Instance {
   return {
     ...inst,
-    // A sampler's pads are its samples: a new sound for it is its filter, tune and drive.
-    params: inst.kind === "sampler" ? inst.params : randomParams(inst.kind, rng),
+    // A sampler's pads are its samples, a VID-1's file and loop length are its own: kept.
+    params:
+      inst.kind === "sampler"
+        ? inst.params
+        : inst.kind === "video"
+          ? {
+              ...randomParams(inst.kind, rng),
+              videoName: inst.params.videoName,
+              bars: inst.params.bars,
+              start: inst.params.start,
+              end: inst.params.end,
+            }
+          : randomParams(inst.kind, rng),
     ...(inst.filter ? { filter: randomFilter(rng) } : {}),
     mod: randomMod(inst.kind, inst.mod, rng),
   } as Instance

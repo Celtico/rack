@@ -166,6 +166,10 @@ const KIND_ALIASES: Readonly<Record<string, Kind>> = {
   samples: "sampler",
   lead: "synth",
   mono: "synth",
+  clip: "video",
+  movie: "video",
+  film: "video",
+  loop: "video",
   monosynth: "synth",
   acid: "bass",
   sub: "bass",
@@ -181,6 +185,7 @@ function parseTrack(v: unknown, path: string, kind: Kind): Track {
     case "drums":
     case "perc":
     case "sampler":
+    case "video":
       return { kind, rows: parseKitRows(t.rows, `${path}.rows`, kind) } as Track
     case "synth":
       return { kind, notes: monoRow(t.notes, `${path}.notes`, SYNTH_NOTES.length) }
@@ -223,6 +228,8 @@ function parseParams(v: unknown, path: string, kind: Kind): Instance["params"] {
     } else if (key === "filterType") {
       // Older files have no filter type: they keep the lowpass they were made with.
       out[key] = oneOf(value, `${path}.${key}`, FILTER_TYPES)
+    } else if (key === "videoName") {
+      out[key] = value === null ? null : str(value, `${path}.${key}`)
     } else {
       out[key] = num(value, `${path}.${key}`)
     }

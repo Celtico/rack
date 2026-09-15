@@ -18,6 +18,7 @@ import { PercKit } from "./devices/perc"
 import { EPiano, PolyPad, Strings } from "./devices/polySynths"
 import { installTonePatches } from "./tonePatches"
 import { SamplerKit } from "./devices/sampler"
+import { VideoLoop } from "./devices/videoLoop"
 import { deleteSample, putSample, sampleKey } from "./sampleStore"
 import { Scheduler } from "./scheduler"
 import type { ModHooks } from "./types"
@@ -32,6 +33,7 @@ type Device =
   | { kind: "poly"; poly: PolyPad }
   | { kind: "ep"; poly: EPiano }
   | { kind: "strings"; poly: Strings }
+  | { kind: "video"; kit: VideoLoop }
 
 /** One instance in the graph: its mixer strip, analysers and device. */
 interface Strip {
@@ -98,7 +100,13 @@ const storeSource: EngineSource = {
 
 /** The melodic devices' modulation hooks; a kit has none. */
 const hooksOf = (device: Device): ModHooks | null =>
-  "kit" in device ? null : "voice" in device ? device.voice : device.poly
+  device.kind === "video"
+    ? device.kit
+    : "kit" in device
+      ? null
+      : "voice" in device
+        ? device.voice
+        : device.poly
 
 /** Ramp length for parameter changes — long enough to avoid clicks, short enough to feel direct. */
 const RAMP = 0.03
@@ -209,6 +217,10 @@ export class AudioEngine {
         const d = this.strips.get(id)?.device
         if (d && "poly" in d) d.poly.trigger(notes, time)
       },
+      triggerVideo: (id, open, time) => {
+        const d = this.strips.get(id)?.device
+        if (d?.kind === "video") d.kit.gateStep(open, time)
+      },
       // Draw callbacks queued before a stop still land after it; a stopped transport publishes nothing,
       // so the readout stays at "--" instead of freezing on the last step.
       onStep: onStep
@@ -305,6 +317,8 @@ export class AudioEngine {
         return { kind: inst.kind, poly: new EPiano(output, inst.params) }
       case "strings":
         return { kind: inst.kind, poly: new Strings(output, inst.params) }
+      case "video":
+        return { kind: inst.kind, kit: new VideoLoop(output, inst.params) }
     }
   }
 
@@ -372,6 +386,7 @@ export class AudioEngine {
   release(time: number): void {
     for (const { device } of this.strips.values()) {
       if (device.kind === "bass") device.voice.reset(time)
+      if (device.kind === "video") device.kit.reset(time)
     }
   }
 
@@ -585,7 +600,22 @@ export class AudioEngine {
       case "strings":
         for (const [key, value] of entries) device.poly.set(key as never, value as never)
         break
+      case "video":
+        for (const [key, value] of entries) device.kit.set(key as never, value as never)
+        break
     }
+  }
+
+  /** Feed a VID-1's media element into its device — the UI owns the element, the graph owns the node. */
+  attachVideoAudio(id: string, element: HTMLMediaElement): void {
+    const device = this.strips.get(id)?.device
+    if (device?.kind === "video") device.kit.attach(element)
+  }
+
+  /** The lit fraction of a VID-1's current frame, from the UI's sampler. */
+  setVideoBrightness(id: string, value: number): void {
+    const device = this.strips.get(id)?.device
+    if (device?.kind === "video") device.kit.setBrightness(value)
   }
 
   /**

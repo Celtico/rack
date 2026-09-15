@@ -2,6 +2,7 @@ import type { ReactNode } from "react"
 import {
   LuAudioWaveform,
   LuBellRing,
+  LuClapperboard,
   LuDrum,
   LuGuitar,
   LuLayers,
@@ -28,6 +29,7 @@ export const KIND_FINISH: Readonly<Record<Kind, Finish>> = {
   poly: "purple",
   ep: "cream",
   strings: "wood",
+  video: "cyan",
 }
 
 /** Header pictogram per kind. */
@@ -49,6 +51,8 @@ export function kindIcon(kind: Kind): ReactNode {
       return <LuPiano />
     case "strings":
       return <LuGuitar />
+    case "video":
+      return <LuClapperboard />
   }
 }
 
@@ -134,4 +138,5 @@ export const VOICE_LABELS: Readonly<Record<string, string>> = {
   cowbell: "Cowbell",
   shaker: "Shaker",
   crash: "Crash",
+  gate: "Gate",
 }

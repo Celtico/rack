@@ -3,6 +3,7 @@ import { memo, useEffect, useMemo, useRef } from "react"
 
 import {
   BASS_NOTES,
+  isMutedIn,
   KIT_VOICES,
   POLY_NOTES,
   rowsOf,
@@ -10,14 +11,15 @@ import {
   SYNTH_NOTES,
   type Track,
 } from "../state/pattern"
-import { useRackStore, type RackState } from "../state/store"
+import { silencedBySolo, useRackStore, type RackState } from "../state/store"
 
 /** One boolean row per line of the thumbnail, top row first. */
 function rowsFor(track: Track): boolean[][] {
   switch (track.kind) {
     case "drums":
     case "perc":
-    case "sampler": {
+    case "sampler":
+    case "video": {
       const rows = rowsOf(track)
       return KIT_VOICES[track.kind].map((voice) => [...(rows[voice] ?? [])])
     }
@@ -94,18 +96,34 @@ function MiniPlayhead({ styles }: { styles: Styles }) {
   return <chakra.span ref={ref} css={styles.playhead} data-step="" aria-hidden="true" />
 }
 
-/** The track being heard: the slot the song is playing, or the one on screen when stopped. */
-const selectSoundingTrack = (s: RackState, id: string) =>
-  (s.patterns[s.playingPattern >= 0 ? s.playingPattern : s.activePattern] ?? s.patterns[0])?.tracks[
-    id
-  ]
+/** The slot being heard: the one the song is playing, or the one on screen when stopped. */
+const selectSoundingPattern = (s: RackState) =>
+  s.patterns[s.playingPattern >= 0 ? s.playingPattern : s.activePattern] ?? s.patterns[0]
+
+/** The track being heard. */
+const selectSoundingTrack = (s: RackState, id: string) => selectSoundingPattern(s)?.tracks[id]
+
+/** Nothing of this machine is heard right now: it sits this slot out, is muted, or another one is soloed. */
+const selectSilent = (s: RackState, id: string): boolean => {
+  const pattern = selectSoundingPattern(s)
+  return (
+    (pattern !== undefined && isMutedIn(pattern, id)) ||
+    s.instances.find((i) => i.id === id)?.mute === true ||
+    silencedBySolo(s.solo, id)
+  )
+}
 
 /** The pattern an instance is playing, in miniature with the playhead — for a folded unit's header. */
 export function MiniGrid({ id, label }: { id: string; label: string }) {
   const track = useRackStore((s) => selectSoundingTrack(s, id))
+  const silent = useRackStore((s) => selectSilent(s, id))
   const recipe = useSlotRecipe({ key: "miniGrid" })
   const styles = useMemo(() => recipe(), [recipe])
-  const rows = useMemo(() => (track ? rowsFor(track) : []), [track])
+  // A silent machine shows a dark matrix: what it would play is not what is heard.
+  const rows = useMemo(
+    () => (track ? rowsFor(track).map((row) => (silent ? row.map(() => false) : row)) : []),
+    [track, silent],
+  )
   if (!track) return null
 
   return (

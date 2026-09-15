@@ -25,6 +25,10 @@ import {
   type PolyParams,
   type StringsParams,
   type SynthParams,
+  type VideoParams,
+  VIDEO_BARS,
+  VIDEO_PARAMS_DEFAULT,
+  VIDEO_RANGES,
 } from "./params"
 import { clampMod, defaultMod, type ModParams } from "./mod"
 import { KINDS, PAD_IDS, type Kind, type PadId } from "./pattern"
@@ -39,6 +43,7 @@ export interface KindParams {
   poly: PolyParams
   ep: EpParams
   strings: StringsParams
+  video: VideoParams
 }
 
 /** One machine in the rack: its kind, its parameters and its mixer strip. */
@@ -81,6 +86,7 @@ export const KIND_MODEL: Readonly<Record<Kind, string>> = {
   poly: "POLY-4",
   ep: "EP-1",
   strings: "STR-6",
+  video: "VID-1",
 }
 
 export const KIND_TITLE: Readonly<Record<Kind, string>> = {
@@ -92,6 +98,7 @@ export const KIND_TITLE: Readonly<Record<Kind, string>> = {
   poly: "Poly pad",
   ep: "Piano",
   strings: "Guitar",
+  video: "Video loop",
 }
 
 const MIX_DEFAULT: Readonly<Record<Kind, { level: number; send: number }>> = {
@@ -103,6 +110,7 @@ const MIX_DEFAULT: Readonly<Record<Kind, { level: number; send: number }>> = {
   poly: { level: 0.7, send: 0.4 },
   ep: { level: 0.75, send: 0.35 },
   strings: { level: 0.7, send: 0.3 },
+  video: { level: 0.8, send: 0.2 },
 }
 
 export function defaultParams<K extends Kind>(kind: K): KindParams[K] {
@@ -115,6 +123,7 @@ export function defaultParams<K extends Kind>(kind: K): KindParams[K] {
     poly: () => POLY_PARAMS_DEFAULT,
     ep: () => EP_PARAMS_DEFAULT,
     strings: () => STRINGS_PARAMS_DEFAULT,
+    video: () => VIDEO_PARAMS_DEFAULT,
   }
   return table[kind]()
 }
@@ -170,6 +179,13 @@ export function clampParams<K extends Kind>(kind: K, params: KindParams[K]): Kin
       return clampFields(params as EpParams, EP_RANGES) as KindParams[K]
     case "strings":
       return clampFields(params as StringsParams, STRINGS_RANGES) as KindParams[K]
+    case "video": {
+      const v = clampFields({ ...VIDEO_PARAMS_DEFAULT, ...(params as VideoParams) }, VIDEO_RANGES)
+      return {
+        ...v,
+        bars: VIDEO_BARS.includes(v.bars) ? v.bars : VIDEO_PARAMS_DEFAULT.bars,
+      } as KindParams[K]
+    }
   }
   return params
 }

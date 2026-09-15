@@ -1,8 +1,11 @@
 import { getEngine } from "../audio/engine"
 import { useRackStore } from "../state/store"
+import { playVideoLoops } from "./videoLoops"
 
 /** Start the clock. Builds the graph on first use; waits for a user gesture if the browser demands one. */
 export async function startTransport(): Promise<void> {
+  // Still inside the click: the video loops may only start on a gesture.
+  playVideoLoops()
   await getEngine().start()
   useRackStore.getState().setPlaying(true)
 }

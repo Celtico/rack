@@ -1,10 +1,21 @@
 export const STEP_COUNT = 16
 
 /** Kinds of machine. Every instance in the rack is one of these. */
-export const KINDS = ["drums", "perc", "sampler", "synth", "bass", "poly", "ep", "strings"] as const
+export const KINDS = [
+  "drums",
+  "perc",
+  "sampler",
+  "synth",
+  "bass",
+  "poly",
+  "ep",
+  "strings",
+  "video",
+] as const
 export type Kind = (typeof KINDS)[number]
 
-export const KIT_KINDS = ["drums", "perc", "sampler"] as const
+/** Kinds whose track is on/off rows per voice — VID-1 is one too: a single "gate" row that chops its loop. */
+export const KIT_KINDS = ["drums", "perc", "sampler", "video"] as const
 export type KitKind = (typeof KIT_KINDS)[number]
 export const POLY_KINDS = ["poly", "ep", "strings"] as const
 export type PolyKind = (typeof POLY_KINDS)[number]
@@ -19,10 +30,14 @@ export const PAD_IDS = ["pad1", "pad2", "pad3", "pad4", "pad5", "pad6", "pad7", 
 export type PadId = (typeof PAD_IDS)[number]
 
 /** The voices of each kit kind. */
+export const VIDEO_VOICES = ["gate"] as const
+export type VideoVoiceId = (typeof VIDEO_VOICES)[number]
+
 export const KIT_VOICES: Readonly<Record<KitKind, readonly string[]>> = {
   drums: DRUM_VOICES,
   perc: PERC_VOICES,
   sampler: PAD_IDS,
+  video: VIDEO_VOICES,
 }
 
 /** MONO-1 rows, low to high. Row index in the pattern is an index into this list. */
@@ -61,6 +76,7 @@ export type Track =
   | { kind: "drums"; rows: KitRows<DrumVoiceId> }
   | { kind: "perc"; rows: KitRows<PercVoiceId> }
   | { kind: "sampler"; rows: KitRows<PadId> }
+  | { kind: "video"; rows: KitRows<VideoVoiceId> }
   | { kind: "synth"; notes: SynthRow }
   | { kind: "bass"; bass: BassRow }
   | { kind: "poly"; chords: PolyRow }
@@ -129,6 +145,12 @@ export function emptyTrack(kind: Kind): Track {
       return { kind, rows: kitRows(PERC_VOICES) }
     case "sampler":
       return { kind, rows: kitRows(PAD_IDS) }
+    case "video":
+      // The gate starts open on every step: the whole loop is heard until it is chopped.
+      return {
+        kind,
+        rows: kitRows(VIDEO_VOICES, { gate: Array.from({ length: STEP_COUNT }, (_, i) => i) }),
+      }
     case "synth":
       return { kind, notes: noteRow() }
     case "bass":
@@ -155,6 +177,7 @@ export function starterTrack(kind: Kind): Track {
     case "perc":
       return { kind, rows: kitRows(PERC_VOICES, { shaker: [2, 6, 10, 14] }) }
     case "sampler":
+    case "video":
       return emptyTrack(kind)
     case "synth":
       return { kind, notes: noteRow([0, 0], [3, 0], [6, 4], [8, 0], [11, 0], [13, 3], [14, 2]) }
@@ -289,6 +312,9 @@ export function isTrackEmpty(track: Track): boolean {
     case "perc":
     case "sampler":
       return Object.values(rowsOf(track)).every((row) => row.every((on) => !on))
+    case "video":
+      // A gate that is open everywhere is the resting state, not content.
+      return true
     case "synth":
       return track.notes.every((r) => r === null)
     case "bass":
