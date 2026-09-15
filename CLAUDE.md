@@ -480,7 +480,8 @@ strict build order:
    - ✅ Extra — a **version number** by the toolbar mark: `v<n>`, the commit count on the branch
      (`git rev-list --count HEAD`), with the short hash as the tooltip — read in `vite.config.ts` at build
      time into `define`d `__RACK_VERSION__` / `__RACK_COMMIT__` (declared in `vite-env.d.ts`); without git
-     it falls back to `RACK_VERSION` / `RACK_COMMIT` from the environment, else "dev". The Docker build
+     it falls back to `RACK_VERSION` / `RACK_COMMIT` from the environment, else "dev". The same `version`
+     and `commit` go into the PWA manifest as informational (non-standard) fields. The Docker build
      installs git and `.dockerignore` no longer drops `.git` (34 MB), so the container shows the real number.
    - ✅ Extra — the toolbar's add button is labelled just **"Add"** (rack icon + "Add"); the panel it opens
      is titled "Add machine". Ids, files and store names keep `add` / `AddUnit`.

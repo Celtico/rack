@@ -35,6 +35,9 @@ export default defineConfig({
       manifest: {
         name: "RACK",
         short_name: "RACK",
+        // Not a standard manifest field — browsers ignore it — but it tells anyone reading the
+        // manifest (devtools, a curious user) which build is installed.
+        ...({ version, commit } as object),
         description: "A web audio rack: drum machine, synths, sampler and step sequencer.",
         theme_color: "#111214",
         background_color: "#111214",
