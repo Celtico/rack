@@ -269,7 +269,7 @@ export function VideoUnit({ id }: { id: string }) {
           flex="1"
           minW="0"
         >
-          <VStack gap="2" align="flex-start" w={{ base: "full", sm: "40" }} maxW="60">
+          <VStack gap="2" align="flex-start">
             <Text textStyle="silkscreen" color="rack.silkscreen.muted">
               Video
             </Text>
@@ -356,7 +356,7 @@ export function VideoUnit({ id }: { id: string }) {
                 </Button>
               </HStack>
             )}
-            <HStack gap="3" align="center">
+            <HStack gap="3" align="center" wrap="nowrap">
               <Text textStyle="silkscreen" color="rack.silkscreen.muted">
                 Loop
               </Text>

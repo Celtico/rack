@@ -236,6 +236,11 @@ async function ensure(id: string): Promise<Loop> {
   const stored = await getSample(videoKey(id))
   if (stored && loops.get(id) === loop) {
     setSource(loop, new Blob([stored.data], { type: mimeOf(stored.name, stored.type ?? "") }))
+    // The panel prints the song's `videoName`; a file kept from before it was saved gets it now.
+    const inst = useRackStore.getState().instances.find((i) => i.id === id)
+    if (inst?.kind === "video" && inst.params.videoName === null) {
+      useRackStore.getState().setInstanceParams(id, { videoName: stored.name })
+    }
   }
   return loop
 }
