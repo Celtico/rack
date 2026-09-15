@@ -254,7 +254,10 @@ export class Strings implements PolyInstrument {
   }
 
   trigger(notes: string[], time: number): void {
-    for (const note of notes) {
+    // A column lit past six notes keeps its first six: the seventh would land on a string
+    // already struck at this very time, which Tone refuses ("start time must be strictly
+    // greater") — live it lost the rest of the step, in an export it failed the render.
+    for (const note of notes.slice(0, STRING_COUNT)) {
       const string = this.strings[this.next % STRING_COUNT]
       this.next = (this.next + 1) % STRING_COUNT
       string?.triggerAttackRelease(transposeNote(note, this.tune), "8n", time)

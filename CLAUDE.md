@@ -53,7 +53,14 @@ strict build order:
      lowpass, ADSR), EP-1 (`PolySynth<FMSynth>`, tone/bright/decay/release; `maxPolyphony` 16 and an `8n` hold — Tone gives
      every struck note a fresh voice and frees it only once silent, so 3-note chords every eighth with a
      long decay overran the old limit of 8 and dropped notes, heard as the part cutting out; POLY-4 has 12), STR-6 (six `PluckSynth`
-     round-robin — `PluckSynth` is not `Monophonic`, so `PolySynth` cannot host it).
+     round-robin — `PluckSynth` is not `Monophonic`, so `PolySynth` cannot host it; a column lit past six
+     notes plays its first six only: a seventh would restart a string's noise at the same time, which Tone
+     refuses with "Start time must be strictly greater than previous start time" — live that error ended
+     the step for every later instance, and it failed the whole WAV/MP3 export).
+     To check renders outside the app: with `pnpm dev --port 5199` running,
+     `node scripts/render-check.mjs "http://localhost:5199/scripts/render-check.html?songs=/songs/a.json,/docs/b.json"`
+     drives a headless Chrome over CDP (`--dump-dom` and `--virtual-time-budget` return before an offline
+     render ends) and prints PASS/FAIL per song from `renderSong`; a render runs at about real time.
    - ✅ Extra — SMP-8 (`SamplerKit`, `src/audio/devices/sampler.ts`): eight `Player`s; sample bytes live in
      IndexedDB (`src/audio/sampleStore.ts`), the song keeps only name/pitch/decay/level per pad.
      `engine.importSample()` persists first, decodes if the graph exists; `build()` reloads from storage.

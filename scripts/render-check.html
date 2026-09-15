@@ -1,0 +1,41 @@
+<!doctype html>
+<html>
+  <body>
+    <script type="module">
+      import { renderSong } from "/src/audio/render.ts"
+      import { parseSong } from "/src/state/song.ts"
+
+      const out = document.createElement("pre")
+      document.body.append(out)
+      const log = (line) => {
+        out.textContent += line + "\n"
+        console.log(line)
+      }
+      const params = new URLSearchParams(location.search)
+      const songs = (params.get("songs") ?? "").split(",").filter(Boolean)
+      let stage = "start"
+      setInterval(() => log(`… still at ${stage}`), 10000)
+      try {
+        const probe = new OfflineAudioContext(1, 4410, 44100)
+        await probe.startRendering()
+        log("probe offline render ok")
+      } catch (err) {
+        log(`probe failed ${err}`)
+      }
+      for (const path of songs) {
+        try {
+          stage = `fetch ${path}`
+          const text = await (await fetch(path)).text()
+          stage = `parse ${path}`
+          const song = parseSong(text)
+          stage = `render ${path}`
+          const buffer = await renderSong(song)
+          log(`PASS ${path} ${buffer.duration.toFixed(2)}s`)
+        } catch (err) {
+          log(`FAIL ${path} ${err instanceof Error ? err.stack : String(err)}`)
+        }
+      }
+      log("DONE")
+    </script>
+  </body>
+</html>
