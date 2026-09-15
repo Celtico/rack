@@ -6,6 +6,7 @@ import {
   IconButton,
   NativeSelect,
   SegmentGroup,
+  SimpleGrid,
   Text,
   VStack,
 } from "@chakra-ui/react"
@@ -300,7 +301,8 @@ export function ModPanel({ id }: { id: string }) {
       <Collapsible.Content>
         {/* 10 px of air inside the fold, and between the groups. */}
         <VStack gap="6" align="stretch" p="2.5" pt="4">
-          <HStack gap="10" wrap="wrap" align="flex-start">
+          {/* One group per row on a phone, two from `sm`, four on a wide rack: nothing wraps ragged. */}
+          <SimpleGrid columns={{ base: 1, sm: 2, xl: 4 }} gap={{ base: "5", md: "8" }}>
             <VStack gap="2" align="flex-start">
               <Label>Tone</Label>
               <HStack gap="4" wrap="wrap">
@@ -352,14 +354,14 @@ export function ModPanel({ id }: { id: string }) {
                 />
               </HStack>
             </VStack>
-          </HStack>
+          </SimpleGrid>
           <VStack gap="2" align="flex-start">
             <Label>Macros</Label>
-            <HStack gap="10" wrap="wrap" align="flex-start">
+            <SimpleGrid columns={{ base: 1, sm: 2, lg: 4 }} gap={{ base: "5", md: "8" }} w="full">
               {Array.from({ length: MACRO_COUNT }, (_, i) => (
                 <MacroBlock key={i} id={id} inst={inst} index={i} />
               ))}
-            </HStack>
+            </SimpleGrid>
           </VStack>
         </VStack>
       </Collapsible.Content>

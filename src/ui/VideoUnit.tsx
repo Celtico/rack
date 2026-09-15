@@ -4,14 +4,13 @@ import {
   chakra,
   Flex,
   HStack,
-  NativeSelect,
   SegmentGroup,
   Slider,
   Text,
   VStack,
 } from "@chakra-ui/react"
 import { useEffect, useRef, useState, type ChangeEvent } from "react"
-import { LuEraser, LuRefreshCw, LuScissors, LuUpload } from "react-icons/lu"
+import { LuEraser, LuUpload } from "react-icons/lu"
 
 import { toaster } from "../components/ui/toaster"
 import { instanceLabel, KIND_TITLE, type InstanceOf } from "../state/instances"
@@ -52,8 +51,6 @@ import {
   subscribeStrip,
   UPLOAD_HEIGHT,
   uploadFormat,
-  VIDEO_HEIGHTS,
-  videoFormats,
   type ConvertOptions,
   type Strip,
   type VideoFormat,
@@ -181,8 +178,6 @@ export function VideoUnit({ id }: { id: string }) {
   const inst = useRackStore((s) => selectInstance(s, id)) as InstanceOf<"video"> | undefined
   const label = useRackStore((s) => (inst ? instanceLabel(inst, s.instances) : ""))
   const fileInput = useRef<HTMLInputElement>(null)
-  const [convertFormat, setConvertFormat] = useState(0)
-  const [convertHeight, setConvertHeight] = useState<ConvertOptions["height"]>(UPLOAD_HEIGHT)
   if (!inst) return null
   const p = inst.params
 
@@ -242,7 +237,6 @@ export function VideoUnit({ id }: { id: string }) {
       })
     }
   }
-  const formats = videoFormats()
 
   return (
     <RackUnit
@@ -304,58 +298,6 @@ export function VideoUnit({ id }: { id: string }) {
                 aria-label="Load video file"
               />
             </HStack>
-            {/* Another format or size, on demand — of the whole file or just the trimmed region. */}
-            {formats.length > 0 && p.videoName !== null && (
-              <HStack gap="2" wrap="wrap" align="center">
-                <NativeSelect.Root size="xs" w="28">
-                  <NativeSelect.Field
-                    aria-label="Convert to format"
-                    value={String(convertFormat)}
-                    onChange={(e) => setConvertFormat(Number(e.target.value))}
-                  >
-                    {formats.map((f, i) => (
-                      <option key={f.id} value={i}>
-                        {f.label}
-                      </option>
-                    ))}
-                  </NativeSelect.Field>
-                  <NativeSelect.Indicator />
-                </NativeSelect.Root>
-                <NativeSelect.Root size="xs" w="20">
-                  <NativeSelect.Field
-                    aria-label="Convert to height"
-                    value={String(convertHeight)}
-                    onChange={(e) =>
-                      setConvertHeight(Number(e.target.value) as ConvertOptions["height"])
-                    }
-                  >
-                    {VIDEO_HEIGHTS.map((h) => (
-                      <option key={h} value={h}>
-                        {h}p
-                      </option>
-                    ))}
-                  </NativeSelect.Field>
-                  <NativeSelect.Indicator />
-                </NativeSelect.Root>
-                <Button
-                  size="xs"
-                  rounded="sm"
-                  variant="subtle"
-                  onClick={() => void convert(formats[convertFormat]!, convertHeight, false)}
-                >
-                  <LuRefreshCw /> Convert
-                </Button>
-                <Button
-                  size="xs"
-                  rounded="sm"
-                  variant="outline"
-                  onClick={() => void convert(formats[convertFormat]!, convertHeight, true)}
-                  title="Keep only the trimmed region"
-                >
-                  <LuScissors /> Trim
-                </Button>
-              </HStack>
-            )}
             <HStack gap="3" align="center" wrap="nowrap">
               <Text textStyle="silkscreen" color="rack.silkscreen.muted">
                 Loop

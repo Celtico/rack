@@ -366,8 +366,8 @@ strict build order:
      Chrome, WebM VP9/VP8 elsewhere), `VIDEO_HEIGHTS` 180–480p; real time; the result replaces the stored
      file (`importVideo`) and is named `<name>-<h>p.<ext>`. **Every upload is converted at once** to
      `uploadFormat()` (MP4 if writable, else the first WebM) at `UPLOAD_HEIGHT` = 240p, with a loading
-     toast counting %; the panel also offers Convert (whole file) / Trim (only the region) with format and
-     height selects. This is what makes HEVC `.mov` from a phone usable everywhere and cheap to decode.
+     toast counting %. There is no manual converter in the panel any more (the user asked for it to go;
+     `videoFormats` / `VIDEO_HEIGHTS` / the `region` option remain in `videoLoops.ts` for a caller). This is what makes HEVC `.mov` from a phone usable everywhere and cheap to decode.
    - ✅ Extra — the BANK's **slot buttons head the parts matrix**: `StepGrid` gained an optional
      `header?: (step) => ReactNode` row (one element per column on the same tracks as the cells, an empty
      label cell in front), and `PartsMatrix` renders the sixteen slot blocks there — a pattern's number sits
@@ -450,8 +450,9 @@ strict build order:
      target `NativeSelect`s, Rate/Amount `sm` knobs), Random, and four macro knobs each with its assignment
      rows (target select, Min/Max `sm` knobs, ×, "+ Assign"). The LFO shape is the synths' `WavePicker`
      (glyphs, `label="Shape"`) and the LFO / random target a `TargetPicker` `SegmentGroup` of icons (ban,
-     filter, note, speaker; name as `aria-label` and `title`); the fold's content has `p="2.5"` (10 px) and
-     `gap="10"` between groups. MONO-1 and BASS-2 gained a full amp
+     filter, note, speaker; name as `aria-label` and `title`); the fold's content has `p="2.5"` (10 px); the groups
+     (Tone, LFO 1, LFO 2, Random) sit in a `SimpleGrid` of 1 / 2 / 4 columns (`base` / `sm` / `xl`) and
+     the macros in one of 1 / 2 / 4 (`base` / `sm` / `lg`), so a phone gets one tidy group per row. MONO-1 and BASS-2 gained a full amp
      **envelope** (`attack`, `sustain`, `release` params + knobs; `decay` still drives the filter envelope too).
    - ✅ Extra — SONG **repeat**: "+1 bar" (`repeatLastBar`, the last bar once more) and "×2"
      (`repeatChain`, the chain after itself, cut at `MAX_CHAIN`) next to Clear; both resume the song and are
