@@ -5,7 +5,10 @@ import { selectCanRedo, selectCanUndo, useRackStore } from "../state/store"
 import { toolbarIconButton } from "./toolbar"
 import { redoEdit, undoEdit } from "./undoRedo"
 
-/** The toolbar's undo and redo, dimmed when there is nothing to step through. */
+/**
+ * The toolbar's undo and redo, dimmed when there is nothing to step through.
+ * Not on a phone: the strip has no room for them there, and ⌘Z has no keyboard.
+ */
 export function UndoRedoButtons() {
   const canUndo = useRackStore(selectCanUndo)
   const canRedo = useRackStore(selectCanRedo)
@@ -15,6 +18,7 @@ export function UndoRedoButtons() {
         {...toolbarIconButton}
         aria-label="Undo"
         title="Undo (⌘Z)"
+        hideBelow="md"
         disabled={!canUndo}
         onClick={undoEdit}
       >
@@ -24,6 +28,7 @@ export function UndoRedoButtons() {
         {...toolbarIconButton}
         aria-label="Redo"
         title="Redo (⇧⌘Z)"
+        hideBelow="md"
         disabled={!canRedo}
         onClick={redoEdit}
       >

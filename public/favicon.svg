@@ -1,18 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <!-- RACK: a flat dark tile, a record with its grooves, a small amber R on the label. -->
-  <rect width="64" height="64" rx="14" fill="#1f2123"/>
-  <!-- The record -->
-  <circle cx="32" cy="32" r="26" fill="#111214"/>
-  <g fill="none" stroke="#3a3d40" stroke-width="1">
-    <circle cx="32" cy="32" r="23"/>
-    <circle cx="32" cy="32" r="20"/>
-    <circle cx="32" cy="32" r="17"/>
-  </g>
-  <circle cx="32" cy="32" r="26" fill="none" stroke="#ffb000" stroke-width="2"/>
-  <!-- The label, with the R on it -->
-  <circle cx="32" cy="32" r="13.5" fill="#2c2e30"/>
-  <g transform="translate(32 32) scale(0.5) translate(-33 -32)">
-    <path fill="#ffb000" fill-rule="evenodd"
+  <!-- RACK: a flat amber disc with a black R. -->
+  <circle cx="32" cy="32" r="32" fill="#ffb000"/>
+  <g transform="translate(32 32) scale(0.78) translate(-33 -32)">
+    <path fill="#111214" fill-rule="evenodd"
       d="M19.5 14H35a10 10 0 0 1 0 20h-1l12.5 16h-8.4L27.5 36.5V50h-8Z
          M27.5 19.8H35a4.2 4.2 0 0 1 0 8.4h-7.5Z"/>
   </g>

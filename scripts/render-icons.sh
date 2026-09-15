@@ -21,7 +21,7 @@ page() { # $1 = html file, $2 = "rounded" | "bleed", $3 = content scale for blee
   if [ "$2" = rounded ]; then
     body="<img src=\"$PWD/$SVG\" style=\"width:100vw;height:100vh;display:block\">"
   else
-    body="<div style=\"width:100vw;height:100vh;background:#1f2123;display:grid;place-items:center\">
+    body="<div style=\"width:100vw;height:100vh;background:#ffb000;display:grid;place-items:center\">
       <img src=\"$PWD/$SVG\" style=\"width:calc(100vw * $3);height:calc(100vh * $3);display:block\"></div>"
   fi
   printf '<!doctype html><meta charset="utf-8"><style>html,body{margin:0;background:transparent}</style>%s' "$body" > "$1"

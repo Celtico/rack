@@ -134,9 +134,8 @@ strict build order:
      Android from suspending the audio session (and the Web Audio graph) when the screen locks or another app
      comes up, and it puts the rack on the lock screen.
    - ✅ Extra — **PWA**: `vite-plugin-pwa` in `vite.config.ts` (`registerType: "autoUpdate"`, manifest name RACK,
-     standalone, icons in `public/icons/` rendered from `favicon.svg` (a flat dark tile, `metal.800`, holding a record — near-black disc, three
-     grey grooves, an amber rim — with a graphite label and a small amber bold "R" on it, a filled path with
-     an even-odd counter; no font, no gradient) by `scripts/render-icons.sh` — headless Chrome shots at 512
+     standalone, icons in `public/icons/` rendered from `favicon.svg` (a flat amber **disc** — a full circle, `amber.400` — with a near-black bold "R", a filled
+     path with an even-odd counter; no font, no gradient; the full-bleed variants use the same amber) by `scripts/render-icons.sh` — headless Chrome shots at 512
      and `sips` scales down; the Apple and maskable icons are full-bleed with the panel shrunk inside; the app shell is precached, `songs/`,
      `samples/`, `midi/` and the factory song are cached stale-while-revalidate as `rack-content`). `index.html`
      carries the iOS home-screen metas and `viewport-fit=cover`. `sw.js` and the manifest must be served
@@ -331,7 +330,8 @@ strict build order:
      Tests fake only the clock (`toFake: ["Date"]`, plus `setTimeout` for the debounce): fake-indexeddb
      delivers through real timers.
    - ✅ Extra — **Random / Reset sound** buttons in every machine's header (dice and rotate icons, next to
-     mute/solo): `randomizeInstanceSound(id, rng?)` → `randomizeInstance` in `src/state/random.ts` (pure,
+     mute/solo; **below `md`** (`useBreakpointValue`) the two are not rendered in the header — mute and solo
+     stay — and the grip menu offers Random sound and Factory sound instead): `randomizeInstanceSound(id, rng?)` → `randomizeInstance` in `src/state/random.ts` (pure,
      rng-injected: params by kind — log-uniform for frequencies and times, tasteful sub-ranges for resonance,
      drive 0–0.6, tune ±6; a random strip filter is mostly open, a highpass never above 600 Hz; sampler pads
      are kept; LFOs, random source and macros untouched) and `resetInstanceSound(id)` (params, strip filter
@@ -393,7 +393,8 @@ strict build order:
      `remember(state, key)` into its result; `loadSong` clears the history. `store.undo()` / `redo()` are pure
      and the UI (`undoEdit` / `redoEdit` in `src/ui/undoRedo.ts`) calls `engine.syncFromStore()` after them.
      `installUndoKeys()` (from `App`): ⌘Z / Ctrl+Z, ⇧⌘Z / Ctrl+Y, skipped inside text fields; `UndoRedoButtons`
-     sit after the mark on the toolbar, disabled via `selectCanUndo` / `selectCanRedo`.
+     sit after the mark on the toolbar (`hideBelow="md"`: not on a phone), disabled via `selectCanUndo` /
+     `selectCanRedo`.
 
 **All extras above are done.** Other ideas: LCD readouts per synth, drag-reorder on the timeline, per-step
 velocity on the kits.

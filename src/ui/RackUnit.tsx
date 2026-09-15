@@ -3,6 +3,7 @@ import {
   IconButton,
   Menu,
   Portal,
+  useBreakpointValue,
   useSlotRecipe,
   type RecipeVariantProps,
 } from "@chakra-ui/react"
@@ -83,6 +84,8 @@ export function RackUnit({
   const recipe = useSlotRecipe({ key: "rackUnit" })
   const styles = recipe({ units, finish })
   const folded = useRackStore((s) => !fixed && s.folded[id] === true)
+  // A phone's header keeps mute and solo; the dice and the reset move into the grip menu there.
+  const compact = useBreakpointValue({ base: true, md: false }) ?? false
   const muted = useRackStore((s) => s.instances.find((i) => i.id === id)?.mute ?? false)
   const soloed = useRackStore((s) => s.solo[id] === true)
   // Another machine is soloed and this one is not: it plays on but is not heard.
@@ -189,12 +192,22 @@ export function RackUnit({
     moveUnit(source, id)
   }
   // The grip's menu: what drag does, for keyboards and touch screens (no HTML5 drag there).
+  const randomSound = () => {
+    randomizeInstanceSound(id)
+    pushSound(id)
+  }
+  const factorySound = () => {
+    resetInstanceSound(id)
+    pushSound(id)
+  }
   const onGripSelect = (value: string) => {
     if (value === "up") nudgeUnit(id, -1)
     else if (value === "down") nudgeUnit(id, 1)
     else if (value === "remove") remove()
     else if (value === "copy-part") copyPart()
     else if (value === "paste-part") pastePart(activePattern)
+    else if (value === "random-sound") randomSound()
+    else if (value === "factory-sound") factorySound()
   }
 
   return (
@@ -265,19 +278,16 @@ export function RackUnit({
               <LuHeadphones />
             </IconButton>
           )}
-          {instance && (
+          {instance && !compact && (
             <>
-              {/* The sound only: the part in the grid stays. Both are one undo step. */}
+              {/* The sound only: the part in the grid stays. Both are one undo step. On a phone: the grip menu. */}
               <IconButton
                 size="xs"
                 variant="ghost"
                 color="inherit"
                 aria-label={`Random sound for ${model}`}
                 title="Random sound"
-                onClick={() => {
-                  randomizeInstanceSound(id)
-                  pushSound(id)
-                }}
+                onClick={randomSound}
               >
                 <LuDices />
               </IconButton>
@@ -287,10 +297,7 @@ export function RackUnit({
                 color="inherit"
                 aria-label={`Reset ${model} to factory sound`}
                 title="Factory sound"
-                onClick={() => {
-                  resetInstanceSound(id)
-                  pushSound(id)
-                }}
+                onClick={factorySound}
               >
                 <LuRotateCcw />
               </IconButton>
@@ -330,6 +337,17 @@ export function RackUnit({
             <Portal>
               <Menu.Positioner>
                 <Menu.Content>
+                  {/* What a phone's header does not show. */}
+                  {instance && compact && (
+                    <>
+                      <Menu.Item value="random-sound">
+                        <LuDices /> Random sound
+                      </Menu.Item>
+                      <Menu.Item value="factory-sound">
+                        <LuRotateCcw /> Factory sound
+                      </Menu.Item>
+                    </>
+                  )}
                   {movable && (
                     <>
                       <Menu.Item value="up">
