@@ -2,16 +2,20 @@
  * Reader for song files written before machines became instances (version 1).
  * Old files keep loading: every channel becomes the first instance of its kind.
  */
-import { defaultParams, type Instance, type KindParams } from "./instances"
+import { defaultParams, hasStripFilter, type Instance, type KindParams } from "./instances"
+import { defaultMod } from "./mod"
 import {
   BASS_PARAMS_DEFAULT,
   BASS_WAVEFORMS,
   DELAY_TIMES,
   EP_PARAMS_DEFAULT,
+  FILTER_DEFAULT,
+  FILTER_TYPES,
   PAD_DEFAULT,
   PERC_LEVELS_DEFAULT,
   POLY_PARAMS_DEFAULT,
   STRINGS_PARAMS_DEFAULT,
+  SYNTH_PARAMS_DEFAULT,
   WAVEFORMS,
   type BassParams,
   type EpParams,
@@ -223,9 +227,9 @@ function parseParams<T extends object>(
   const out = { ...defaults } as Record<string, unknown>
   for (const key of Object.keys(defaults)) {
     const options = (enums as Record<string, readonly string[] | undefined>)[key]
-    out[key] = options
-      ? oneOf(obj[key], `${path}.${key}`, options)
-      : num(obj[key], `${path}.${key}`)
+    // A field the file predates (the filter type) keeps its default.
+    const value = obj[key] ?? out[key]
+    out[key] = options ? oneOf(value, `${path}.${key}`, options) : num(value, `${path}.${key}`)
   }
   return out as T
 }
@@ -277,6 +281,7 @@ export function parseSongV1(s: Record<string, unknown>): Song {
     perc: parseNumbers(s.percLevels, "song.percLevels", PERC_VOICES, PERC_LEVELS_DEFAULT),
     sampler: parsePads(s.pads, "song.pads"),
     synth: {
+      ...SYNTH_PARAMS_DEFAULT,
       waveform: oneOf(synth.waveform, "song.synthParams.waveform", WAVEFORMS),
       cutoff: num(synth.cutoff, "song.synthParams.cutoff"),
       resonance: num(synth.resonance, "song.synthParams.resonance"),
@@ -284,9 +289,11 @@ export function parseSongV1(s: Record<string, unknown>): Song {
     } satisfies SynthParams,
     bass: parseParams<BassParams>(s.bassParams, "song.bassParams", BASS_PARAMS_DEFAULT, {
       waveform: BASS_WAVEFORMS,
+      filterType: FILTER_TYPES,
     }),
     poly: parseParams<PolyParams>(s.polyParams, "song.polyParams", POLY_PARAMS_DEFAULT, {
       waveform: WAVEFORMS,
+      filterType: FILTER_TYPES,
     }),
     ep: parseParams<EpParams>(s.epParams, "song.epParams", EP_PARAMS_DEFAULT),
     strings: parseParams<StringsParams>(
@@ -307,6 +314,9 @@ export function parseSongV1(s: Record<string, unknown>): Song {
         level: level[kind],
         send: send[kind],
         mute: mute[kind],
+        // Strip filters and modulation came later: wide open and still, as these files sounded.
+        ...(hasStripFilter(kind) ? { filter: { ...FILTER_DEFAULT } } : {}),
+        mod: defaultMod(),
       }) as Instance,
   )
 

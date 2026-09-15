@@ -1,4 +1,4 @@
-import { Flex, HStack, SegmentGroup, Text, VStack } from "@chakra-ui/react"
+import { Flex, HStack, Text, VStack } from "@chakra-ui/react"
 
 import { instanceLabel, KIND_TITLE, type InstanceOf } from "../state/instances"
 import {
@@ -7,22 +7,23 @@ import {
   SYNTH_RANGES,
   useRackStore,
   WAVEFORMS,
-  type Waveform,
 } from "../state/store"
+import { FilterControls } from "./FilterControls"
 import { Knob } from "./Knob"
+import { ModPanel } from "./ModPanel"
+import { PartTools } from "./PartTools"
 import { RackUnit } from "./RackUnit"
 import { SynthGrid } from "./TrackGrids"
+import { WavePicker } from "./WavePicker"
 import {
   changeParams,
   formatHz,
   formatMs,
+  formatPercent,
   formatQ,
   KIND_FINISH,
   kindIcon,
-  WAVE_LABELS,
 } from "./unitMeta"
-
-const isWaveform = (v: string | null): v is Waveform => WAVEFORMS.includes(v as Waveform)
 
 /** MONO-1: one note per column on an 8-row grid, with waveform, filter and decay. */
 export function MonoSynth({ id }: { id: string }) {
@@ -45,27 +46,26 @@ export function MonoSynth({ id }: { id: string }) {
       <Flex direction={{ base: "column", lg: "row" }} gap={{ base: "5", lg: "8" }} align="stretch">
         <SynthGrid id={id} />
 
-        <VStack gap="4" align="flex-start" flexShrink={0}>
-          <VStack gap="2" align="flex-start">
-            <Text textStyle="silkscreen" color="rack.silkscreen.muted">
-              Wave
-            </Text>
-            <SegmentGroup.Root
-              size="sm"
-              value={params.waveform}
-              onValueChange={(details) => {
-                if (isWaveform(details.value)) changeParams(id, { waveform: details.value })
-              }}
-            >
-              <SegmentGroup.Indicator />
-              {WAVEFORMS.map((wave) => (
-                <SegmentGroup.Item key={wave} value={wave}>
-                  <SegmentGroup.ItemText>{WAVE_LABELS[wave]}</SegmentGroup.ItemText>
-                  <SegmentGroup.ItemHiddenInput />
-                </SegmentGroup.Item>
-              ))}
-            </SegmentGroup.Root>
-          </VStack>
+        <Flex
+          wrap="wrap"
+          gap={{ base: "5", lg: "8" }}
+          align="flex-start"
+          alignContent="flex-start"
+          flex="1"
+          minW="0"
+        >
+          <WavePicker
+            value={params.waveform}
+            options={WAVEFORMS}
+            onChange={(waveform) => changeParams(id, { waveform })}
+          />
+
+          <FilterControls
+            type={params.filterType}
+            cutoff={params.cutoff}
+            q={params.resonance}
+            onTypeChange={(filterType) => changeParams(id, { filterType })}
+          />
 
           <HStack gap="4" wrap="wrap" align="flex-start">
             <Knob
@@ -89,19 +89,61 @@ export function MonoSynth({ id }: { id: string }) {
               format={formatQ}
               onChange={(resonance) => changeParams(id, { resonance })}
             />
-            <Knob
-              label="Decay"
-              value={params.decay}
-              min={SYNTH_RANGES.decay.min}
-              max={SYNTH_RANGES.decay.max}
-              step={0.01}
-              defaultValue={SYNTH_PARAMS_DEFAULT.decay}
-              format={formatMs}
-              onChange={(decay) => changeParams(id, { decay })}
-            />
           </HStack>
-        </VStack>
+
+          <VStack gap="2" align="flex-start">
+            <Text textStyle="silkscreen" color="rack.silkscreen.muted">
+              Envelope
+            </Text>
+            <HStack gap="4" wrap="wrap" align="flex-start">
+              <Knob
+                label="Attack"
+                scale="log"
+                value={params.attack}
+                min={SYNTH_RANGES.attack.min}
+                max={SYNTH_RANGES.attack.max}
+                step={0.001}
+                defaultValue={SYNTH_PARAMS_DEFAULT.attack}
+                format={formatMs}
+                onChange={(attack) => changeParams(id, { attack })}
+              />
+              <Knob
+                label="Decay"
+                value={params.decay}
+                min={SYNTH_RANGES.decay.min}
+                max={SYNTH_RANGES.decay.max}
+                step={0.01}
+                defaultValue={SYNTH_PARAMS_DEFAULT.decay}
+                format={formatMs}
+                onChange={(decay) => changeParams(id, { decay })}
+              />
+              <Knob
+                label="Sustain"
+                value={params.sustain}
+                min={SYNTH_RANGES.sustain.min}
+                max={SYNTH_RANGES.sustain.max}
+                step={0.01}
+                defaultValue={SYNTH_PARAMS_DEFAULT.sustain}
+                format={formatPercent}
+                onChange={(sustain) => changeParams(id, { sustain })}
+              />
+              <Knob
+                label="Release"
+                scale="log"
+                value={params.release}
+                min={SYNTH_RANGES.release.min}
+                max={SYNTH_RANGES.release.max}
+                step={0.01}
+                defaultValue={SYNTH_PARAMS_DEFAULT.release}
+                format={formatMs}
+                onChange={(release) => changeParams(id, { release })}
+              />
+            </HStack>
+          </VStack>
+          <PartTools id={id} kind="synth" />
+        </Flex>
       </Flex>
+      <ModPanel id={id} />
     </RackUnit>
   )
 }

@@ -1,9 +1,22 @@
-import { beforeEach, describe, expect, it } from "vitest"
+import { beforeEach, describe, expect, it, vi } from "vitest"
 
-import { defaultInstances, type InstanceOf } from "./instances"
+import { emptyHistory } from "./history"
+import { defaultInstances, type Instance, type InstanceOf } from "./instances"
 import { rowsOf, type KitTrack } from "./pattern"
 import { createDefaultBank, MAX_CHAIN, PATTERN_COUNT } from "./patterns"
-import { BPM_MAX, BPM_MIN, selectInstance, selectPattern, selectTrack, useRackStore } from "./store"
+import {
+  BPM_MAX,
+  BPM_MIN,
+  copyTrack,
+  selectCanRedo,
+  selectCanUndo,
+  selectInstance,
+  selectPattern,
+  selectTrack,
+  silencedBySolo,
+  toSong,
+  useRackStore,
+} from "./store"
 
 const kit = (id: string) => rowsOf(selectTrack(useRackStore.getState(), id) as KitTrack)
 const inst = <K extends "drums" | "sampler">(id: string) =>
@@ -27,7 +40,76 @@ describe("rack store", () => {
       instances,
       selectedPad: {},
       folded: {},
+      solo: {},
+      history: emptyHistory(),
+      stroke: null,
     })
+  })
+
+  it("undoes and redoes edits to the song, one knob turn as one step, and forgets them on a load", () => {
+    vi.useFakeTimers({ now: 10_000 })
+    try {
+      const store = useRackStore.getState()
+      expect(selectCanUndo(useRackStore.getState())).toBe(false)
+      expect(store.undo()).toBe(false)
+
+      store.toggleStep("drums-1", "kick", 3)
+      store.appendToChain(2)
+      vi.setSystemTime(11_000)
+      store.setBpm(130)
+      vi.setSystemTime(11_100)
+      store.setBpm(131)
+      vi.setSystemTime(11_200)
+      store.setBpm(132)
+      expect(useRackStore.getState().history.past).toHaveLength(3)
+
+      expect(store.undo()).toBe(true)
+      expect(useRackStore.getState().bpm).toBe(120)
+      expect(store.undo()).toBe(true)
+      expect(useRackStore.getState().chain).toEqual([])
+      expect(kit("drums-1").kick![3]).toBe(true)
+      expect(store.undo()).toBe(true)
+      expect(kit("drums-1").kick![3]).toBe(false)
+      expect(store.undo()).toBe(false)
+
+      expect(store.redo()).toBe(true)
+      expect(kit("drums-1").kick![3]).toBe(true)
+      expect(selectCanRedo(useRackStore.getState())).toBe(true)
+      // A new edit after an undo forgets what was ahead.
+      store.toggleStep("drums-1", "snare", 0)
+      expect(selectCanRedo(useRackStore.getState())).toBe(false)
+
+      store.loadSong(toSong(useRackStore.getState()))
+      expect(selectCanUndo(useRackStore.getState())).toBe(false)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it("undoes a painted stroke as one step, however long it took", () => {
+    vi.useFakeTimers({ now: 10_000 })
+    try {
+      const store = useRackStore.getState()
+      store.beginStroke()
+      store.toggleStep("drums-1", "hat", 0)
+      vi.setSystemTime(12_000)
+      store.toggleStep("drums-1", "hat", 1)
+      vi.setSystemTime(14_000)
+      store.toggleStep("drums-1", "hat", 2)
+      store.endStroke()
+      // The next press is its own step, even right away.
+      store.beginStroke()
+      store.toggleStep("drums-1", "hat", 3)
+      store.endStroke()
+      expect(useRackStore.getState().history.past).toHaveLength(2)
+
+      expect(store.undo()).toBe(true)
+      expect(kit("drums-1").hat!.slice(0, 4)).toEqual([true, true, true, false])
+      expect(store.undo()).toBe(true)
+      expect(kit("drums-1").hat!.slice(0, 4)).toEqual([false, false, false, false])
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it("clamps tempo to the allowed range", () => {
@@ -208,6 +290,29 @@ describe("rack store", () => {
     expect(after.find((i) => i.id === "perc-1")).toBe(before.find((i) => i.id === "perc-1"))
   })
 
+  it("solos machines: the others fall silent, a removed or reloaded machine drops it", () => {
+    const store = useRackStore.getState()
+    expect(silencedBySolo(useRackStore.getState().solo, "drums-1")).toBe(false)
+
+    store.setInstanceSolo("synth-1", true)
+    store.setInstanceSolo("no-such-unit", true)
+    expect(useRackStore.getState().solo).toEqual({ "synth-1": true })
+    expect(silencedBySolo(useRackStore.getState().solo, "drums-1")).toBe(true)
+    expect(silencedBySolo(useRackStore.getState().solo, "synth-1")).toBe(false)
+
+    store.setInstanceSolo("drums-1", true)
+    store.setInstanceSolo("synth-1", false)
+    expect(useRackStore.getState().solo).toEqual({ "drums-1": true })
+
+    store.removeInstance("drums-1")
+    expect(useRackStore.getState().solo).toEqual({})
+    expect(silencedBySolo(useRackStore.getState().solo, "synth-1")).toBe(false)
+
+    store.setInstanceSolo("synth-1", true)
+    store.loadSong(toSong(useRackStore.getState()))
+    expect(useRackStore.getState().solo).toEqual({})
+  })
+
   it("sets an FX parameter without mutating the previous fx", () => {
     const before = useRackStore.getState().fx
     useRackStore.getState().setFxParam("delayTime", "4n")
@@ -254,6 +359,223 @@ describe("rack store", () => {
     useRackStore.getState().setFolded(["drums-1"], false)
     expect(useRackStore.getState().folded["drums-1"]).toBe(false)
     expect(useRackStore.getState().folded["ep-1"]).toBe(true)
+  })
+
+  it("copies a machine's sound and part onto another of its kind, and duplicates it after itself", () => {
+    const store = useRackStore.getState()
+    store.toggleStep("drums-1", "kick", 0)
+    store.setInstanceParams("drums-1", { hat: 0.2 })
+    store.setInstanceLevel("drums-1", 0.5)
+    const second = store.addInstance("drums")
+    store.setInstanceLevel(second.id, 0.9)
+
+    expect(store.copyInstance("drums-1", "synth-1")).toBe(false)
+    expect(store.copyInstance("drums-1", "drums-1")).toBe(false)
+    expect(store.copyInstance("drums-1", second.id)).toBe(true)
+    expect(kit(second.id).kick![0]).toBe(true)
+    expect(inst<"drums">(second.id).params.hat).toBe(0.2)
+    expect(inst<"drums">(second.id).level).toBe(0.9)
+    // A copy, not a shared track: editing one leaves the other alone.
+    store.toggleStep(second.id, "kick", 0)
+    expect(kit("drums-1").kick![0]).toBe(true)
+
+    const dup = store.duplicateInstance("drums-1")!
+    const s = useRackStore.getState()
+    expect(dup.id).toBe("drums-3")
+    expect(s.instances.map((i) => i.id).slice(0, 2)).toEqual(["drums-1", "drums-3"])
+    expect(inst<"drums">("drums-3").level).toBe(0.5)
+    expect(inst<"drums">("drums-3").params.hat).toBe(0.2)
+    expect(kit("drums-3").kick![0]).toBe(true)
+    expect(store.duplicateInstance("no-such")).toBeNull()
+
+    // Both are undone as one step each.
+    store.undo()
+    expect(useRackStore.getState().instances.some((i) => i.id === "drums-3")).toBe(false)
+  })
+
+  it("repeats the last bar or the whole chain, never past the limit", () => {
+    const store = useRackStore.getState()
+    store.repeatLastBar()
+    store.repeatChain()
+    expect(useRackStore.getState().chain).toEqual([])
+
+    store.appendToChain(2)
+    store.appendToChain(5)
+    store.setFollowSong(false)
+    store.repeatLastBar()
+    expect(useRackStore.getState().chain).toEqual([2, 5, 5])
+    expect(useRackStore.getState().followSong).toBe(true)
+    store.repeatChain()
+    expect(useRackStore.getState().chain).toEqual([2, 5, 5, 2, 5, 5])
+
+    useRackStore.setState({ chain: Array.from({ length: MAX_CHAIN - 2 }, (_, i) => i % 3) })
+    store.repeatChain()
+    expect(useRackStore.getState().chain).toHaveLength(MAX_CHAIN)
+    expect(useRackStore.getState().chain.slice(-2)).toEqual([0, 1])
+    store.repeatLastBar()
+    expect(useRackStore.getState().chain).toHaveLength(MAX_CHAIN)
+  })
+
+  it("gives kits, sampler, EP-1 and STR-6 a strip filter, clamped, and the synths none", () => {
+    const store = useRackStore.getState()
+    const s = useRackStore.getState()
+    expect(selectInstance(s, "drums-1")!.filter).toEqual({
+      type: "lowpass",
+      cutoff: 20000,
+      resonance: 0.1,
+    })
+    expect(selectInstance(s, "synth-1")!.filter).toBeUndefined()
+
+    store.setInstanceFilter("drums-1", { type: "highpass", cutoff: 5 })
+    expect(selectInstance(useRackStore.getState(), "drums-1")!.filter).toEqual({
+      type: "highpass",
+      cutoff: 40,
+      resonance: 0.1,
+    })
+    store.setInstanceFilter("synth-1", { cutoff: 100 })
+    expect(selectInstance(useRackStore.getState(), "synth-1")!.filter).toBeUndefined()
+
+    store.undo()
+    expect(selectInstance(useRackStore.getState(), "drums-1")!.filter!.type).toBe("lowpass")
+  })
+
+  it("edits tune, drive, LFOs and random clamped, and a macro moves what it is assigned to", () => {
+    const store = useRackStore.getState()
+    store.setInstanceMod("synth-1", { tune: 30, drive: 0.3 })
+    store.setInstanceLfo("synth-1", 1, { target: "pitch", rate: 0, amount: 0.75 })
+    store.setInstanceRandom("drums-1", { target: "cutoff", amount: 9 })
+    let s = useRackStore.getState()
+    expect(selectInstance(s, "synth-1")!.mod.tune).toBe(12)
+    expect(selectInstance(s, "synth-1")!.mod.drive).toBe(0.3)
+    expect(selectInstance(s, "synth-1")!.mod.lfo[1]).toMatchObject({
+      target: "pitch",
+      rate: 0.05,
+      amount: 0.75,
+    })
+    expect(selectInstance(s, "synth-1")!.mod.lfo[0].target).toBe("off")
+    expect(selectInstance(s, "drums-1")!.mod.random).toEqual({ target: "cutoff", amount: 1 })
+
+    store.setMacroTargets("synth-1", 0, [
+      { key: "param:cutoff", min: 200, max: 1200 },
+      { key: "mod:drive", min: 0, max: 1 },
+    ])
+    expect(store.setMacro("synth-1", 0, 0.5)).toEqual({
+      params: { cutoff: 700 },
+      filter: {},
+      mod: { drive: 0.5 },
+    })
+    s = useRackStore.getState()
+    expect((selectInstance(s, "synth-1") as InstanceOf<"synth">).params.cutoff).toBe(700)
+    expect(selectInstance(s, "synth-1")!.mod.drive).toBe(0.5)
+    expect(selectInstance(s, "synth-1")!.mod.macros[0].value).toBe(0.5)
+    expect(store.setMacro("synth-1", 9, 0.5)).toBeNull()
+    expect(store.setMacro("no-such", 0, 0.5)).toBeNull()
+
+    store.setMacroTargets("drums-1", 3, [{ key: "filter:cutoff", min: 100, max: 2000 }])
+    expect(store.setMacro("drums-1", 3, 1)).toEqual({
+      params: {},
+      filter: { cutoff: 2000 },
+      mod: {},
+    })
+    expect(selectInstance(useRackStore.getState(), "drums-1")!.filter!.cutoff).toBe(2000)
+
+    store.undo()
+    expect(selectInstance(useRackStore.getState(), "drums-1")!.filter!.cutoff).toBe(20000)
+  })
+
+  it("loads a song saved before filters and modulation existed, filling in what it lacks", () => {
+    const song = toSong(useRackStore.getState())
+    const stale = song.instances.map((i) => {
+      const { filter: _f, mod: _m, ...rest } = i as Instance & { filter?: unknown; mod?: unknown }
+      return rest as Instance
+    })
+    stale[0]!.mod = { drive: 0.3, lfo: [{ target: "level" }] } as never
+    useRackStore.getState().loadSong({ ...song, instances: stale })
+    const s = useRackStore.getState()
+    expect(selectInstance(s, "drums-1")!.filter).toEqual({
+      type: "lowpass",
+      cutoff: 20000,
+      resonance: 0.1,
+    })
+    expect(selectInstance(s, "drums-1")!.mod.drive).toBe(0.3)
+    expect(selectInstance(s, "drums-1")!.mod.lfo[0]).toMatchObject({ target: "level", rate: 1 })
+    expect(selectInstance(s, "drums-1")!.mod.macros).toHaveLength(4)
+    expect(selectInstance(s, "synth-1")!.mod.tune).toBe(0)
+    expect(selectInstance(s, "synth-1")!.filter).toBeUndefined()
+  })
+
+  it("randomizes and resets a machine's filter — the synth's own, or the strip's", () => {
+    const store = useRackStore.getState()
+    store.randomizeFilter("synth-1", () => 0.999)
+    let synth = selectInstance(useRackStore.getState(), "synth-1") as InstanceOf<"synth">
+    expect(synth.params.cutoff).toBeGreaterThan(7500)
+    expect(synth.params.filterType).toBe("notch")
+    store.resetFilter("synth-1")
+    synth = selectInstance(useRackStore.getState(), "synth-1") as InstanceOf<"synth">
+    expect(synth.params).toMatchObject({ filterType: "lowpass", cutoff: 1200, resonance: 2 })
+
+    store.randomizeFilter("drums-1", () => 0)
+    expect(selectInstance(useRackStore.getState(), "drums-1")!.filter!.cutoff).toBeCloseTo(800, 0)
+    store.resetFilter("drums-1")
+    expect(selectInstance(useRackStore.getState(), "drums-1")!.filter!.cutoff).toBe(20000)
+    store.undo()
+    expect(selectInstance(useRackStore.getState(), "drums-1")!.filter!.cutoff).toBeCloseTo(800, 0)
+  })
+
+  it("lets a machine sit a slot out, on the pattern on screen or a given one", () => {
+    const store = useRackStore.getState()
+    store.togglePartMute("drums-1")
+    store.togglePartMute("synth-1", 3)
+    store.togglePartMute("no-such")
+    const s = useRackStore.getState()
+    expect(s.patterns[0]!.muted).toEqual(["drums-1"])
+    expect(s.patterns[3]!.muted).toEqual(["synth-1"])
+    expect(s.patterns[1]!.muted).toBeUndefined()
+    // Editing the part keeps the mute; copying the slot carries it along.
+    store.toggleStep("drums-1", "kick", 0)
+    expect(useRackStore.getState().patterns[0]!.muted).toEqual(["drums-1"])
+    store.copyActivePatternTo(5)
+    expect(useRackStore.getState().patterns[5]!.muted).toEqual(["drums-1"])
+    store.togglePartMute("drums-1", 0)
+    expect(useRackStore.getState().patterns[0]!.muted).toBeUndefined()
+    store.undo()
+    expect(useRackStore.getState().patterns[0]!.muted).toEqual(["drums-1"])
+  })
+
+  it("writes a random part into the pattern on screen only, as one undo step", () => {
+    const store = useRackStore.getState()
+    store.setActivePattern(2)
+    const before = useRackStore.getState().patterns
+    store.randomizePart("synth-1", () => 0)
+    const s = useRackStore.getState()
+    const track = s.patterns[2]!.tracks["synth-1"]!
+    const line = "notes" in track ? track.notes : []
+    expect(line.every((r) => r !== null)).toBe(true)
+    expect(s.patterns[0]).toBe(before[0])
+    store.undo()
+    expect(useRackStore.getState().patterns[2]).toBe(before[2])
+  })
+
+  it("pastes a copied track into another bank slot, of the same kind only", () => {
+    const store = useRackStore.getState()
+    store.toggleStep("drums-1", "kick", 5)
+    const track = copyTrack(selectTrack(useRackStore.getState(), "drums-1")!)
+
+    expect(store.setTrack("synth-1", 3, track)).toBe(false)
+    expect(store.setTrack("drums-1", 3, track)).toBe(true)
+    const s = useRackStore.getState()
+    expect(rowsOf(s.patterns[3]!.tracks["drums-1"] as KitTrack).kick![5]).toBe(true)
+    // A copy of the copy: the slot does not share arrays with the clipboard.
+    expect(s.patterns[3]!.tracks["drums-1"]).not.toBe(track)
+    expect(store.setTrack("drums-1", 99, track)).toBe(true)
+    expect(
+      rowsOf(useRackStore.getState().patterns.at(-1)!.tracks["drums-1"] as KitTrack).kick![5],
+    ).toBe(true)
+
+    store.undo()
+    expect(
+      rowsOf(useRackStore.getState().patterns.at(-1)!.tracks["drums-1"] as KitTrack).kick![5],
+    ).toBe(false)
   })
 
   it("adds a second machine of a kind with its own empty tracks in every slot", () => {

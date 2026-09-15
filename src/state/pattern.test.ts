@@ -4,6 +4,7 @@ import {
   bassEventAt,
   createEmptyPattern,
   emptyTrack,
+  isMutedIn,
   hitsAt,
   isPatternEmpty,
   isTrackEmpty,
@@ -13,6 +14,7 @@ import {
   toggleBassFlag,
   toggleKitStep,
   toggleTrackNote,
+  togglePartMute,
   withoutTrack,
   withTrack,
   type KitTrack,
@@ -170,5 +172,21 @@ describe("patterns", () => {
     const r = withoutTrack(q, "drums-1")
     expect(Object.keys(r.tracks)).toEqual(["drums-2", "bass-1"])
     expect(Object.keys(q.tracks)).toHaveLength(3)
+  })
+
+  it("lets a part sit a slot out, keeps that through track edits, and drops it with the instance", () => {
+    const p = createEmptyPattern([
+      { id: "drums-1", kind: "drums" },
+      { id: "synth-1", kind: "synth" },
+    ])
+    expect(isMutedIn(p, "drums-1")).toBe(false)
+    const out = togglePartMute(p, "drums-1")
+    expect(isMutedIn(out, "drums-1")).toBe(true)
+    expect(p.muted).toBeUndefined()
+    const edited = withTrack(out, "synth-1", emptyTrack("synth"))
+    expect(isMutedIn(edited, "drums-1")).toBe(true)
+    expect(togglePartMute(out, "drums-1").muted).toBeUndefined()
+    expect(withoutTrack(out, "drums-1").muted).toBeUndefined()
+    expect(withoutTrack(togglePartMute(out, "synth-1"), "drums-1").muted).toEqual(["synth-1"])
   })
 })

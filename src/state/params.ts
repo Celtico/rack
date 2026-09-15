@@ -47,27 +47,63 @@ export function defaultPads(): Record<PadId, PadParams> {
 export const WAVEFORMS = ["sawtooth", "square", "triangle", "sine"] as const
 export type Waveform = (typeof WAVEFORMS)[number]
 
+/** The shapes a synth's filter can take — `BiquadFilterType` names, as Tone wants them. */
+export const FILTER_TYPES = ["lowpass", "highpass", "bandpass", "notch"] as const
+export type FilterType = (typeof FILTER_TYPES)[number]
+
+/**
+ * The filter every machine without one of its own gets on its strip (kits,
+ * sampler, EP-1, STR-6): type, cutoff and resonance, like a synth's.
+ */
+export interface FilterParams {
+  type: FilterType
+  cutoff: number
+  resonance: number
+}
+
+export const FILTER_RANGES = {
+  cutoff: { min: 40, max: 20000 },
+  resonance: { min: 0.1, max: 20 },
+} as const
+
+/** Wide open: a lowpass at the top of hearing with no peak passes the sound as it is. */
+export const FILTER_DEFAULT: FilterParams = { type: "lowpass", cutoff: 20000, resonance: 0.1 }
+
 export interface SynthParams {
   waveform: Waveform
+  filterType: FilterType
   /** Filter cutoff, Hz. */
   cutoff: number
   /** Filter Q. */
   resonance: number
+  /** Amp envelope attack, seconds. */
+  attack: number
   /** Amp and filter envelope decay, seconds. */
   decay: number
+  /** Amp envelope sustain, 0–1. */
+  sustain: number
+  /** Amp envelope release, seconds. */
+  release: number
 }
 
 export const SYNTH_RANGES = {
   cutoff: { min: 80, max: 8000 },
   resonance: { min: 0.1, max: 20 },
+  attack: { min: 0.001, max: 2 },
   decay: { min: 0.02, max: 2 },
+  sustain: { min: 0, max: 1 },
+  release: { min: 0.02, max: 4 },
 } as const
 
 export const SYNTH_PARAMS_DEFAULT: SynthParams = {
   waveform: "sawtooth",
+  filterType: "lowpass",
   cutoff: 1200,
   resonance: 2,
+  attack: 0.005,
   decay: 0.25,
+  sustain: 0.4,
+  release: 0.15,
 }
 
 export const BASS_WAVEFORMS = ["sawtooth", "square"] as const
@@ -75,35 +111,52 @@ export type BassWaveform = (typeof BASS_WAVEFORMS)[number]
 
 export interface BassParams {
   waveform: BassWaveform
+  filterType: FilterType
   /** Filter cutoff, Hz. */
   cutoff: number
   /** Filter Q. */
   resonance: number
   /** Filter envelope depth, 0–1. */
   envMod: number
+  /** Amp envelope attack, seconds. */
+  attack: number
   /** Envelope decay, seconds. */
   decay: number
+  /** Amp envelope sustain, 0–1. */
+  sustain: number
+  /** Amp envelope release, seconds. */
+  release: number
 }
 
 export const BASS_RANGES = {
   cutoff: { min: 80, max: 5000 },
   resonance: { min: 0.1, max: 20 },
   envMod: { min: 0, max: 1 },
+  attack: { min: 0.001, max: 1 },
   decay: { min: 0.02, max: 1 },
+  sustain: { min: 0, max: 1 },
+  release: { min: 0.02, max: 2 },
 } as const
 
 export const BASS_PARAMS_DEFAULT: BassParams = {
   waveform: "sawtooth",
+  filterType: "lowpass",
   cutoff: 320,
   resonance: 9,
   envMod: 0.6,
+  attack: 0.003,
   decay: 0.22,
+  sustain: 0.25,
+  release: 0.08,
 }
 
 /** POLY-4: a subtractive pad. */
 export interface PolyParams {
   waveform: Waveform
+  filterType: FilterType
   cutoff: number
+  /** Filter Q. */
+  resonance: number
   attack: number
   decay: number
   sustain: number
@@ -112,6 +165,7 @@ export interface PolyParams {
 
 export const POLY_RANGES = {
   cutoff: { min: 80, max: 12000 },
+  resonance: { min: 0.1, max: 20 },
   attack: { min: 0.005, max: 2 },
   decay: { min: 0.02, max: 2 },
   sustain: { min: 0, max: 1 },
@@ -120,7 +174,9 @@ export const POLY_RANGES = {
 
 export const POLY_PARAMS_DEFAULT: PolyParams = {
   waveform: "sawtooth",
+  filterType: "lowpass",
   cutoff: 2200,
+  resonance: 1.2,
   attack: 0.02,
   decay: 0.3,
   sustain: 0.6,

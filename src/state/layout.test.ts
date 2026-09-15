@@ -34,6 +34,28 @@ describe("layout store", () => {
     useLayoutStore.setState({ order: [...ORDER], hidden: [] })
   })
 
+  it("places a unit right after another, or at the end when that one is unknown", () => {
+    const s = useLayoutStore.getState()
+    s.placeAfter("drums-2", "drums-1")
+    expect(useLayoutStore.getState().order).toEqual([
+      "FX-2",
+      "drums-1",
+      "drums-2",
+      "synth-1",
+      "bass-1",
+    ])
+    s.placeAfter("bass-1", "FX-2")
+    expect(useLayoutStore.getState().order).toEqual([
+      "FX-2",
+      "bass-1",
+      "drums-1",
+      "drums-2",
+      "synth-1",
+    ])
+    s.placeAfter("perc-1", "nowhere")
+    expect(useLayoutStore.getState().order.at(-1)).toBe("perc-1")
+  })
+
   it("nudges a unit up and down within bounds", () => {
     const s = useLayoutStore.getState()
     s.nudgeUnit("synth-1", -1)

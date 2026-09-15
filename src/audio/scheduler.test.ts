@@ -84,11 +84,13 @@ function makeScheduler(initial: Pattern, chain: number[] = []) {
   const triggerBass = vi.fn()
   const triggerPoly = vi.fn()
   const onStep = vi.fn()
+  const onTick = vi.fn()
   const getPattern = vi.fn((bar: number) => resolvePlayingPattern(patterns, active, chain, bar))
   const scheduler = new Scheduler({
     getPattern,
     getSwing: () => swing,
     sixteenthSeconds: () => SIXTEENTH,
+    onTick,
     trigger,
     triggerNote,
     triggerBass,
@@ -102,6 +104,7 @@ function makeScheduler(initial: Pattern, chain: number[] = []) {
     triggerBass,
     triggerPoly,
     onStep,
+    onTick,
     getPattern,
     setPattern: (next: Pattern, slot = 0) => {
       patterns = patterns.map((p, i) => (i === slot ? next : p))
@@ -175,10 +178,14 @@ describe("Scheduler", () => {
     pattern = hit(pattern, "drums-1", "kick", 8)
     pattern = hit(pattern, "drums-2", "snare", 4)
 
-    const { scheduler, trigger, onStep } = makeScheduler(pattern)
+    const { scheduler, trigger, onStep, onTick } = makeScheduler(pattern)
     scheduler.start()
     playBar(fake.sequences[0]!, 0)
 
+    // The tick hook runs once per step, at the step's time, before its triggers.
+    expect(onTick).toHaveBeenCalledTimes(16)
+    expect(onTick.mock.calls[4]?.[0]).toBe(0.5)
+    expect(onTick.mock.invocationCallOrder[0]!).toBeLessThan(trigger.mock.invocationCallOrder[0]!)
     expect(trigger.mock.calls).toEqual([
       ["drums-1", "kick", 0],
       ["drums-2", "kick", 0],
@@ -189,6 +196,21 @@ describe("Scheduler", () => {
     // Every UI update went through Draw with the audio time attached.
     expect(fake.drawSchedule).toHaveBeenCalledTimes(16)
     expect(fake.drawSchedule.mock.calls[4]?.[1]).toBe(0.5)
+  })
+
+  it("fires nothing for a part sitting the slot out, and rests a silenced bass", () => {
+    let pattern = empty()
+    pattern = hit(pattern, "drums-1", "kick", 0)
+    pattern = hit(pattern, "drums-2", "kick", 0)
+    pattern = { ...pattern, muted: ["drums-1", "bass-1"] }
+    expect(hitsForStep(pattern, 0)).toEqual([["drums-2", "kick"]])
+
+    const { scheduler, trigger, triggerBass } = makeScheduler(pattern)
+    scheduler.start()
+    playBar(fake.sequences[0]!, 0)
+    expect(trigger.mock.calls).toEqual([["drums-2", "kick", 0]])
+    expect(triggerBass).toHaveBeenCalledTimes(16)
+    expect(triggerBass.mock.calls[0]?.[1]).toEqual({ note: null, accent: false, slide: false })
   })
 
   it("fires the synth note of a column, and nothing on rests", () => {

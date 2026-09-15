@@ -6,6 +6,8 @@ import {
   DRUM_LEVELS_DEFAULT,
   EP_PARAMS_DEFAULT,
   EP_RANGES,
+  FILTER_DEFAULT,
+  FILTER_RANGES,
   PAD_RANGES,
   PERC_LEVELS_DEFAULT,
   POLY_PARAMS_DEFAULT,
@@ -17,12 +19,14 @@ import {
   type BassParams,
   type DrumLevels,
   type EpParams,
+  type FilterParams,
   type PadParams,
   type PercLevels,
   type PolyParams,
   type StringsParams,
   type SynthParams,
 } from "./params"
+import { clampMod, defaultMod, type ModParams } from "./mod"
 import { KINDS, PAD_IDS, type Kind, type PadId } from "./pattern"
 
 /** The parameter object of each kind. */
@@ -46,8 +50,24 @@ export type Instance = {
     level: number
     send: number
     mute: boolean
+    /** The strip's filter — only on the kinds without a filter of their own (`hasStripFilter`). */
+    filter?: FilterParams
+    /** Tuning, drive, LFOs, random and macros — every kind. */
+    mod: ModParams
   }
 }[Kind]
+
+export { clampMod }
+
+/** The kinds whose filter sits on the mixer strip; the synths carry theirs in `params`. */
+export const STRIP_FILTER_KINDS: readonly Kind[] = ["drums", "perc", "sampler", "ep", "strings"]
+export const hasStripFilter = (kind: Kind): boolean => STRIP_FILTER_KINDS.includes(kind)
+
+export const clampFilter = (f: FilterParams): FilterParams => ({
+  type: f.type,
+  cutoff: clamp(f.cutoff, FILTER_RANGES.cutoff.min, FILTER_RANGES.cutoff.max),
+  resonance: clamp(f.resonance, FILTER_RANGES.resonance.min, FILTER_RANGES.resonance.max),
+})
 
 export type InstanceOf<K extends Kind> = Extract<Instance, { kind: K }>
 
@@ -130,12 +150,22 @@ export function clampParams<K extends Kind>(kind: K, params: KindParams[K]): Kin
       for (const id of PAD_IDS) out[id] = clampFields(pads[id], PAD_RANGES)
       return out as KindParams[K]
     }
+    // Defaults underneath, so a params object from before a field existed gets it.
     case "synth":
-      return clampFields(params as SynthParams, SYNTH_RANGES) as KindParams[K]
+      return clampFields(
+        { ...SYNTH_PARAMS_DEFAULT, ...(params as SynthParams) },
+        SYNTH_RANGES,
+      ) as KindParams[K]
     case "bass":
-      return clampFields(params as BassParams, BASS_RANGES) as KindParams[K]
+      return clampFields(
+        { ...BASS_PARAMS_DEFAULT, ...(params as BassParams) },
+        BASS_RANGES,
+      ) as KindParams[K]
     case "poly":
-      return clampFields(params as PolyParams, POLY_RANGES) as KindParams[K]
+      return clampFields(
+        { ...POLY_PARAMS_DEFAULT, ...(params as PolyParams) },
+        POLY_RANGES,
+      ) as KindParams[K]
     case "ep":
       return clampFields(params as EpParams, EP_RANGES) as KindParams[K]
     case "strings":
@@ -163,6 +193,8 @@ export function createInstance(kind: Kind, existing: readonly Instance[]): Insta
     level: MIX_DEFAULT[kind].level,
     send: MIX_DEFAULT[kind].send,
     mute: false,
+    ...(hasStripFilter(kind) ? { filter: { ...FILTER_DEFAULT } } : {}),
+    mod: defaultMod(),
   } as Instance
 }
 

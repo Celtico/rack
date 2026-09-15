@@ -2,6 +2,7 @@ import * as Tone from "tone"
 
 import type { SynthNote } from "../../state/pattern"
 import type { SynthParams } from "../../state/store"
+import { transposeNote, type ModHooks } from "../types"
 import { fatOscillator } from "./oscillators"
 
 /** Ramp length for automatable parameter changes. */
@@ -18,14 +19,15 @@ const UNISON = { count: 3, spread: 18 }
  *     owns `filter.frequency`, so this is the only correct place to set it.
  *   - decay, waveform → plain properties; they take effect on the next note.
  */
-export class MonoVoice {
+export class MonoVoice implements ModHooks {
   private readonly synth: Tone.MonoSynth
+  private tune = 0
 
   constructor(output: Tone.ToneAudioNode, p: SynthParams) {
     this.synth = new Tone.MonoSynth({
       volume: -6,
       oscillator: fatOscillator(p.waveform, UNISON.count, UNISON.spread),
-      filter: { type: "lowpass", rolloff: -24, Q: p.resonance },
+      filter: { type: p.filterType, rolloff: -24, Q: p.resonance },
       filterEnvelope: {
         attack: 0.005,
         decay: p.decay,
@@ -34,12 +36,25 @@ export class MonoVoice {
         baseFrequency: p.cutoff,
         octaves: 2.5,
       },
-      envelope: { attack: 0.005, decay: p.decay, sustain: 0.4, release: 0.15 },
+      envelope: { attack: p.attack, decay: p.decay, sustain: p.sustain, release: p.release },
     }).connect(output)
   }
 
   trigger(note: SynthNote, time: number): void {
-    this.synth.triggerAttackRelease(note, "16n", time)
+    this.synth.triggerAttackRelease(transposeNote(note, this.tune), "16n", time)
+  }
+
+  setTune(semitones: number): void {
+    this.tune = semitones
+  }
+
+  /** The envelope drives it; a modulator connected here sums with the envelope. */
+  cutoffInput(): Tone.Signal<"frequency"> {
+    return this.synth.filter.frequency
+  }
+
+  pitchInputs(): Tone.Signal<"cents">[] {
+    return [this.synth.detune]
   }
 
   set<K extends keyof SynthParams>(key: K, value: SynthParams[K]): void {
@@ -49,15 +64,28 @@ export class MonoVoice {
           oscillator: fatOscillator(value as SynthParams["waveform"], UNISON.count, UNISON.spread),
         })
         break
+      case "filterType":
+        // A plain property on the BiquadFilters; it takes effect at once.
+        this.synth.filter.type = value as SynthParams["filterType"]
+        break
       case "cutoff":
         this.synth.filterEnvelope.baseFrequency = value as number
         break
       case "resonance":
         this.synth.filter.Q.rampTo(value as number, RAMP)
         break
+      case "attack":
+        this.synth.envelope.attack = value as number
+        break
       case "decay":
         this.synth.envelope.decay = value as number
         this.synth.filterEnvelope.decay = value as number
+        break
+      case "sustain":
+        this.synth.envelope.sustain = value as number
+        break
+      case "release":
+        this.synth.envelope.release = value as number
         break
     }
   }

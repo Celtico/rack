@@ -4,6 +4,7 @@ import {
   LuLayoutGrid,
   LuListMusic,
   LuPlus,
+  LuServer,
   LuSlidersHorizontal,
   LuTimer,
   LuTrash2,
@@ -89,6 +90,9 @@ function Row({ icon, name, title, count, actionLabel, actionIcon, onAction }: Ro
         _hover={{ bg: "whiteAlpha.50" }}
         _focusVisible={{ outline: "2px solid", outlineColor: "rack.led.on", outlineOffset: "-2px" }}
         _motionReduce={{ transition: "none" }}
+        // A machine already in the rack: its row sits on a grey ground.
+        data-present={count ? "" : undefined}
+        css={{ "&[data-present]": { bg: "metal.700", _hover: { bg: "metal.600" } } }}
         aria-label={actionLabel}
         onClick={onAction}
       >
@@ -283,7 +287,7 @@ export function AddUnitButton() {
       aria-pressed={open}
       onClick={() => toggle("add")}
     >
-      <LuPlus /> Add
+      <LuServer /> Add
       <Box as="span" hideBelow="md">
         &nbsp;unit
       </Box>

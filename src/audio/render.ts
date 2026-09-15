@@ -44,7 +44,8 @@ export function renderPlan(song: Pick<Song, "bpm" | "chain" | "fx">): RenderPlan
 export async function renderSong(raw: Song): Promise<AudioBuffer> {
   const song = clampSong(raw)
   const plan = renderPlan(song)
-  const state = { ...song, followSong: true }
+  // Solo is not part of a song: a render hears every machine.
+  const state = { ...song, followSong: true, solo: {} }
   const engine = new AudioEngine({ getState: () => state })
   const live = Tone.getContext()
   const ctx = new Tone.OfflineContext(2, plan.seconds, live.sampleRate)

@@ -1,5 +1,23 @@
-import { defaultParams, type Instance } from "./instances"
-import { BASS_WAVEFORMS, DELAY_TIMES, FX_DEFAULT, WAVEFORMS, type FxParams } from "./params"
+import { defaultParams, hasStripFilter, type Instance } from "./instances"
+import {
+  defaultMod,
+  LFO_SHAPES,
+  MACRO_COUNT,
+  MOD_TARGETS,
+  type LfoParams,
+  type Macro,
+  type ModParams,
+} from "./mod"
+import {
+  BASS_WAVEFORMS,
+  DELAY_TIMES,
+  FILTER_DEFAULT,
+  FILTER_TYPES,
+  FX_DEFAULT,
+  WAVEFORMS,
+  type FilterParams,
+  type FxParams,
+} from "./params"
 import {
   BASS_NOTES,
   emptyTrack,
@@ -202,11 +220,70 @@ function parseParams(v: unknown, path: string, kind: Kind): Instance["params"] {
     const value = obj[key] ?? defaults[key]
     if (key === "waveform") {
       out[key] = oneOf(value, `${path}.${key}`, kind === "bass" ? BASS_WAVEFORMS : WAVEFORMS)
+    } else if (key === "filterType") {
+      // Older files have no filter type: they keep the lowpass they were made with.
+      out[key] = oneOf(value, `${path}.${key}`, FILTER_TYPES)
     } else {
       out[key] = num(value, `${path}.${key}`)
     }
   }
   return out as Instance["params"]
+}
+
+/** The strip filter of a kind that has one; a file from before them, or a partial one, is wide open. */
+function parseFilter(v: unknown, path: string): FilterParams {
+  const obj = v === undefined ? {} : record(v, path)
+  return {
+    type: oneOf(obj.type ?? FILTER_DEFAULT.type, `${path}.type`, FILTER_TYPES),
+    cutoff: num(obj.cutoff ?? FILTER_DEFAULT.cutoff, `${path}.cutoff`),
+    resonance: num(obj.resonance ?? FILTER_DEFAULT.resonance, `${path}.resonance`),
+  }
+}
+
+/** Every field of the modulation block, each falling back to its default when the file lacks it. */
+function parseMod(v: unknown, path: string): ModParams {
+  const d = defaultMod()
+  if (v === undefined) return d
+  const obj = record(v, path)
+  const lfo = (i: 0 | 1): LfoParams => {
+    const raw = Array.isArray(obj.lfo) ? obj.lfo[i] : undefined
+    const l = raw === undefined ? {} : record(raw, `${path}.lfo[${i}]`)
+    const base = d.lfo[i]
+    return {
+      shape: oneOf(l.shape ?? base.shape, `${path}.lfo[${i}].shape`, LFO_SHAPES),
+      rate: num(l.rate ?? base.rate, `${path}.lfo[${i}].rate`),
+      target: oneOf(l.target ?? base.target, `${path}.lfo[${i}].target`, MOD_TARGETS),
+      amount: num(l.amount ?? base.amount, `${path}.lfo[${i}].amount`),
+    }
+  }
+  const macro = (i: number): Macro => {
+    const raw = Array.isArray(obj.macros) ? obj.macros[i] : undefined
+    const m = raw === undefined ? {} : record(raw, `${path}.macros[${i}]`)
+    const targets = m.targets === undefined ? [] : list(m.targets, `${path}.macros[${i}].targets`)
+    return {
+      value: num(m.value ?? 0, `${path}.macros[${i}].value`),
+      targets: targets.map((t, n) => {
+        const p = `${path}.macros[${i}].targets[${n}]`
+        const o = record(t, p)
+        return {
+          key: str(o.key, `${p}.key`),
+          min: num(o.min, `${p}.min`),
+          max: num(o.max, `${p}.max`),
+        }
+      }),
+    }
+  }
+  const random = obj.random === undefined ? {} : record(obj.random, `${path}.random`)
+  return {
+    tune: num(obj.tune ?? d.tune, `${path}.tune`),
+    drive: num(obj.drive ?? d.drive, `${path}.drive`),
+    lfo: [lfo(0), lfo(1)],
+    random: {
+      target: oneOf(random.target ?? d.random.target, `${path}.random.target`, MOD_TARGETS),
+      amount: num(random.amount ?? d.random.amount, `${path}.random.amount`),
+    },
+    macros: Array.from({ length: MACRO_COUNT }, (_, i) => macro(i)) as ModParams["macros"],
+  }
 }
 
 function parseInstance(v: unknown, path: string): Instance {
@@ -220,6 +297,8 @@ function parseInstance(v: unknown, path: string): Instance {
     level: num(obj.level, `${path}.level`),
     send: num(obj.send, `${path}.send`),
     mute: bool(obj.mute ?? false, `${path}.mute`),
+    ...(hasStripFilter(kind) ? { filter: parseFilter(obj.filter, `${path}.filter`) } : {}),
+    mod: parseMod(obj.mod, `${path}.mod`),
   } as Instance
 }
 
@@ -233,7 +312,15 @@ function parseSongV2(s: Record<string, unknown>): Song {
   const fx = s.fx === undefined ? {} : record(s.fx, "song.fx")
   const patterns = padBank(
     bank(s.patterns).map((p, n) => {
-      const tracks = record(record(p, `song.patterns[${n}]`).tracks, `song.patterns[${n}].tracks`)
+      const slot = record(p, `song.patterns[${n}]`)
+      const tracks = record(slot.tracks, `song.patterns[${n}].tracks`)
+      // Parts sitting this slot out: only ids the song knows; a missing list means everyone plays.
+      const muted =
+        slot.muted === undefined
+          ? []
+          : list(slot.muted, `song.patterns[${n}].muted`)
+              .map((m, i) => str(m, `song.patterns[${n}].muted[${i}]`))
+              .filter((m) => ids.has(m))
       return {
         tracks: Object.fromEntries(
           instances.map((i) => [
@@ -241,6 +328,7 @@ function parseSongV2(s: Record<string, unknown>): Song {
             parseTrack(tracks[i.id], `song.patterns[${n}].tracks.${i.id}`, i.kind),
           ]),
         ),
+        ...(muted.length ? { muted } : {}),
       }
     }),
     instances,

@@ -11,7 +11,7 @@ import {
 } from "react"
 
 import { STEP_COUNT } from "../state/pattern"
-import { useRackStore } from "../state/store"
+import { useRackStore, type RackState } from "../state/store"
 
 export interface StepGridRow<Id extends string> {
   id: Id
@@ -22,6 +22,10 @@ export interface StepGridRow<Id extends string> {
 export interface StepGridProps<Id extends string> {
   rows: readonly StepGridRow<Id>[]
   onToggle: (row: Id, step: number) => void
+  /** What the columns are, for the cells' accessible names: "step" (default) or "pattern". */
+  columnName?: string
+  /** Which column the store says is sounding; the step by default, a bank slot for the parts matrix. */
+  playheadOf?: (s: RackState) => number
 }
 
 const STEPS = Array.from({ length: STEP_COUNT }, (_, i) => i)
@@ -40,6 +44,7 @@ interface StepCellProps {
   step: number
   on: boolean
   onToggle: (row: never, step: number) => void
+  columnName: string
 }
 
 /**
@@ -47,12 +52,20 @@ interface StepCellProps {
  * lights the sounding column on the DOM itself (`data-playing`), so a step
  * costs no React render at all.
  */
-const StepCell = memo(function StepCell({ css, rowId, label, step, on, onToggle }: StepCellProps) {
+const StepCell = memo(function StepCell({
+  css,
+  rowId,
+  label,
+  step,
+  on,
+  onToggle,
+  columnName,
+}: StepCellProps) {
   return (
     <chakra.button
       type="button"
       css={css}
-      aria-label={`${label} step ${step + 1}`}
+      aria-label={`${label} ${columnName} ${step + 1}`}
       aria-pressed={on}
       data-accent={step % 4 === 0 ? "" : undefined}
       data-row={rowId}
@@ -99,7 +112,14 @@ function cellAt(x: number, y: number): Cell | null {
  * over takes the state the first one was given. Fingers keep scrolling the
  * page and the grid instead, and toggle with a tap.
  */
-export function StepGrid<Id extends string>({ rows, onToggle }: StepGridProps<Id>) {
+const stepPlayhead = (s: RackState) => s.currentStep
+
+export function StepGrid<Id extends string>({
+  rows,
+  onToggle,
+  columnName = "step",
+  playheadOf = stepPlayhead,
+}: StepGridProps<Id>) {
   const recipe = useSlotRecipe({ key: "stepGrid" })
   const styles = useMemo(() => recipe(), [recipe])
   const gridRef = useRef<HTMLDivElement>(null)
@@ -127,9 +147,9 @@ export function StepGrid<Id extends string>({ rows, onToggle }: StepGridProps<Id
           cell.setAttribute("data-playing", "")
       lit = step
     }
-    light(useRackStore.getState().currentStep)
-    return useRackStore.subscribe((s) => light(s.currentStep))
-  }, [])
+    light(playheadOf(useRackStore.getState()))
+    return useRackStore.subscribe((s) => light(playheadOf(s)))
+  }, [playheadOf])
 
   // The stroke in progress: the state being painted and the cells already done.
   const stroke = useRef<{ to: boolean; done: Set<string> } | null>(null)
@@ -145,6 +165,8 @@ export function StepGrid<Id extends string>({ rows, onToggle }: StepGridProps<Id
     if (!cell) return
     pressed.current = true
     stroke.current = { to: !cell.on, done: new Set([`${cell.row}:${cell.step}`]) }
+    // Everything painted until the pointer lifts undoes as one step.
+    useRackStore.getState().beginStroke()
     toggle(cell.row, cell.step)
     // Keep the moves coming when the drag leaves the grid (jsdom has no capture).
     if (typeof e.currentTarget.setPointerCapture === "function")
@@ -161,7 +183,9 @@ export function StepGrid<Id extends string>({ rows, onToggle }: StepGridProps<Id
     if (cell.on !== s.to) toggle(cell.row, cell.step)
   }
   const endStroke = () => {
+    if (!stroke.current) return
     stroke.current = null
+    useRackStore.getState().endStroke()
   }
   // A mouse press already toggled the cell; the click that follows it must not toggle it back.
   // A finger's tap and keyboard activation never set `pressed`, so their click reaches the cell.
@@ -194,6 +218,7 @@ export function StepGrid<Id extends string>({ rows, onToggle }: StepGridProps<Id
                 step={step}
                 on={row.steps[step] === true}
                 onToggle={toggleCell}
+                columnName={columnName}
               />
             ))}
           </chakra.div>

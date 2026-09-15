@@ -265,6 +265,74 @@ describe("song save/load", () => {
     badWave.instances.find((i) => i.id === "synth-1")!.params.waveform = "noise"
     expect(() => parseSong(JSON.stringify(badWave))).toThrow(/waveform/)
 
+    const badFilter = JSON.parse(serializeSong(song)) as {
+      instances: { id: string; params: { filterType?: string } }[]
+    }
+    badFilter.instances.find((i) => i.id === "bass-1")!.params.filterType = "comb"
+    expect(() => parseSong(JSON.stringify(badFilter))).toThrow(/filterType/)
+    // A file from before filter types: the lowpass it was made with.
+    delete badFilter.instances.find((i) => i.id === "bass-1")!.params.filterType
+    expect(instOf<"bass">(parseSong(JSON.stringify(badFilter)), "bass-1").params.filterType).toBe(
+      "lowpass",
+    )
+
+    // A strip filter round-trips; a file without one gets a wide-open lowpass.
+    useRackStore.getState().setInstanceFilter("drums-1", { type: "bandpass", cutoff: 900 })
+    const withFilter = parseSong(serializeSong(toSong(useRackStore.getState())))
+    expect(instOf<"drums">(withFilter, "drums-1").filter).toEqual({
+      type: "bandpass",
+      cutoff: 900,
+      resonance: 0.1,
+    })
+    const noFilter = JSON.parse(serializeSong(song)) as {
+      instances: { id: string; filter?: unknown }[]
+    }
+    delete noFilter.instances.find((i) => i.id === "drums-1")!.filter
+    expect(instOf<"drums">(parseSong(JSON.stringify(noFilter)), "drums-1").filter).toEqual({
+      type: "lowpass",
+      cutoff: 20000,
+      resonance: 0.1,
+    })
+    expect(instOf<"synth">(parseSong(JSON.stringify(noFilter)), "synth-1").filter).toBeUndefined()
+
+    // Parts sitting a slot out round-trip; unknown ids are dropped, a missing list means everyone plays.
+    useRackStore.getState().togglePartMute("drums-1", 2)
+    const withMuted = parseSong(serializeSong(toSong(useRackStore.getState())))
+    expect(withMuted.patterns[2]!.muted).toEqual(["drums-1"])
+    expect(withMuted.patterns[0]!.muted).toBeUndefined()
+    const strayMute = JSON.parse(serializeSong(withMuted)) as {
+      patterns: { muted?: string[] }[]
+    }
+    strayMute.patterns[2]!.muted = ["drums-1", "ghost-9"]
+    expect(parseSong(JSON.stringify(strayMute)).patterns[2]!.muted).toEqual(["drums-1"])
+
+    // Modulation round-trips, a partial block fills in, a missing one is still.
+    useRackStore.getState().setInstanceLfo("synth-1", 0, { target: "cutoff", shape: "square" })
+    useRackStore
+      .getState()
+      .setMacroTargets("synth-1", 1, [{ key: "param:cutoff", min: 100, max: 900 }])
+    const withMod = parseSong(serializeSong(toSong(useRackStore.getState())))
+    expect(instOf<"synth">(withMod, "synth-1").mod.lfo[0]).toMatchObject({
+      target: "cutoff",
+      shape: "square",
+    })
+    expect(instOf<"synth">(withMod, "synth-1").mod.macros[1].targets).toEqual([
+      { key: "param:cutoff", min: 100, max: 900 },
+    ])
+    const partialMod = JSON.parse(serializeSong(song)) as {
+      instances: { id: string; mod?: unknown }[]
+    }
+    partialMod.instances.find((i) => i.id === "bass-1")!.mod = { drive: 0.4, lfo: [{ rate: 3 }] }
+    delete partialMod.instances.find((i) => i.id === "drums-1")!.mod
+    const lenient = parseSong(JSON.stringify(partialMod))
+    expect(instOf<"bass">(lenient, "bass-1").mod.drive).toBe(0.4)
+    expect(instOf<"bass">(lenient, "bass-1").mod.lfo[0]).toMatchObject({ rate: 3, target: "off" })
+    expect(instOf<"bass">(lenient, "bass-1").mod.lfo[1].rate).toBe(0.25)
+    expect(instOf<"drums">(lenient, "drums-1").mod.tune).toBe(0)
+    expect(instOf<"drums">(lenient, "drums-1").mod.macros).toHaveLength(4)
+    partialMod.instances.find((i) => i.id === "bass-1")!.mod = { lfo: [{ target: "moon" }] }
+    expect(() => parseSong(JSON.stringify(partialMod))).toThrow(/lfo\[0\]\.target/)
+
     const dupe = JSON.parse(serializeSong(song)) as { instances: { id: string }[] }
     dupe.instances[1]!.id = dupe.instances[0]!.id
     expect(() => parseSong(JSON.stringify(dupe))).toThrow(/unique ids/)

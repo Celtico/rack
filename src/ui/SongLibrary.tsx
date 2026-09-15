@@ -20,10 +20,10 @@ import {
   LuFolder,
   LuFolderInput,
   LuFolderPlus,
+  LuHistory,
   LuLibrary,
   LuPencil,
   LuPlay,
-  LuRefreshCw,
   LuSave,
   LuSquare,
   LuTrash2,
@@ -39,8 +39,9 @@ import {
   songFileName,
   useLibraryStore,
   type LibraryEntry,
+  type SongVersion,
 } from "../state/songLibrary"
-import { toSong, useRackStore, type RackState } from "../state/store"
+import { toSong, useRackStore } from "../state/store"
 import { loadBuiltinSong, loadBuiltinSongs, type BuiltinSong } from "./builtinSongs"
 import { downloadJson } from "./download"
 import { markEscape } from "./escapeGuard"
@@ -49,6 +50,7 @@ import { Cover } from "./Cover"
 import { COVER_GRID, songLength } from "./coverGrid"
 import { FolderMenuItems, FolderPicker, NEW_FOLDER } from "./FolderPicker"
 import { LoadSongButton } from "./LoadSongButton"
+import { NewSongButton } from "./NewSongButton"
 import { playFolder, stopPlaylist, usePlaylistStore } from "./playlist"
 import { usePanelStore } from "./panels"
 import { SidePanel } from "./SidePanel"
@@ -210,7 +212,7 @@ export function SongCover({
       />
       {draft === null ? (
         <HStack gap="0" align="flex-start" w="full" minW="0">
-          <VStack gap="0" align="flex-start" flex="1" minW="0" pt="0.5">
+          <VStack gap="0" align="flex-start" alignContent="flex-start" flex="1" minW="0" pt="0.5">
             <Text
               className="song-name"
               srOnly={false}
@@ -386,7 +388,9 @@ export function SongsPanel() {
   // drawer opens (not on every step: comparing whole songs is not free).
   const nowPlaying = useLibraryStore((s) => s.nowPlaying)
   const current = entries.find((e) => e.id === nowPlaying) ?? null
-  const [dirty, setDirty] = useState(false)
+  const autosavedAt = useLibraryStore((s) => s.autosavedAt)
+  const versions = useLibraryStore((s) => (current ? s.versions[current.id] : undefined))
+  const [showVersions, setShowVersions] = useState(false)
   // Folders start folded; one opens on its row, or when a song has just been saved into it.
   const [openFolders, setOpenFolders] = useState<ReadonlySet<string>>(new Set())
   const playingFolder = usePlaylistStore((s) => s.folder)
@@ -426,37 +430,11 @@ export function SongsPanel() {
     [],
   )
 
-  // Has the rack drifted from its saved song? Checked while the panel is open — docked, it stays
-  // open while the rack is edited — but only when something a song holds changes, not on every
-  // step: comparing whole songs is not free.
+  // The versions of the song the rack holds, read once the panel shows them.
   useEffect(() => {
-    if (!open || !current) return
-    const check = (s: RackState) =>
-      setDirty(serializeSong(toSong(s)) !== serializeSong(current.song))
-    check(useRackStore.getState())
-    return useRackStore.subscribe((s, prev) => {
-      if (
-        s.patterns !== prev.patterns ||
-        s.instances !== prev.instances ||
-        s.fx !== prev.fx ||
-        s.chain !== prev.chain ||
-        s.bpm !== prev.bpm ||
-        s.swing !== prev.swing ||
-        s.masterVolume !== prev.masterVolume
-      )
-        check(s)
-    })
-  }, [open, current])
-
-  const updateCurrent = async () => {
-    if (!current) return
-    const updated = await useLibraryStore
-      .getState()
-      .update(current.id, toSong(useRackStore.getState()))
-    setDirty(false)
-    if (updated)
-      toaster.create({ type: "success", title: "Song updated", description: updated.name })
-  }
+    if (!open || !current || versions !== undefined) return
+    void useLibraryStore.getState().loadVersions(current.id)
+  }, [open, current, versions])
 
   const onSave = async (e: FormEvent) => {
     e.preventDefault()
@@ -466,48 +444,84 @@ export function SongsPanel() {
     toaster.create({ type: "success", title: "Song saved", description: entry.name })
   }
 
-  const discardChanges = () => {
+  // Put an earlier state back in the rack. What the rack holds now is kept as a version first,
+  // so nothing is lost; the autosave then makes the old state the current one.
+  const loadVersion = async (version: SongVersion) => {
     if (!current) return
-    useRackStore.getState().loadSong(current.song)
+    await useLibraryStore.getState().keepVersion(current.id)
+    useRackStore.getState().loadSong(version.song)
     getEngine().syncFromStore()
-    setDirty(false)
-    toaster.create({ type: "info", title: "Changes discarded", description: current.name })
+    toaster.create({
+      type: "info",
+      title: `${current.name} · version from ${when(version.savedAt)}`,
+      description: "In the rack now. The state it replaced is in the list too.",
+    })
   }
 
   return (
     <SidePanel id="songs" title="Songs">
-      {/* The rack holds a saved song, changed since: update it, or put it back. */}
-      {current && dirty && (
+      {/* The rack holds a saved song: it saves itself, and its earlier states wait here. */}
+      {current && (
         <VStack
           gap="2"
           align="stretch"
-          p="3"
-          mx="-3"
-          mb="4"
-          rounded="sm"
-          bg="rack.led.off"
+          pb="3"
+          mb="3"
+          borderBottomWidth="1px"
+          borderColor="rack.panel.divider"
           role="group"
-          aria-label={`${current.name} has changes`}
+          aria-label={`${current.name} versions`}
         >
-          <Text textStyle="silkscreen" color="rack.led.on">
-            {current.name} · changed since it was saved
-          </Text>
-          <HStack gap="2">
+          <HStack gap="2" align="center">
+            <Text textStyle="silkscreen" color="rack.silkscreen.muted" flex="1" minW="0">
+              {current.name} · saved by itself
+              {autosavedAt ? ` · ${when(autosavedAt)}` : ""}
+            </Text>
             <Button
-              size="sm"
+              size="xs"
+              variant="ghost"
               rounded="sm"
-              colorPalette="orange"
-              onClick={() => void updateCurrent()}
+              aria-expanded={showVersions}
+              onClick={() => setShowVersions((v) => !v)}
             >
-              <LuRefreshCw /> Update {current.name}
-            </Button>
-            <Button size="sm" rounded="sm" variant="outline" onClick={discardChanges}>
-              <LuUndo2 /> Discard
+              <LuHistory /> {versions ? versions.length : "…"} version
+              {versions?.length === 1 ? "" : "s"}
+              {showVersions ? <LuChevronUp /> : <LuChevronDown />}
             </Button>
           </HStack>
-          <Text textStyle="silkscreen" color="rack.silkscreen.muted">
-            Or save it as a new song below.
-          </Text>
+          {showVersions && (
+            <VStack as="ul" gap="1" align="stretch" listStyleType="none" m="0" p="0">
+              {versions?.length === 0 && (
+                <Text textStyle="silkscreen" color="rack.silkscreen.muted">
+                  No earlier versions yet — one is kept each time the song changes.
+                </Text>
+              )}
+              {versions?.map((v) => (
+                <HStack as="li" key={v.id} gap="2" align="center">
+                  <Text textStyle="silkscreen" flex="1" minW="0" lineClamp={1}>
+                    {when(v.savedAt)} · {v.song.bpm} BPM · {songLength(v.song.chain.length)}
+                  </Text>
+                  <Button
+                    size="xs"
+                    variant="subtle"
+                    rounded="sm"
+                    onClick={() => void loadVersion(v)}
+                    aria-label={`Load the version from ${when(v.savedAt)}`}
+                  >
+                    <LuUndo2 /> Load
+                  </Button>
+                  <IconButton
+                    size="xs"
+                    variant="ghost"
+                    aria-label={`Delete the version from ${when(v.savedAt)}`}
+                    onClick={() => void useLibraryStore.getState().removeVersion(v.id)}
+                  >
+                    <LuTrash2 />
+                  </IconButton>
+                </HStack>
+              ))}
+            </VStack>
+          )}
         </VStack>
       )}
       <VStack
@@ -526,7 +540,7 @@ export function SongsPanel() {
         bg={unsaved ? "rack.led.off" : undefined}
       >
         <Text textStyle="silkscreen" color={unsaved ? "rack.led.on" : "rack.silkscreen.muted"}>
-          {unsaved ? "Playing now · not in the library" : "Save what is in the rack"}
+          {unsaved ? "Playing now · not in the library yet" : "Save a copy under another name"}
         </Text>
         <HStack gap="2">
           <Input
@@ -564,6 +578,21 @@ export function SongsPanel() {
           From a file on this device
         </Text>
         <LoadSongButton onLoaded={setName} />
+      </HStack>
+
+      {/* Start over: the rack as it opens the first time. */}
+      <HStack
+        gap="3"
+        pb="3"
+        mb="3"
+        align="center"
+        borderBottomWidth="1px"
+        borderColor="rack.panel.divider"
+      >
+        <Text textStyle="silkscreen" color="rack.silkscreen.muted" flex="1">
+          Start from nothing
+        </Text>
+        <NewSongButton onNew={() => setName("")} />
       </HStack>
 
       <Text textStyle="silkscreen" color="rack.silkscreen.muted" mb="1">

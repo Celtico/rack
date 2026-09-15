@@ -66,6 +66,10 @@ export const rackUnitRecipe = defineSlotRecipe({
         outlineOffset: "2px",
       },
       "&[draggable=true]": { cursor: "grabbing", opacity: 0.85 },
+      // Silenced by another unit's solo: the nameplate and the thumbnail fade, the buttons stay bright.
+      "&[data-silenced]": {
+        "& [data-part=nameplate], & [data-part=preview]": { opacity: 0.4 },
+      },
     },
     grip: {
       display: "inline-flex",

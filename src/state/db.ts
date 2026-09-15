@@ -5,11 +5,13 @@
  */
 const DB_NAME = "rack"
 /** Bump when a store is added; `onupgradeneeded` creates whatever is missing. */
-const DB_VERSION = 2
+const DB_VERSION = 3
 
 export const STORES = {
   samples: "samples",
   songs: "songs",
+  /** Earlier states of saved songs, written by the autosave. */
+  versions: "versions",
 } as const
 export type StoreName = (typeof STORES)[keyof typeof STORES]
 

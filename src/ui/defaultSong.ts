@@ -1,9 +1,11 @@
 import { getEngine } from "../audio/engine"
+import { useLayoutStore } from "../state/layout"
 import { BPM_DEFAULT, FX_DEFAULT, MASTER_DEFAULT } from "../state/params"
 import { padBank } from "../state/patterns"
 import { SONG_VERSION, type Song } from "../state/song"
 import { useLibraryStore } from "../state/songLibrary"
-import { foldedAll, useRackStore } from "../state/store"
+import { foldedAll, toSong, useRackStore } from "../state/store"
+import { stopTransport } from "./transportControl"
 
 let pending: Promise<boolean> | null = null
 
@@ -39,6 +41,44 @@ export function loadDefaultSong(): Promise<boolean> {
     return false
   })()
   return pending
+}
+
+/** What "New song" replaced, so an Undo can put it back. */
+export interface ReplacedRack {
+  song: Song
+  nowPlaying: string | null
+  unsavedName: string | null
+}
+
+/**
+ * "New song": the rack as it opens the first time — stopped, no machines, no
+ * chain, every panel shown and folded, nothing from the library held. Returns
+ * what was in the rack, for an Undo.
+ */
+export function newSong(): ReplacedRack {
+  const lib = useLibraryStore.getState()
+  const before: ReplacedRack = {
+    song: toSong(useRackStore.getState()),
+    nowPlaying: lib.nowPlaying,
+    unsavedName: lib.unsavedName,
+  }
+  stopTransport()
+  lib.setNowPlaying(null)
+  lib.setUnsavedName(null)
+  useRackStore.getState().loadSong(emptyRack())
+  getEngine().syncFromStore()
+  useRackStore.setState({ folded: foldedAll([]) })
+  useLayoutStore.getState().showAll()
+  return before
+}
+
+/** Undo a "New song": the previous song is back in the rack, stopped, with its library link. */
+export function restoreRack(before: ReplacedRack): void {
+  const lib = useLibraryStore.getState()
+  lib.setNowPlaying(before.nowPlaying)
+  lib.setUnsavedName(before.unsavedName)
+  useRackStore.getState().loadSong(before.song)
+  getEngine().syncFromStore()
 }
 
 /** Test hook: forget the cached attempt. */

@@ -76,6 +76,21 @@ export const rowsOf = (track: KitTrack): KitRows => track.rows as KitRows
 /** One bank slot: a track per instance, keyed by instance id. */
 export interface Pattern {
   tracks: Readonly<Record<string, Track>>
+  /** Instances that keep their part but stay silent in this slot. Absent: everyone plays. */
+  muted?: readonly string[]
+}
+
+/** Does `id` sit out this pattern? */
+export const isMutedIn = (pattern: Pattern, id: string): boolean =>
+  pattern.muted?.includes(id) === true
+
+/** The pattern with `id` switched between playing and sitting out. Never mutates the input. */
+export function togglePartMute(pattern: Pattern, id: string): Pattern {
+  const muted = isMutedIn(pattern, id)
+    ? (pattern.muted ?? []).filter((m) => m !== id)
+    : [...(pattern.muted ?? []), id]
+  const { muted: _was, ...rest } = pattern
+  return muted.length ? { ...rest, muted } : rest
 }
 
 const row = (...on: number[]): StepRow =>
@@ -206,13 +221,14 @@ export function createStarterPattern(instances: readonly TrackOwner[]): Pattern 
 
 /** Replace one instance's track. Never mutates the input. */
 export function withTrack(pattern: Pattern, id: string, track: Track): Pattern {
-  return { tracks: { ...pattern.tracks, [id]: track } }
+  return { ...pattern, tracks: { ...pattern.tracks, [id]: track } }
 }
 
 export function withoutTrack(pattern: Pattern, id: string): Pattern {
   const tracks = { ...pattern.tracks }
   delete tracks[id]
-  return { tracks }
+  const muted = pattern.muted?.filter((m) => m !== id)
+  return muted?.length ? { tracks, muted } : { tracks }
 }
 
 const flip = (steps: StepRow, step: number): StepRow =>

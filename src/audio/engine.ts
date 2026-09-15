@@ -1,9 +1,16 @@
 import * as Tone from "tone"
 
 import type { Instance, KindParams } from "../state/instances"
+import { modSwing, type ModParams, type ModTarget } from "../state/mod"
 import { PAD_IDS, type Kind, type PadId } from "../state/pattern"
 import { resolvePlayingPattern } from "../state/patterns"
-import { useRackStore, type FxParams, type PadParams, type RackState } from "../state/store"
+import {
+  useRackStore,
+  type FilterParams,
+  type FxParams,
+  type PadParams,
+  type RackState,
+} from "../state/store"
 import { BassVoice } from "./devices/bass"
 import { DrumKit } from "./devices/drums"
 import { MonoVoice } from "./devices/monoSynth"
@@ -30,8 +37,28 @@ interface Strip {
   input: Tone.Gain
   send: Tone.Gain
   meter: Tone.Meter
+  /** The strip's own filter, between the device and the input — kinds without a filter of their own. */
+  filter: Tone.Filter | null
+  /** The strip filter's cutoff as a signal, so the modulators can sum with it. */
+  filterBase: Tone.Signal<"frequency"> | null
+  /** Saturation after the filter; `wet` is the drive knob. */
+  drive: Tone.Distortion
+  /** A gain the level modulators move — separate from `input`, which mute and solo own. */
+  trem: Tone.Gain
+  tremBase: Tone.Signal
+  lfos: [Tone.LFO, Tone.LFO]
+  /** Where each LFO is connected, to know when to rewire. */
+  lfoTargets: [ModTarget, ModTarget]
+  /** Per-step random offset, rolled by the scheduler's tick. */
+  random: Tone.Signal
+  randomTarget: ModTarget
+  randomAmount: number
+  /** The cutoff the modulators swing around — the strip filter's, or the device's own. */
+  cutoffHz: number
   level: number
   muted: boolean
+  /** Heard alone: while any strip is soloed, the ones that are not fall silent. */
+  solo: boolean
   device: Device
 }
 
@@ -50,6 +77,7 @@ export type EngineState = Pick<
   | "activePattern"
   | "chain"
   | "followSong"
+  | "solo"
 >
 
 /**
@@ -72,6 +100,8 @@ const RAMP = 0.03
 const REVERB_DEBOUNCE_MS = 150
 /** Meter ballistics: enough smoothing to read, little enough to bounce. */
 const METER_SMOOTHING = 0.85
+/** The drive stage's curve; the knob only sets how much of it is heard (`wet`). */
+const DRIVE_CURVE = 0.5
 
 /**
  * The single audio engine. Owns every Tone node; React never creates one.
@@ -159,6 +189,7 @@ export class AudioEngine {
       },
       getSwing: () => this.source.getState().swing,
       sixteenthSeconds: () => this.transport.toSeconds("16n"),
+      onTick: (time) => this.stepMod(time),
       trigger: (id, voice, time) => this.hit(id, voice, time),
       triggerNote: (id, note, time) => {
         const d = this.strips.get(id)?.device
@@ -201,19 +232,52 @@ export class AudioEngine {
   /** Wire a new instance into the graph. No-op before build() — build() reads the store itself. */
   addInstance(inst: Instance): void {
     if (!this.master || !this.fxInput || this.strips.has(inst.id)) return
-    const input = new Tone.Gain(inst.mute ? 0 : inst.level).connect(this.master)
+    const input = new Tone.Gain(0).connect(this.master)
     const send = new Tone.Gain(inst.send).connect(this.fxInput)
     const meter = new Tone.Meter({ normalRange: true, smoothing: METER_SMOOTHING })
     input.connect(send)
     input.connect(meter)
-    this.strips.set(inst.id, {
+    // device → [filter] → drive → trem → input. Modulators sum into signals the strip owns.
+    const trem = new Tone.Gain(0).connect(input)
+    const tremBase = new Tone.Signal(1).connect(trem.gain)
+    const drive = new Tone.Distortion({ distortion: DRIVE_CURVE, wet: inst.mod.drive }).connect(
+      trem,
+    )
+    const filter = inst.filter
+      ? new Tone.Filter({ type: inst.filter.type, Q: inst.filter.resonance, rolloff: -24 }).connect(
+          drive,
+        )
+      : null
+    const filterBase = filter
+      ? new Tone.Signal({ value: inst.filter!.cutoff, units: "frequency" }).connect(
+          filter.frequency,
+        )
+      : null
+    const strip: Strip = {
       input,
       send,
       meter,
+      filter,
+      filterBase,
+      drive,
+      trem,
+      tremBase,
+      lfos: [this.makeLfo(inst.mod.lfo[0]), this.makeLfo(inst.mod.lfo[1])],
+      lfoTargets: ["off", "off"],
+      random: new Tone.Signal(0),
+      randomTarget: "off",
+      randomAmount: 0,
+      cutoffHz: inst.filter?.cutoff ?? ("cutoff" in inst.params ? inst.params.cutoff : 1000),
       level: inst.level,
       muted: inst.mute,
-      device: this.createDevice(inst, input),
-    })
+      solo: this.source.getState().solo[inst.id] === true,
+      device: this.createDevice(inst, filter ?? drive),
+    }
+    this.strips.set(inst.id, strip)
+    this.applyMod(strip, inst.mod)
+    // Born at its resting gain — and, if it is the first solo, the others go quiet.
+    if (strip.solo) this.applyAllGains()
+    else input.gain.value = this.gainOf(strip)
   }
 
   private createDevice(inst: Instance, output: Tone.ToneAudioNode): Device {
@@ -243,9 +307,18 @@ export class AudioEngine {
     if (!strip) return
     this.strips.delete(id)
     this.disposeDevice(strip.device)
+    for (const lfo of strip.lfos) lfo.dispose()
+    strip.random.dispose()
+    strip.filterBase?.dispose()
+    strip.filter?.dispose()
+    strip.drive.dispose()
+    strip.tremBase.dispose()
+    strip.trem.dispose()
     strip.input.dispose()
     strip.send.dispose()
     strip.meter.dispose()
+    // Taking out the last soloed strip gives the others their voice back.
+    if (strip.solo) this.applyAllGains()
   }
 
   private disposeDevice(device: Device): void {
@@ -325,13 +398,142 @@ export class AudioEngine {
     this.applyGain(strip)
   }
 
+  /** Hear an instance on its own. Not saved with the song; a load clears it. */
+  setInstanceSolo(id: string, solo: boolean): void {
+    const strip = this.strips.get(id)
+    if (!strip || strip.solo === solo) return
+    strip.solo = solo
+    // Every strip's gain depends on whether any solo is on.
+    this.applyAllGains()
+  }
+
   private applyGain(strip: Strip): void {
-    strip.input.gain.rampTo(strip.muted ? 0 : strip.level, RAMP)
+    strip.input.gain.rampTo(this.gainOf(strip), RAMP)
+  }
+
+  private applyAllGains(): void {
+    for (const strip of this.strips.values()) this.applyGain(strip)
+  }
+
+  /** The strip's gain into the master: its level, unless it is muted or another strip is soloed. */
+  private gainOf(strip: Strip): number {
+    if (strip.muted) return 0
+    if (strip.solo) return strip.level
+    for (const other of this.strips.values()) if (other.solo) return 0
+    return strip.level
   }
 
   /** How much of an instance goes to the FX bus, 0–1. */
   setInstanceSend(id: string, level: number): void {
     this.strips.get(id)?.send.gain.rampTo(level, RAMP)
+  }
+
+  /** Apply (part of) a strip filter: the type at once, cutoff and Q with a ramp. */
+  setInstanceFilter(id: string, patch: Partial<FilterParams>): void {
+    const strip = this.strips.get(id)
+    if (!strip?.filter || !strip.filterBase) return
+    if (patch.type !== undefined) strip.filter.type = patch.type
+    if (patch.cutoff !== undefined) {
+      strip.filterBase.rampTo(patch.cutoff, RAMP)
+      this.setCutoffHz(strip, patch.cutoff)
+    }
+    if (patch.resonance !== undefined) strip.filter.Q.rampTo(patch.resonance, RAMP)
+  }
+
+  /** The whole modulation block of an instance, applied: tune, drive, both LFOs and the random source. */
+  setInstanceMod(id: string, mod: ModParams): void {
+    const strip = this.strips.get(id)
+    if (strip) this.applyMod(strip, mod)
+  }
+
+  private makeLfo(p: ModParams["lfo"][number]): Tone.LFO {
+    const lfo = new Tone.LFO({ type: p.shape, frequency: p.rate, min: -1, max: 1 })
+    lfo.start()
+    return lfo
+  }
+
+  private applyMod(strip: Strip, mod: ModParams): void {
+    strip.drive.wet.rampTo(mod.drive, RAMP)
+    const hooks =
+      "kit" in strip.device
+        ? null
+        : "voice" in strip.device
+          ? strip.device.voice
+          : strip.device.poly
+    hooks?.setTune(mod.tune)
+    mod.lfo.forEach((p, i) => {
+      const lfo = strip.lfos[i]!
+      lfo.type = p.shape
+      lfo.frequency.rampTo(p.rate, RAMP)
+      if (strip.lfoTargets[i] !== p.target) {
+        this.wire(strip, lfo, p.target)
+        strip.lfoTargets[i] = p.target
+      }
+      const swing = modSwing(p.target, p.amount, strip.cutoffHz)
+      lfo.min = -swing
+      lfo.max = swing
+    })
+    if (strip.randomTarget !== mod.random.target) {
+      this.wire(strip, strip.random, mod.random.target)
+      strip.randomTarget = mod.random.target
+      strip.random.value = 0
+    }
+    strip.randomAmount = mod.random.amount
+  }
+
+  /** Connect a modulator to whatever `target` means on this strip; "off" (or nothing to reach) leaves it loose. */
+  private wire(strip: Strip, source: Tone.LFO | Tone.Signal, target: ModTarget): void {
+    source.disconnect()
+    for (const param of this.targetParams(strip, target)) source.connect(param)
+  }
+
+  private targetParams(strip: Strip, target: ModTarget): Tone.InputNode[] {
+    const hooks =
+      "kit" in strip.device
+        ? null
+        : "voice" in strip.device
+          ? strip.device.voice
+          : strip.device.poly
+    switch (target) {
+      case "cutoff": {
+        const param = strip.filter ? strip.filter.frequency : hooks?.cutoffInput()
+        return param ? [param] : []
+      }
+      case "pitch":
+        return hooks?.pitchInputs() ?? []
+      case "level":
+        return [strip.trem.gain]
+      case "off":
+        return []
+    }
+  }
+
+  /** The cutoff moved: the modulators aiming at it swing around the new value. */
+  private setCutoffHz(strip: Strip, hz: number): void {
+    strip.cutoffHz = hz
+    strip.lfos.forEach((lfo, i) => {
+      if (strip.lfoTargets[i] !== "cutoff") return
+      const p = this.modOf(strip)?.lfo[i]
+      if (!p) return
+      const swing = modSwing("cutoff", p.amount, hz)
+      lfo.min = -swing
+      lfo.max = swing
+    })
+  }
+
+  private modOf(strip: Strip): ModParams | undefined {
+    for (const [id, s] of this.strips)
+      if (s === strip) return this.source.getState().instances.find((i) => i.id === id)?.mod
+    return undefined
+  }
+
+  /** One sixteenth begins: every strip with a random source rolls a new offset for it. */
+  private stepMod(time: number): void {
+    for (const strip of this.strips.values()) {
+      if (strip.randomTarget === "off") continue
+      const swing = modSwing(strip.randomTarget, strip.randomAmount, strip.cutoffHz)
+      strip.random.setValueAtTime((Math.random() * 2 - 1) * swing, time)
+    }
   }
 
   /**
@@ -340,9 +542,13 @@ export class AudioEngine {
    * what ramps and what is a plain setter.
    */
   setInstanceParams(id: string, patch: Partial<KindParams[Kind]>): void {
-    const device = this.strips.get(id)?.device
-    if (!device) return
+    const strip = this.strips.get(id)
+    const device = strip?.device
+    if (!strip || !device) return
     const entries = Object.entries(patch as Record<string, unknown>)
+    // A synth's own cutoff moved: its modulators swing around the new value.
+    const cutoff = (patch as { cutoff?: unknown }).cutoff
+    if (typeof cutoff === "number" && !strip.filter) this.setCutoffHz(strip, cutoff)
     switch (device.kind) {
       case "drums":
       case "perc":
@@ -456,11 +662,16 @@ export class AudioEngine {
         this.addInstance(inst)
         continue
       }
-      this.setInstanceLevel(inst.id, inst.level)
-      this.setInstanceMute(inst.id, inst.mute)
+      strip.level = inst.level
+      strip.muted = inst.mute
+      strip.solo = s.solo[inst.id] === true
       this.setInstanceSend(inst.id, inst.send)
       this.setInstanceParams(inst.id, inst.params)
+      if (inst.filter) this.setInstanceFilter(inst.id, inst.filter)
+      this.setInstanceMod(inst.id, inst.mod)
     }
+    // Once, after every strip's flags are in: a solo changes what the others do.
+    this.applyAllGains()
     for (const key of Object.keys(s.fx) as (keyof FxParams)[]) this.setFxParam(key, s.fx[key])
   }
 

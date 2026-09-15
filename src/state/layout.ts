@@ -45,6 +45,8 @@ export interface LayoutState {
   showAll: () => void
   /** Make sure every id is in the order (appended) and nothing else is. */
   syncUnits: (ids: readonly string[]) => void
+  /** Put `id` right under `after` — where a duplicate belongs. Unknown `after`: appended. */
+  placeAfter: (id: string, after: string) => void
 }
 
 /** Reorders `order` so that `id` lands at `target`'s index. Pure. */
@@ -123,6 +125,14 @@ export const useLayoutStore = create<LayoutState>()(
           return order.length === s.order.length && order.every((id, i) => id === s.order[i])
             ? s
             : { order }
+        }),
+      placeAfter: (id, after) =>
+        set((s) => {
+          if (isPinnedUnit(id)) return s
+          const order = s.order.filter((x) => x !== id)
+          const at = order.indexOf(after)
+          order.splice(at < 0 ? order.length : at + 1, 0, id)
+          return { order }
         }),
     }),
     {

@@ -20,8 +20,9 @@ export const stepGridRecipe = defineSlotRecipe({
     root: {
       // Painting with a drag must not select the labels along the way.
       userSelect: "none",
-      // Takes what is left next to a unit's controls and scrolls inside — never pushes them off.
-      flex: "1 1 auto",
+      // As wide as its cells and no more, scrolling inside when short of room: the unit's controls
+      // flow right after it instead of being pushed to the far edge of the panel.
+      flex: "0 1 auto",
       minW: "0",
       overflowX: "auto",
       overscrollBehaviorX: "contain",

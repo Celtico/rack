@@ -1,4 +1,4 @@
-import { Flex, HStack, SegmentGroup, Text, VStack } from "@chakra-ui/react"
+import { Flex, HStack } from "@chakra-ui/react"
 
 import { instanceLabel, KIND_TITLE, type InstanceOf } from "../state/instances"
 import {
@@ -11,23 +11,25 @@ import {
   STRINGS_RANGES,
   useRackStore,
   WAVEFORMS,
-  type Waveform,
 } from "../state/store"
+import { FilterControls, StripFilterControls } from "./FilterControls"
 import { Knob } from "./Knob"
+import { ModPanel } from "./ModPanel"
 import { PolyGrid } from "./PolyGrid"
+import { PartTools } from "./PartTools"
 import { RackUnit } from "./RackUnit"
+import { WavePicker } from "./WavePicker"
 import {
   changeParams,
   formatHz,
   formatMs,
   formatPercent,
+  formatQ,
   formatSeconds,
   KIND_FINISH,
   kindIcon,
-  WAVE_LABELS,
 } from "./unitMeta"
 
-const isWaveform = (v: string | null): v is Waveform => WAVEFORMS.includes(v as Waveform)
 const formatRatio = (v: number) => `${v.toFixed(2)}×`
 const formatIndex = (v: number) => v.toFixed(1)
 const formatSustain = (v: number) => v.toFixed(3)
@@ -39,27 +41,18 @@ function PadControls({ id, inst }: { id: string; inst: InstanceOf<"poly"> }) {
   const p = inst.params
   return (
     <>
-      <VStack gap="2" align="flex-start">
-        <Text textStyle="silkscreen" color="rack.silkscreen.muted">
-          Wave
-        </Text>
-        <SegmentGroup.Root
-          size="sm"
-          value={p.waveform}
-          onValueChange={(details) => {
-            if (isWaveform(details.value)) changeParams(id, { waveform: details.value })
-          }}
-        >
-          <SegmentGroup.Indicator />
-          {WAVEFORMS.map((wave) => (
-            <SegmentGroup.Item key={wave} value={wave}>
-              <SegmentGroup.ItemText>{WAVE_LABELS[wave]}</SegmentGroup.ItemText>
-              <SegmentGroup.ItemHiddenInput />
-            </SegmentGroup.Item>
-          ))}
-        </SegmentGroup.Root>
-      </VStack>
-      <HStack gap="4" wrap="wrap" align="flex-start" maxW={{ lg: "56" }}>
+      <WavePicker
+        value={p.waveform}
+        options={WAVEFORMS}
+        onChange={(waveform) => changeParams(id, { waveform })}
+      />
+      <FilterControls
+        type={p.filterType}
+        cutoff={p.cutoff}
+        q={p.resonance}
+        onTypeChange={(filterType) => changeParams(id, { filterType })}
+      />
+      <HStack gap="4" wrap="wrap" align="flex-start">
         <Knob
           label="Cutoff"
           scale="log"
@@ -70,6 +63,16 @@ function PadControls({ id, inst }: { id: string; inst: InstanceOf<"poly"> }) {
           defaultValue={POLY_PARAMS_DEFAULT.cutoff}
           format={formatHz}
           onChange={(cutoff) => changeParams(id, { cutoff })}
+        />
+        <Knob
+          label="Res"
+          value={p.resonance}
+          min={POLY_RANGES.resonance.min}
+          max={POLY_RANGES.resonance.max}
+          step={0.1}
+          defaultValue={POLY_PARAMS_DEFAULT.resonance}
+          format={formatQ}
+          onChange={(resonance) => changeParams(id, { resonance })}
         />
         <Knob
           label="Attack"
@@ -123,7 +126,7 @@ function PadControls({ id, inst }: { id: string; inst: InstanceOf<"poly"> }) {
 function PianoControls({ id, inst }: { id: string; inst: InstanceOf<"ep"> }) {
   const p = inst.params
   return (
-    <HStack gap="4" wrap="wrap" align="flex-start" maxW={{ lg: "56" }}>
+    <HStack gap="4" wrap="wrap" align="flex-start">
       <Knob
         label="Tone"
         value={p.tone}
@@ -174,7 +177,7 @@ function PianoControls({ id, inst }: { id: string; inst: InstanceOf<"ep"> }) {
 function GuitarControls({ id, inst }: { id: string; inst: InstanceOf<"strings"> }) {
   const p = inst.params
   return (
-    <HStack gap="4" wrap="wrap" align="flex-start" maxW={{ lg: "56" }}>
+    <HStack gap="4" wrap="wrap" align="flex-start">
       <Knob
         label="Damp"
         scale="log"
@@ -229,12 +232,22 @@ export function PolyUnit({ id }: { id: string }) {
     >
       <Flex direction={{ base: "column", lg: "row" }} gap={{ base: "5", lg: "8" }} align="stretch">
         <PolyGrid id={id} />
-        <VStack gap="4" align="flex-start" flexShrink={0}>
+        <Flex
+          wrap="wrap"
+          gap={{ base: "5", lg: "8" }}
+          align="flex-start"
+          alignContent="flex-start"
+          flex="1"
+          minW="0"
+        >
           {inst.kind === "poly" && <PadControls id={id} inst={inst} />}
           {inst.kind === "ep" && <PianoControls id={id} inst={inst} />}
           {inst.kind === "strings" && <GuitarControls id={id} inst={inst} />}
-        </VStack>
+          {inst.filter && <StripFilterControls id={id} filter={inst.filter} />}
+          <PartTools id={id} kind={inst.kind} />
+        </Flex>
       </Flex>
+      <ModPanel id={id} />
     </RackUnit>
   )
 }

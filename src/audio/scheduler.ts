@@ -3,6 +3,7 @@ import * as Tone from "tone"
 import {
   bassEventAt,
   hitsAt,
+  isMutedIn,
   polyNotesAt,
   STEP_COUNT,
   synthNoteAt,
@@ -16,11 +17,14 @@ import type { PlayingPattern } from "../state/patterns"
 export function hitsForStep(pattern: Pattern, step: number): [id: string, voice: string][] {
   const out: [string, string][] = []
   for (const [id, track] of Object.entries(pattern.tracks)) {
-    if (!("rows" in track)) continue
+    if (!("rows" in track) || isMutedIn(pattern, id)) continue
     for (const voice of hitsAt(track, step)) out.push([id, voice])
   }
   return out
 }
+
+/** What a silenced bass part receives on every step: a rest. */
+const REST: BassStepEvent = { note: null, accent: false, slide: false }
 
 /** At full swing an off-beat sixteenth lands a third late — the triplet feel. */
 export const SWING_MAX_FRACTION = 1 / 3
@@ -51,6 +55,8 @@ export interface SchedulerDeps {
   triggerBass: (id: string, event: BassStepEvent, time: number, stepSeconds: number) => void
   /** Sound a chord on a polyphonic instance. Only called when there are notes. */
   triggerPoly: (id: string, notes: string[], time: number) => void
+  /** Before the step's triggers, at the step's (swung) time — the per-step random modulation is rolled here. */
+  onTick?: (time: number) => void
   /** UI-side playhead; invoked through Draw so it lands on the matching frame. Absent when nothing watches (offline render). */
   onStep?: (step: number, patternIndex: number, bar: number) => void
 }
@@ -95,8 +101,14 @@ export class Scheduler {
     const { index, pattern } = this.deps.getPattern(bar)
     const sixteenth = this.deps.sixteenthSeconds()
     const at = time + swingOffset(step, this.deps.getSwing(), sixteenth)
+    this.deps.onTick?.(at)
 
     for (const [id, track] of Object.entries(pattern.tracks)) {
+      // A part sitting this slot out: nothing fires — a bass gets a rest, so a held slide lets go.
+      if (isMutedIn(pattern, id)) {
+        if (track.kind === "bass") this.deps.triggerBass(id, REST, at, sixteenth)
+        continue
+      }
       switch (track.kind) {
         case "drums":
         case "perc":

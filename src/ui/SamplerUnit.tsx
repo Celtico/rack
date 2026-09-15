@@ -8,7 +8,10 @@ import { instanceLabel, KIND_TITLE, type InstanceOf } from "../state/instances"
 import { PAD_IDS, type KitRows, type PadId } from "../state/pattern"
 import { PAD_DEFAULT, PAD_RANGES, selectInstance, selectTrack, useRackStore } from "../state/store"
 import { Display } from "./Display"
+import { StripFilterControls } from "./FilterControls"
 import { Knob } from "./Knob"
+import { ModPanel } from "./ModPanel"
+import { PartTools } from "./PartTools"
 import { RackUnit } from "./RackUnit"
 import { loadFactoryKit } from "./samplerKits"
 import { StepGrid } from "./StepGrid"
@@ -111,110 +114,119 @@ export function SamplerUnit({ id }: { id: string }) {
       <Flex direction={{ base: "column", xl: "row" }} gap={{ base: "5", xl: "8" }} align="stretch">
         <StepGrid rows={gridRows} onToggle={(p, step) => toggleStep(id, p, step)} />
 
-        <VStack gap="3" align="flex-start" flexShrink={0} maxW={{ xl: "64" }}>
-          <HStack gap="2" w="full">
-            <Text textStyle="silkscreen" color="rack.silkscreen.muted">
-              Pad
-            </Text>
-            {/* Eight CC0 one-shots into the eight pads, so the sampler has something to say out of the box. */}
-            <Button
-              size="xs"
-              rounded="sm"
-              variant="subtle"
-              ml="auto"
-              loading={loadingKit}
-              onClick={() => void loadKit()}
-            >
-              <LuPackage /> Load kit
-            </Button>
-          </HStack>
-          <HStack gap="1" wrap="wrap">
-            {PAD_IDS.map((p) => (
+        <Flex
+          wrap="wrap"
+          gap={{ base: "5", lg: "8" }}
+          align="flex-start"
+          alignContent="flex-start"
+          flex="1"
+          minW="0"
+        >
+          <VStack gap="3" align="flex-start" maxW={{ xl: "64" }}>
+            <HStack gap="2" w="full">
+              <Text textStyle="silkscreen" color="rack.silkscreen.muted">
+                Pad
+              </Text>
+              {/* Eight CC0 one-shots into the eight pads, so the sampler has something to say out of the box. */}
               <Button
-                key={p}
                 size="xs"
                 rounded="sm"
-                variant={p === selected ? "solid" : "subtle"}
-                colorPalette={p === selected ? "orange" : "gray"}
-                aria-pressed={p === selected}
-                aria-label={`Select pad ${padNumber(p)}`}
-                onClick={() => pick(p)}
+                variant="subtle"
+                ml="auto"
+                loading={loadingKit}
+                onClick={() => void loadKit()}
               >
-                {padNumber(p)}
+                <LuPackage /> Load kit
               </Button>
-            ))}
-          </HStack>
+            </HStack>
+            <HStack gap="1" wrap="wrap">
+              {PAD_IDS.map((p) => (
+                <Button
+                  key={p}
+                  size="xs"
+                  rounded="sm"
+                  variant={p === selected ? "solid" : "subtle"}
+                  colorPalette={p === selected ? "orange" : "gray"}
+                  aria-pressed={p === selected}
+                  aria-label={`Select pad ${padNumber(p)}`}
+                  onClick={() => pick(p)}
+                >
+                  {padNumber(p)}
+                </Button>
+              ))}
+            </HStack>
 
-          <HStack gap="2" wrap="wrap">
-            <Display size="sm" aria-label="Sample" minW="24" title={pad.name ?? undefined}>
-              {pad.name ? shortName(pad.name, selected) : "— empty —"}
-            </Display>
-            <Button
-              size="xs"
-              rounded="sm"
-              variant="subtle"
-              onClick={() => fileInput.current?.click()}
-            >
-              <LuUpload /> Load
-            </Button>
-            <Button
-              size="xs"
-              rounded="sm"
-              variant="outline"
-              onClick={clear}
-              disabled={pad.name === null}
-              aria-label={`Clear pad ${padNumber(selected)}`}
-            >
-              <LuEraser />
-            </Button>
-            <chakra.input
-              ref={fileInput}
-              type="file"
-              accept="audio/*"
-              onChange={load}
-              srOnly
-              aria-label="Load sample file"
-            />
-          </HStack>
+            <HStack gap="2" wrap="wrap">
+              <Display size="sm" aria-label="Sample" minW="24" title={pad.name ?? undefined}>
+                {pad.name ? shortName(pad.name, selected) : "— empty —"}
+              </Display>
+              <Button
+                size="xs"
+                rounded="sm"
+                variant="subtle"
+                onClick={() => fileInput.current?.click()}
+              >
+                <LuUpload /> Load
+              </Button>
+              <Button
+                size="xs"
+                rounded="sm"
+                variant="outline"
+                onClick={clear}
+                disabled={pad.name === null}
+                aria-label={`Clear pad ${padNumber(selected)}`}
+              >
+                <LuEraser />
+              </Button>
+              <chakra.input
+                ref={fileInput}
+                type="file"
+                accept="audio/*"
+                onChange={load}
+                srOnly
+                aria-label="Load sample file"
+              />
+            </HStack>
 
-          <HStack gap="4" wrap="wrap">
-            <Knob
-              size="sm"
-              label="Pitch"
-              value={pad.pitch}
-              min={PAD_RANGES.pitch.min}
-              max={PAD_RANGES.pitch.max}
-              step={1}
-              defaultValue={PAD_DEFAULT.pitch}
-              format={formatSemitones}
-              onChange={(pitch) => changePad({ pitch })}
-            />
-            <Knob
-              size="sm"
-              label="Decay"
-              scale="log"
-              value={pad.decay}
-              min={PAD_RANGES.decay.min}
-              max={PAD_RANGES.decay.max}
-              step={0.01}
-              defaultValue={PAD_DEFAULT.decay}
-              format={formatSeconds}
-              onChange={(decay) => changePad({ decay })}
-            />
-            <Knob
-              size="sm"
-              label="Level"
-              value={pad.level}
-              min={0}
-              max={1}
-              step={0.01}
-              defaultValue={PAD_DEFAULT.level}
-              format={formatPercent}
-              onChange={(level) => changePad({ level })}
-            />
-          </HStack>
-        </VStack>
+            <HStack gap="4" wrap="wrap">
+              <Knob
+                label="Pitch"
+                value={pad.pitch}
+                min={PAD_RANGES.pitch.min}
+                max={PAD_RANGES.pitch.max}
+                step={1}
+                defaultValue={PAD_DEFAULT.pitch}
+                format={formatSemitones}
+                onChange={(pitch) => changePad({ pitch })}
+              />
+              <Knob
+                label="Decay"
+                scale="log"
+                value={pad.decay}
+                min={PAD_RANGES.decay.min}
+                max={PAD_RANGES.decay.max}
+                step={0.01}
+                defaultValue={PAD_DEFAULT.decay}
+                format={formatSeconds}
+                onChange={(decay) => changePad({ decay })}
+              />
+              <Knob
+                label="Level"
+                value={pad.level}
+                min={0}
+                max={1}
+                step={0.01}
+                defaultValue={PAD_DEFAULT.level}
+                format={formatPercent}
+                onChange={(level) => changePad({ level })}
+              />
+            </HStack>
+          </VStack>
+          {inst.filter && <StripFilterControls id={id} filter={inst.filter} />}
+          <PartTools id={id} kind="sampler" />
+        </Flex>
       </Flex>
+      <ModPanel id={id} />
     </RackUnit>
   )
 }

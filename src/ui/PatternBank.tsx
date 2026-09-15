@@ -2,9 +2,11 @@ import { Button, chakra, HStack, useSlotRecipe, VStack } from "@chakra-ui/react"
 import { useMemo } from "react"
 import { LuArrowRight, LuCopy, LuPlay, LuRepeat } from "react-icons/lu"
 
-import { isPatternEmpty } from "../state/pattern"
+import { instanceLabel } from "../state/instances"
+import { isMutedIn, isPatternEmpty } from "../state/pattern"
 import { PATTERN_COUNT } from "../state/patterns"
-import { useRackStore } from "../state/store"
+import { useRackStore, type RackState } from "../state/store"
+import { StepGrid } from "./StepGrid"
 import { startTransport } from "./transportControl"
 
 const SLOTS = Array.from({ length: PATTERN_COUNT }, (_, i) => i)
@@ -19,6 +21,42 @@ const MINI_SLOT = {
   fontSize: "xs",
   color: "rack.display.fg",
 } as const
+
+const slotPlayhead = (s: RackState) => s.playingPattern
+
+/**
+ * Who plays in which slot: one row per machine, one column per pattern, lit
+ * where the part sounds. The same grid as the sequencers, so a click (or a
+ * drag) flips cells, and the sounding slot's column lights up.
+ */
+function PartsMatrix() {
+  const instances = useRackStore((s) => s.instances)
+  const patterns = useRackStore((s) => s.patterns)
+  const { togglePartMute } = useRackStore.getState()
+  const rows = useMemo(
+    () =>
+      instances.map((inst) => ({
+        id: inst.id,
+        label: instanceLabel(inst, instances),
+        steps: patterns.map((p) => !isMutedIn(p, inst.id)),
+      })),
+    [instances, patterns],
+  )
+  if (rows.length === 0) return null
+  return (
+    <VStack gap="1" align="stretch">
+      <chakra.span textStyle="silkscreen" color="rack.silkscreen.muted">
+        Who plays in each pattern
+      </chakra.span>
+      <StepGrid
+        rows={rows}
+        columnName="pattern"
+        playheadOf={slotPlayhead}
+        onToggle={(id, slot) => togglePartMute(id, slot)}
+      />
+    </VStack>
+  )
+}
 
 /** Bank of patterns, with the copy of the active one to the next slot. Files live on the toolbar. */
 export function PatternBank() {
@@ -119,6 +157,7 @@ export function PatternBank() {
           </chakra.span>
         </Button>
       </HStack>
+      <PartsMatrix />
     </VStack>
   )
 }

@@ -11,21 +11,34 @@ import {
   LuArrowDown,
   LuArrowUp,
   LuChevronDown,
+  LuChevronRight,
   LuChevronUp,
+  LuClipboardCopy,
+  LuClipboardPaste,
+  LuCopy,
+  LuCopyPlus,
+  LuDices,
   LuEllipsisVertical,
+  LuHeadphones,
+  LuRotateCcw,
   LuVolume2,
   LuVolumeX,
   LuX,
 } from "react-icons/lu"
 
 import { getEngine } from "../audio/engine"
+import { toaster } from "../components/ui/toaster"
+import { instanceLabel } from "../state/instances"
 import { isHideableUnit, isPinnedUnit, useLayoutStore } from "../state/layout"
-import { useRackStore } from "../state/store"
+import { PATTERN_COUNT } from "../state/patterns"
+import { copyTrack, selectTrack, silencedBySolo, useRackStore } from "../state/store"
 import type { rackUnitRecipe } from "../theme/recipes/rackUnit"
+import { useClipboardStore } from "./clipboard"
 import { Fold } from "./Fold"
 import { foldOnClick } from "./foldOnClick"
 import { MiniGrid } from "./MiniGrid"
-import { removeInstanceWithUndo, unitDomId } from "./removeInstance"
+import { removeInstanceWithUndo, scrollToUnit, unitDomId } from "./removeInstance"
+import { pushSound } from "./unitMeta"
 
 type RackUnitVariants = RecipeVariantProps<typeof rackUnitRecipe>
 
@@ -71,8 +84,28 @@ export function RackUnit({
   const styles = recipe({ units, finish })
   const folded = useRackStore((s) => !fixed && s.folded[id] === true)
   const muted = useRackStore((s) => s.instances.find((i) => i.id === id)?.mute ?? false)
-  const { toggleFold, setInstanceMute } = useRackStore.getState()
-  const { moveUnit, nudgeUnit, hideUnit } = useLayoutStore.getState()
+  const soloed = useRackStore((s) => s.solo[id] === true)
+  // Another machine is soloed and this one is not: it plays on but is not heard.
+  const silenced = useRackStore((s) => instance && silencedBySolo(s.solo, id))
+  const {
+    toggleFold,
+    setInstanceMute,
+    setInstanceSolo,
+    copyInstance,
+    duplicateInstance,
+    setTrack,
+    resetInstanceSound,
+    randomizeInstanceSound,
+  } = useRackStore.getState()
+  const activePattern = useRackStore((s) => s.activePattern)
+  const part = useClipboardStore((s) => s.part)
+  const { moveUnit, nudgeUnit, hideUnit, placeAfter } = useLayoutStore.getState()
+  // The other machines of this kind — where this one's sound and part can be copied to.
+  const instances = useRackStore((s) => s.instances)
+  const self = instance ? instances.find((i) => i.id === id) : undefined
+  const siblings = self ? instances.filter((i) => i.kind === self.kind && i.id !== id) : []
+  // The clipboard holds a part of this kind: it can be pasted here.
+  const pasteable = self !== undefined && part !== null && part.track.kind === self.kind
   // The grip arms dragging; the whole panel is only draggable while it is held.
   const [armed, setArmed] = useState(false)
   const [over, setOver] = useState(false)
@@ -85,10 +118,57 @@ export function RackUnit({
     setInstanceMute(id, next)
     getEngine().setInstanceMute(id, next)
   }
+  const setSolo = (next: boolean) => {
+    setInstanceSolo(id, next)
+    getEngine().setInstanceSolo(id, next)
+  }
 
   const remove = () => {
     if (instance) removeInstanceWithUndo(id, model)
     else hideUnit(id)
+  }
+  // "Copy to": onto another machine of the kind, or into a new one right under this.
+  const copyTo = (target: string) => {
+    if (target === "new") {
+      const made = duplicateInstance(id)
+      if (!made) return
+      placeAfter(made.id, id)
+      getEngine().addInstance(made)
+      const label = instanceLabel(made, useRackStore.getState().instances)
+      toaster.create({
+        type: "success",
+        title: `${model} copied`,
+        description: `Now also ${label}.`,
+      })
+      scrollToUnit(made.id)
+      return
+    }
+    if (!copyInstance(id, target)) return
+    const to = useRackStore.getState().instances.find((i) => i.id === target)
+    if (to) getEngine().setInstanceParams(target, to.params)
+    const label = to ? instanceLabel(to, useRackStore.getState().instances) : target
+    toaster.create({
+      type: "success",
+      title: `${model} copied to ${label}`,
+      description: "Its sound and every pattern of its part. Undo with ⌘Z.",
+    })
+  }
+
+  // Copy / paste a part: this machine's track in one bank slot, through the rack's clipboard.
+  const copyPart = () => {
+    const track = selectTrack(useRackStore.getState(), id)
+    if (!track) return
+    const from = `${model} · pattern ${activePattern + 1}`
+    useClipboardStore.getState().setPart({ track: copyTrack(track), from })
+    toaster.create({ type: "info", title: "Part copied", description: from })
+  }
+  const pastePart = (slot: number) => {
+    if (!part || !setTrack(id, slot, part.track)) return
+    toaster.create({
+      type: "success",
+      title: `Pasted on ${model} · pattern ${slot + 1}`,
+      description: `From ${part.from}. Undo with ⌘Z.`,
+    })
   }
 
   const onDragStart = (e: DragEvent) => {
@@ -113,6 +193,8 @@ export function RackUnit({
     if (value === "up") nudgeUnit(id, -1)
     else if (value === "down") nudgeUnit(id, 1)
     else if (value === "remove") remove()
+    else if (value === "copy-part") copyPart()
+    else if (value === "paste-part") pastePart(activePattern)
   }
 
   return (
@@ -121,6 +203,7 @@ export function RackUnit({
       css={styles.root}
       aria-label={title ? `${model} ${title}` : model}
       data-folded={folded ? "" : undefined}
+      data-silenced={silenced ? "" : undefined}
       data-drop-target={over ? "" : undefined}
       draggable={armed}
       onDragStart={onDragStart}
@@ -135,13 +218,20 @@ export function RackUnit({
         data-foldable={fixed ? undefined : ""}
         onClick={fixed ? undefined : foldOnClick(() => toggleFold(id))}
       >
+        {/* `data-part="nameplate"`: what fades while another unit's solo silences this one. */}
         {icon && (
-          <chakra.span css={styles.icon} aria-hidden="true">
+          <chakra.span css={styles.icon} data-part="nameplate" aria-hidden="true">
             {icon}
           </chakra.span>
         )}
-        <chakra.h2 css={styles.model}>{model}</chakra.h2>
-        {title && <chakra.span css={styles.title}>{title}</chakra.span>}
+        <chakra.h2 css={styles.model} data-part="nameplate">
+          {model}
+        </chakra.h2>
+        {title && (
+          <chakra.span css={styles.title} data-part="nameplate">
+            {title}
+          </chakra.span>
+        )}
         {folded && (preview || instance) && (
           <chakra.span css={styles.preview} data-part="preview">
             {/* A folded machine: its pattern in miniature — the matrix shows what plays; no meter. */}
@@ -161,6 +251,50 @@ export function RackUnit({
             >
               {muted ? <LuVolumeX /> : <LuVolume2 />}
             </IconButton>
+          )}
+          {instance && (
+            <IconButton
+              size="xs"
+              variant="ghost"
+              color="inherit"
+              aria-label={soloed ? `Unsolo ${model}` : `Solo ${model}`}
+              aria-pressed={soloed}
+              onClick={() => setSolo(!soloed)}
+              _pressed={{ color: "rack.led.on" }}
+            >
+              <LuHeadphones />
+            </IconButton>
+          )}
+          {instance && (
+            <>
+              {/* The sound only: the part in the grid stays. Both are one undo step. */}
+              <IconButton
+                size="xs"
+                variant="ghost"
+                color="inherit"
+                aria-label={`Random sound for ${model}`}
+                title="Random sound"
+                onClick={() => {
+                  randomizeInstanceSound(id)
+                  pushSound(id)
+                }}
+              >
+                <LuDices />
+              </IconButton>
+              <IconButton
+                size="xs"
+                variant="ghost"
+                color="inherit"
+                aria-label={`Reset ${model} to factory sound`}
+                title="Factory sound"
+                onClick={() => {
+                  resetInstanceSound(id)
+                  pushSound(id)
+                }}
+              >
+                <LuRotateCcw />
+              </IconButton>
+            </>
           )}
           {!fixed && (
             <IconButton
@@ -204,6 +338,69 @@ export function RackUnit({
                       <Menu.Item value="down">
                         <LuArrowDown /> Move down
                       </Menu.Item>
+                    </>
+                  )}
+                  {instance && (
+                    <Menu.Root
+                      onSelect={(d) => copyTo(d.value)}
+                      positioning={{ placement: "right-start", gutter: -2 }}
+                    >
+                      <Menu.TriggerItem>
+                        <LuCopy /> Copy to
+                        <chakra.span ml="auto" pl="2">
+                          <LuChevronRight />
+                        </chakra.span>
+                      </Menu.TriggerItem>
+                      <Portal>
+                        <Menu.Positioner>
+                          <Menu.Content>
+                            <Menu.Item value="new">
+                              <LuCopyPlus /> A new {model.replace(/ #\d+$/, "")}
+                            </Menu.Item>
+                            {siblings.map((s) => (
+                              <Menu.Item key={s.id} value={s.id}>
+                                {instanceLabel(s, instances)}
+                              </Menu.Item>
+                            ))}
+                          </Menu.Content>
+                        </Menu.Positioner>
+                      </Portal>
+                    </Menu.Root>
+                  )}
+                  {instance && (
+                    <>
+                      <Menu.Item value="copy-part">
+                        <LuClipboardCopy /> Copy part (pattern {activePattern + 1})
+                      </Menu.Item>
+                      {/* Paste lands on the pattern on screen, or on any slot of the bank. */}
+                      <Menu.Item value="paste-part" disabled={!pasteable}>
+                        <LuClipboardPaste /> Paste part{pasteable ? ` from ${part!.from}` : ""}
+                      </Menu.Item>
+                      {pasteable && (
+                        <Menu.Root
+                          onSelect={(d) => pastePart(Number(d.value))}
+                          positioning={{ placement: "right-start", gutter: -2 }}
+                        >
+                          <Menu.TriggerItem>
+                            <LuClipboardPaste /> Paste to pattern
+                            <chakra.span ml="auto" pl="2">
+                              <LuChevronRight />
+                            </chakra.span>
+                          </Menu.TriggerItem>
+                          <Portal>
+                            <Menu.Positioner>
+                              <Menu.Content maxH="60vh" overflowY="auto">
+                                {Array.from({ length: PATTERN_COUNT }, (_, i) => (
+                                  <Menu.Item key={i} value={String(i)}>
+                                    Pattern {i + 1}
+                                    {i === activePattern ? " · on screen" : ""}
+                                  </Menu.Item>
+                                ))}
+                              </Menu.Content>
+                            </Menu.Positioner>
+                          </Portal>
+                        </Menu.Root>
+                      )}
                     </>
                   )}
                   {removable && (

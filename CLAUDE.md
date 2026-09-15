@@ -68,7 +68,8 @@ strict build order:
      **mute** (`mix.mute`, saved; engine keeps level and mute separately) buttons in every `RackUnit` header.
    - ✅ Extra — SONG timeline (`TimelineUnit`, slot recipe registered as `songTimeline` because Chakra's own
      Timeline component owns the `timeline` key): the chain as grey bar blocks — only the sounding bar lights in its pattern colour (`colors.pattern.*`),
-     click cycles the pattern, × removes, + appends the active one; the sounding bar (`playingBar % length`)
+     click cycles the pattern, a digit typed on a focused bar picks the pattern by number (two quick digits
+     join into 10–16: `typeSlotDigit` in `src/ui/typeSlot.ts`, pure, `DIGIT_JOIN_MS` = 800), × removes, + appends the active one; the sounding bar (`playingBar % length`)
      is outlined with a 16-step progress bar. The old +1…+4 chain buttons are gone from PATTERN. A song holds
      up to `MAX_CHAIN` = 128 bars; the bars wrap into rows (`bar` slot: number above block), no sideways scroll.
    - ✅ Extra — restyle: wooden `rail` recipe either side of the rack (holes every 44px), `LevelMeter`
@@ -133,7 +134,10 @@ strict build order:
      Android from suspending the audio session (and the Web Audio graph) when the screen locks or another app
      comes up, and it puts the rack on the lock screen.
    - ✅ Extra — **PWA**: `vite-plugin-pwa` in `vite.config.ts` (`registerType: "autoUpdate"`, manifest name RACK,
-     standalone, icons in `public/icons/` rendered from `favicon.svg`; the app shell is precached, `songs/`,
+     standalone, icons in `public/icons/` rendered from `favicon.svg` (a flat dark tile, `metal.800`, holding a record — near-black disc, three
+     grey grooves, an amber rim — with a graphite label and a small amber bold "R" on it, a filled path with
+     an even-odd counter; no font, no gradient) by `scripts/render-icons.sh` — headless Chrome shots at 512
+     and `sips` scales down; the Apple and maskable icons are full-bleed with the panel shrunk inside; the app shell is precached, `songs/`,
      `samples/`, `midi/` and the factory song are cached stale-while-revalidate as `rack-content`). `index.html`
      carries the iOS home-screen metas and `viewport-fit=cover`. `sw.js` and the manifest must be served
      without long caching.
@@ -147,7 +151,7 @@ strict build order:
      Engine keeps a `Strip` (input, send, meter, device) per id; `addInstance` / `removeInstance` build
      and dispose devices live; `syncFromStore()` reconciles after a load. Sample keys are `${id}:${pad}`.
      `Rack` renders `layout.order` (fixed units + instance ids, `syncUnits`); its "Add unit" panel shows ×count for kinds present in the rack
-     and colours icons by finish (rows are never dimmed). `InstanceUnit` picks the panel
+     on a grey row (`data-present`, `metal.700`) and colours icons by finish (rows are never dimmed). `InstanceUnit` picks the panel
      by kind; per-kind finish/icon/labels live in `src/ui/unitMeta.tsx`. Song is **version 2**
      (`instances` + `patterns[].tracks`); `src/state/songV1.ts` lifts v1 files (each channel the file names → `${kind}-1`; unnamed ones are not created).
      Zustand selectors must return stored values — a `.map()` in a selector loops React (`FxUnit`).
@@ -174,10 +178,11 @@ strict build order:
      the toolbar panel alone drops the panel shadow below `md` (its 1 px inset top highlight sat at the
      very top of the screen as a stray bright line; the other panels keep it); the toolbar is the rack's first panel (`ToolbarPanel`, `src/ui/ToolbarPanel.tsx`: a `section` styled with the
      `rackUnit` root, 50px / safe-area padding on top on a phone — the Songs and Add unit drawers' headers (and
-     their close buttons) get the same top clearance — holding `toolbarButton` / `toolbarIconButton` from
-     `src/ui/toolbar.ts`: one fold/unfold-all toggle, then Add unit and Songs (the library drawer, which also
-     holds Load — `LoadSongButton`, .json or .mid — under the save form); right-aligned from `md`, sharing
-     the width and 48px tall on a phone) — the bank only keeps the copy row (active
+     their close buttons) get the same top clearance — the rack's mark (`favicon.svg` as an `img`) at the
+     left, then, right-aligned from `md`, `toolbarButton` / `toolbarIconButton` buttons from
+     `src/ui/toolbar.ts`: Songs (the library drawer, which also holds Load — `LoadSongButton`, .json or
+     .mid — and New song under the save form), Add unit and one fold/unfold-all toggle; on a phone the buttons
+     share the width and are 48px tall) — the bank only keeps the copy row (active
      slot → Copy → next slot). The CLOCK is two rows (`Transport`): run button + Tempo/Swing/Master knobs, then
      BEAT LEDs + BPM/STEP displays + OUT meter; side by side from `md`. The bank is a `repeat(8, minmax(0, 4rem))` grid (16 in a row from `xl`);
      song bars are `12` wide instead of `16` (`BAR_WIDTH` in the timeline recipe). Touch screens
@@ -255,6 +260,141 @@ strict build order:
      grooves — drawn on a `::after` so the spin (`cover-spin`, while `playing`, off under reduced motion)
      does not fight the centring transform; hover brightens the whole sleeve with a filter.
 
+   - ✅ Extra — **solo** per machine (headphones button next to mute in every instance header): store
+     `solo: Record<id, true>` (UI-only, not saved — `loadSong` and `removeInstance` clear it;
+     `silencedBySolo(solo, id)` is the pure rule), engine `Strip.solo` + `setInstanceSolo()`, which
+     re-applies every strip's gain (`gainOf`: muted → 0, soloed → level, someone else soloed → 0);
+     `addInstance` / `removeInstance` / `syncFromStore` keep the others in step. A unit silenced by another's
+     solo carries `data-silenced` on its root and its nameplate (`data-part="nameplate"`) and preview fade;
+     the buttons stay bright. An offline render ignores solo (`solo: {}` in `renderSong`).
+   - ✅ Extra — **New song** row in the Songs panel, under Load ("Start from nothing", `NewSongButton`): `newSong()` in
+     `src/ui/defaultSong.ts` stops the clock, loads `emptyRack()`, folds the fixed panels (`foldedAll([])`),
+     `showAll()`s hidden panels and drops the library link — the rack as on a first visit — and returns a
+     `ReplacedRack` that the toast's Undo hands to `restoreRack()`.
+
+   - ✅ Extra — **Copy to** in every machine's grip menu (a nested `Menu.Root` like the sleeves' "Move to
+     folder"): "A new <MODEL>" → `duplicateInstance(id)` (same sound, mix and every pattern of the part,
+     inserted right after the source in `instances`; `layout.placeAfter(newId, id)` puts the panel under it,
+     the engine gets `addInstance`), or one of the other machines of the kind → `copyInstance(from, to)`
+     (params + every pattern's track copied, the target keeps level/send/mute; the engine gets
+     `setInstanceParams`). Both are one undo step. Under it, **Copy part / Paste part**: "Copy part
+     (pattern N)" puts a deep copy of this machine's track in the pattern on screen into
+     `useClipboardStore` (`src/ui/clipboard.ts`, UI-only, with a "DR-4 #2 · pattern 3" label); "Paste part"
+     drops it on the pattern on screen and "Paste to pattern ▸ 1…16" on any bank slot — both via
+     `store.setTrack(id, slot, track)` (copies again; false across kinds, so paste is disabled unless the
+     clipboard holds this kind). One undo step each.
+   - ✅ Extra — **filter type** on MONO-1, BASS-2 and POLY-4: `filterType` (`FILTER_TYPES` = lowpass /
+     highpass / bandpass / notch in `params.ts`, saved in the song; `parseSong` and the v1 lifter default
+     missing ones to `lowpass`). Devices set `filter.type` live (a plain property, no ramp). `FilterControls`
+     (`src/ui/FilterControls.tsx`): a `NativeSelect` over a `FilterCurve` — the 24 dB (two-stage) biquad
+     response drawn from the Web Audio formulas in `src/ui/filterCurve.ts` (pure; lowpass/highpass read Q in
+     dB as the spec does, bandpass/notch as a plain Q; POLY-4 has no resonance knob, its fixed
+     `PAD_FILTER_Q` is exported from `polySynths.ts` for the curve). Log axis 20 Hz–20 kHz, +24…−48 dB, the
+     cutoff marked. POLY-4 gained a `resonance` param (default 1.2, the fixed Q it had).
+   - ✅ Extra — **strip filter** on every other kind (DR-4, PERC-6, SMP-8, EP-1, STR-6 —
+     `STRIP_FILTER_KINDS` / `hasStripFilter` in `instances.ts`): `Instance.filter?: FilterParams`
+     (`{ type, cutoff, resonance }`, `FILTER_DEFAULT` wide open: lowpass at 20 kHz, Q 0.1; `FILTER_RANGES`
+     40 Hz–20 kHz), saved in the song (`parseFilter`, missing → default; the v1 lifter adds it), clamped by
+     `clampFilter`. The engine builds a 24 dB `Tone.Filter` between the device and the strip input
+     (`Strip.filter`, the device gets it as its output); `setInstanceFilter()` sets the type and ramps
+     frequency/Q; `syncFromStore` pushes it. Store `setInstanceFilter(id, patch)` (no-op on a synth), history
+     key `filter:<id>:<keys>`. UI: `StripFilterControls` (`FilterControls` + Cutoff/Res knobs, `changeFilter`
+     in `unitMeta`) in `KitUnit`, `SamplerUnit` and `PolyUnit` (ep/strings); kit and sampler knobs are the
+     default size now (they were `sm`) and kits are `units={3}`. `clampParams` lays the defaults under a synth's
+     params, so an in-memory instance from before a field existed (HMR) gets it on its next edit; the curve
+     draws an unknown type as lowpass rather than NaN.
+   - ✅ Extra — **parts per pattern**: `Pattern.muted?: string[]` — instance ids that keep their part but
+     sit that slot out (`isMutedIn`, `togglePartMute` in `pattern.ts`; `withTrack` now spreads the pattern
+     so the list survives edits, `withoutTrack` drops the id). Saved in the song (`parseSong` keeps only known
+     ids, a missing list means everyone plays; `toSong` writes it when non-empty). The scheduler skips a muted
+     part (`hitsForStep` too) and hands a silenced BASS-2 a rest every step so a held slide lets go. Store
+     `togglePartMute(id, slot?)` (the slot on screen by default), one undo step; `copyActivePatternTo`
+     carries it. UI: a "Plays / Sits out" toggle in every unit's "Pattern N" group, and in BANK a **parts
+     matrix** (`PartsMatrix` in `PatternBank.tsx`): the `StepGrid` reused with one row per machine and one
+     column per slot, lit where the part plays — `columnName="pattern"` for the cells' names and
+     `playheadOf={(s) => s.playingPattern}` so the sounding slot's column lights (both new optional props).
+   - ✅ Extra — **autosave + versions**. `installAutosave()` (`src/ui/autosave.ts`, from `App`): a
+     `useRackStore.subscribe` debounced `AUTOSAVE_MS` = 1.5 s after any song-field change (`songChanged`,
+     reference checks) writes the song by itself — the library entry the rack holds is `update`d; a song in
+     no list (fresh rack with machines, imported file, edited demo) is `save`d as a new entry named by
+     `autosaveName` (the file's name, "<Demo> · mine", or "Song N"); an empty rack is left alone. A load is
+     never an edit: `loadSong` bumps `store.loads` (UI-only counter) and the subscription resets its
+     serialized baseline (also on a `nowPlaying` change). `autosavedAt` in the library store feeds the
+     panel's "saved by itself · time" line. Versions: `STORES.versions` (DB version 3), `SongVersion
+     { id, entryId, savedAt, song }`; `update(id, song, keep?)` keeps the replaced song as a version unless
+     one was kept within `VERSION_GAP_MS` (2 min; `keep` forces it), identical songs write nothing, at most
+     `MAX_VERSIONS` = 30 per entry (oldest dropped), versions go with a removed entry; `loadVersions(id)`
+     (lazy, into `versions[id]`), `keepVersion(id)` (dedupes), `removeVersion(id)`. The Songs panel's
+     "changed since saved" box (Update / Discard) is gone; in its place, for the current entry, a
+     "<name> · saved by itself" line with an "N versions" toggle listing time · BPM · length, Load (keeps the
+     current state as a version first, then loads it — the autosave then makes it current) and delete.
+     Tests fake only the clock (`toFake: ["Date"]`, plus `setTimeout` for the debounce): fake-indexeddb
+     delivers through real timers.
+   - ✅ Extra — **Random / Reset sound** buttons in every machine's header (dice and rotate icons, next to
+     mute/solo): `randomizeInstanceSound(id, rng?)` → `randomizeInstance` in `src/state/random.ts` (pure,
+     rng-injected: params by kind — log-uniform for frequencies and times, tasteful sub-ranges for resonance,
+     drive 0–0.6, tune ±6; a random strip filter is mostly open, a highpass never above 600 Hz; sampler pads
+     are kept; LFOs, random source and macros untouched) and `resetInstanceSound(id)` (params, strip filter
+     and the whole mod block back to defaults; patterns stay). One undo step each; `pushSound(id)` in
+     `unitMeta` hands the engine params, filter and mod afterwards.
+   - ✅ Extra — **Random notes / Random beat** (`PartTools`, `src/ui/PartTools.tsx`, a "Pattern N" group at
+     the end of every unit's controls row): `randomizePart(id, rng?)` replaces the machine's track in the
+     pattern on screen with `randomTrack(kind, rng)` from `src/state/randomPart.ts` (pure, rng-injected):
+     a line that walks the scale rows in small steps and rests off the beat (`randomLine`), an acid line
+     with accents and slides only into a following note (`randomBass`), chords of stacked thirds on the
+     beat (`randomChords`), a kick-on-the-one / snare-on-the-backbeat groove for DR-4, sparse PERC-6, the
+     first two pads busier on SMP-8. One undo step. Beside it a "Filter" group with **Random** / **Reset**:
+     `randomizeFilter(id, rng?)` / `resetFilter(id)` act on the synth's own filter params (`randomSynthFilter`
+     in `random.ts`) or on the strip filter (`randomFilter` / `FILTER_DEFAULT`), then `pushSound`.
+   - ✅ Extra — **wave glyphs**: the synths' Wave control is `WavePicker` (`src/ui/WavePicker.tsx`), a
+     `SegmentGroup` whose items draw one cycle of each waveform (`WaveGlyph`, inline SVG in `currentColor`,
+     `aria-label` / `title` from `WAVE_LABELS`) instead of "Saw" / "Sqr" text.
+   - ✅ Extra — **unit layout**: the step grid is `flex: 0 1 auto` (its cells' width, scrolling when short
+     of room) and every unit's controls are a `Flex wrap` row with `flex="1"` right after it — groups (Wave,
+     Filter, knobs, Envelope, Level, strip filter) flow side by side and wrap, so the panel is no taller than
+     it needs and there is no gap between the grid and the knobs. `StripFilterControls` is a wrapping row
+     (type + curve, then Cutoff/Res).
+   - ✅ Extra — **modulation** on every machine (`Instance.mod: ModParams`, model in `src/state/mod.ts`, pure,
+     saved in the song — `parseMod` fills any missing piece with `MOD_DEFAULT`, the v1 lifter adds it whole;
+     `clampMod`): `tune` (semitones, melodic kinds — `hasTune`; the device transposes each note with
+     `transposeNote`, no signal), `drive` (0–1, the `wet` of a `Tone.Distortion` on the strip), two **LFOs**
+     (`shape`, `rate` Hz, `target`, `amount`), a per-step **random** source (`target`, `amount`) and four
+     **macros** (`value` + `targets: { key, min, max }[]`). Targets: `cutoff` / `pitch` / `level` / `off`
+     (`modTargetsFor(kind)`: pitch only where voices carry a `detune` signal — synth, bass, poly, ep).
+     Engine: the strip is device → [filter] → drive → trem → input; the modulators are Tone signals summed
+     into the target (`Strip.filterBase`, `tremBase` and PolyPad's `cutoff` signal carry the knob's own value
+     because a signal connected to a Tone signal/param overrides its value); `Tone.LFO` ×2 with
+     `min/max = ±modSwing()` (cutoff: ±90 % of the cutoff, re-ranged when it moves via `setCutoffHz`;
+     pitch: ±1200 cents; level: ±0.9), a `Tone.Signal` for random set with `setValueAtTime` from the
+     scheduler's new `onTick(time)` (`engine.stepMod`). Devices implement `ModHooks` (`setTune`,
+     `cutoffInput`, `pitchInputs`; kits none). `engine.setInstanceMod(id, mod)` re-applies the whole block
+     (`applyMod`, rewiring only when a target changes). Store: `setInstanceMod` (tune/drive), `setInstanceLfo`,
+     `setInstanceRandom`, `setMacroTargets`, and `setMacro(id, n, value)` which moves the macro's targets
+     (`macroPatches` → params / strip filter / tune+drive) in one history step and returns the patches for the
+     engine (`changeMacro` in `unitMeta`). Macro target keys: `param:<key>` from `macroTargetsFor(kind)`,
+     `filter:cutoff|resonance`, `mod:drive|tune`. UI: `ModPanel` (`src/ui/ModPanel.tsx`, a `Collapsible`
+     "Modulation" row at the bottom of every instance panel, closed by default): Tune/Drive, LFO 1/2 (shape and
+     target `NativeSelect`s, Rate/Amount `sm` knobs), Random, and four macro knobs each with its assignment
+     rows (target select, Min/Max `sm` knobs, ×, "+ Assign"). The LFO shape is the synths' `WavePicker`
+     (glyphs, `label="Shape"`) and the LFO / random target a `TargetPicker` `SegmentGroup` of icons (ban,
+     filter, note, speaker; name as `aria-label` and `title`); the fold's content has `p="2.5"` (10 px) and
+     `gap="10"` between groups. MONO-1 and BASS-2 gained a full amp
+     **envelope** (`attack`, `sustain`, `release` params + knobs; `decay` still drives the filter envelope too).
+   - ✅ Extra — SONG **repeat**: "+1 bar" (`repeatLastBar`, the last bar once more) and "×2"
+     (`repeatChain`, the chain after itself, cut at `MAX_CHAIN`) next to Clear; both resume the song and are
+     one undo step.
+   - ✅ Extra — **undo / redo** of everything a song holds (`SongSlice` = what `toSong` saves, `activePattern`
+     included so an undone edit is seen). `src/state/history.ts` is pure (`record` / `undo` / `redo`,
+     `HISTORY_LIMIT` 100, `COALESCE_MS` 300: edits with the same key that close together are one step — the
+     store keys knob turns `params:<id>:<keys>`, `level:<id>`, `send:<id>`, `fx:<key>`, `bpm`, `swing`, `master`;
+     grid toggles, chain edits, mute and add/remove instance never coalesce — except inside a **stroke**:
+     `StepGrid` calls `beginStroke()` on a mouse/pen press and `endStroke()` when it lifts, and every edit in
+     between is one step (`store.stroke`, a counter, keys them `stroke:<n>` with an `Infinity` window)). Every editing action spreads
+     `remember(state, key)` into its result; `loadSong` clears the history. `store.undo()` / `redo()` are pure
+     and the UI (`undoEdit` / `redoEdit` in `src/ui/undoRedo.ts`) calls `engine.syncFromStore()` after them.
+     `installUndoKeys()` (from `App`): ⌘Z / Ctrl+Z, ⇧⌘Z / Ctrl+Y, skipped inside text fields; `UndoRedoButtons`
+     sit after the mark on the toolbar, disabled via `selectCanUndo` / `selectCanRedo`.
+
 **All extras above are done.** Other ideas: LCD readouts per synth, drag-reorder on the timeline, per-step
 velocity on the kits.
 
@@ -264,7 +404,8 @@ Read the skills before touching UI or audio: without the Chakra skill loaded, Ch
 written from memory, and v3 is a different library.
 
 Chakra CLI snippets (`provider`, `toaster`) live in `src/components/ui/` — that is where the CLI writes
-them; they are generated code, not ours.
+them; they are generated code, not ours. One deliberate change: `toaster.tsx` always renders
+`Toast.CloseTrigger` (the snippet gates it on `closable`) — the user wants every toast dismissable.
 
 ## What this project is
 

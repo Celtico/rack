@@ -1,4 +1,4 @@
-import { Box, Container, Flex, IconButton, VStack } from "@chakra-ui/react"
+import { Box, chakra, Container, Flex, IconButton, VStack } from "@chakra-ui/react"
 import { useEffect, type ReactNode } from "react"
 import { LuChevronsDownUp, LuChevronsUpDown } from "react-icons/lu"
 
@@ -20,6 +20,7 @@ import { PinnedUnits } from "./PinnedUnits"
 import { SongsButton, SongsPanel } from "./SongLibrary"
 import { ToolbarPanel } from "./ToolbarPanel"
 import { toolbarIconButton } from "./toolbar"
+import { UndoRedoButtons } from "./UndoRedoButtons"
 
 const FIXED: Record<FixedUnitId, ReactNode> = {
   "FX-2": <FxUnit />,
@@ -76,11 +77,19 @@ export function Rack() {
           shadow={{ base: "none", md: "panel" }}
         >
           <VStack gap={{ base: "1", md: "3" }} align="stretch">
-            {/* The toolbar as the first panel of the rack: songs at the left; add unit and fold-all at the right. */}
+            {/* The toolbar as the first panel of the rack: the rack's mark at the left, every button at the right. */}
             <ToolbarPanel>
-              <SongsButton />
-              {/* Pushes the rest to the far side on a desktop; on a phone the buttons share the width. */}
+              <chakra.img
+                src={`${import.meta.env.BASE_URL}favicon.svg`}
+                alt="RACK"
+                boxSize="8"
+                rounded="sm"
+                flexShrink={0}
+              />
+              <UndoRedoButtons />
+              {/* Pushes the buttons to the far side on a desktop; on a phone they share the width. */}
               <Box flex="1" hideBelow="md" />
+              <SongsButton />
               <AddUnitButton />
               <IconButton
                 {...toolbarIconButton}

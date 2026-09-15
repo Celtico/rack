@@ -2,6 +2,7 @@ import * as Tone from "tone"
 
 import type { BassParams } from "../../state/params"
 import type { BassStepEvent } from "../../state/pattern"
+import { transposeNote, type ModHooks } from "../types"
 import { fatOscillator } from "./oscillators"
 
 /** Ramp length for automatable parameter changes. */
@@ -28,12 +29,13 @@ const UNISON = { count: 2, spread: 7 }
  * that one note. Both are decided per step by the pattern, so `play()` receives
  * every step, rests included, to know when to let a held slide go.
  */
-export class BassVoice {
+export class BassVoice implements ModHooks {
   private readonly synth: Tone.MonoSynth
   private readonly drive: Tone.Distortion
   private params: BassParams
   /** A slide is holding the gate open into the next step. */
   private held = false
+  private tune = 0
 
   constructor(output: Tone.ToneAudioNode, p: BassParams) {
     this.params = p
@@ -43,7 +45,7 @@ export class BassVoice {
       volume: -8,
       portamento: 0,
       oscillator: fatOscillator(p.waveform, UNISON.count, UNISON.spread),
-      filter: { type: "lowpass", rolloff: -24, Q: p.resonance },
+      filter: { type: p.filterType, rolloff: -24, Q: p.resonance },
       filterEnvelope: {
         attack: 0.003,
         decay: p.decay,
@@ -52,8 +54,20 @@ export class BassVoice {
         baseFrequency: p.cutoff,
         octaves: this.sweepFor(false),
       },
-      envelope: { attack: 0.003, decay: p.decay, sustain: 0.25, release: 0.08 },
+      envelope: { attack: p.attack, decay: p.decay, sustain: p.sustain, release: p.release },
     }).connect(this.drive)
+  }
+
+  setTune(semitones: number): void {
+    this.tune = semitones
+  }
+
+  cutoffInput(): Tone.Signal<"frequency"> {
+    return this.synth.filter.frequency
+  }
+
+  pitchInputs(): Tone.Signal<"cents">[] {
+    return [this.synth.detune]
   }
 
   private sweepFor(accent: boolean): number {
@@ -71,14 +85,15 @@ export class BassVoice {
     }
 
     this.synth.filterEnvelope.octaves = this.sweepFor(event.accent)
+    const note = transposeNote(event.note, this.tune)
 
     if (this.held) {
       // Arriving from a slide: glide, keep the envelope where it is.
       this.synth.portamento = stepSeconds * GLIDE
-      this.synth.setNote(event.note, time)
+      this.synth.setNote(note, time)
     } else {
       this.synth.portamento = 0
-      this.synth.triggerAttack(event.note, time, event.accent ? ACCENT_VELOCITY : PLAIN_VELOCITY)
+      this.synth.triggerAttack(note, time, event.accent ? ACCENT_VELOCITY : PLAIN_VELOCITY)
     }
 
     if (event.slide) {
@@ -103,6 +118,9 @@ export class BassVoice {
           oscillator: fatOscillator(value as BassParams["waveform"], UNISON.count, UNISON.spread),
         })
         break
+      case "filterType":
+        this.synth.filter.type = value as BassParams["filterType"]
+        break
       case "cutoff":
         this.synth.filterEnvelope.baseFrequency = value as number
         break
@@ -112,9 +130,18 @@ export class BassVoice {
       case "envMod":
         this.synth.filterEnvelope.octaves = this.sweepFor(false)
         break
+      case "attack":
+        this.synth.envelope.attack = value as number
+        break
       case "decay":
         this.synth.envelope.decay = value as number
         this.synth.filterEnvelope.decay = value as number
+        break
+      case "sustain":
+        this.synth.envelope.sustain = value as number
+        break
+      case "release":
+        this.synth.envelope.release = value as number
         break
     }
   }

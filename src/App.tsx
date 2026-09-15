@@ -1,9 +1,11 @@
 import { useEffect } from "react"
 
+import { installAutosave } from "./ui/autosave"
 import { loadDefaultSong } from "./ui/defaultSong"
 import { Rack } from "./ui/Rack"
 import { installBackgroundAudio } from "./ui/backgroundAudio"
 import { autoplay } from "./ui/transportControl"
+import { installUndoKeys } from "./ui/undoRedo"
 import { installWakeLock } from "./ui/wakeLock"
 
 export default function App() {
@@ -17,10 +19,14 @@ export default function App() {
     // app comes up, the silent media loop keeps the audio session (and the music) going.
     const releaseWakeLock = installWakeLock()
     const releaseBackgroundAudio = installBackgroundAudio()
+    const releaseUndoKeys = installUndoKeys()
+    const releaseAutosave = installAutosave()
     return () => {
       stop?.()
       releaseWakeLock()
       releaseBackgroundAudio()
+      releaseUndoKeys()
+      releaseAutosave()
     }
   }, [])
   return <Rack />

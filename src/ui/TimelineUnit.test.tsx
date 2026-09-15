@@ -43,8 +43,33 @@ describe("<TimelineUnit />", () => {
     await user.click(screen.getByRole("button", { name: "Remove bar 1" }))
     expect(useRackStore.getState().chain).toEqual([3, 1])
 
+    await user.click(screen.getByRole("button", { name: "Repeat the last bar" }))
+    expect(useRackStore.getState().chain).toEqual([3, 1, 1])
+    await user.click(screen.getByRole("button", { name: "Repeat the whole song once more" }))
+    expect(useRackStore.getState().chain).toEqual([3, 1, 1, 3, 1, 1])
+
     await user.click(screen.getByRole("button", { name: "Clear song" }))
     expect(useRackStore.getState().chain).toEqual([])
     expect(screen.getByText(/looping pattern 2/i)).toBeInTheDocument()
+  })
+
+  it("sets a focused bar's pattern from the digits typed on it", async () => {
+    const user = userEvent.setup()
+    renderWithChakra(<TimelineUnit />)
+
+    const bar = screen.getByRole("listitem", { name: "Bar 1: pattern 1" })
+    bar.focus()
+    await user.keyboard("5")
+    expect(useRackStore.getState().chain).toEqual([4, 2])
+
+    // Two quick digits make a two-digit number; the bar keeps focus through the re-render.
+    await user.keyboard("1")
+    expect(useRackStore.getState().chain).toEqual([0, 2])
+    await user.keyboard("2")
+    expect(useRackStore.getState().chain).toEqual([11, 2])
+
+    // A letter does nothing.
+    await user.keyboard("x")
+    expect(useRackStore.getState().chain).toEqual([11, 2])
   })
 })
