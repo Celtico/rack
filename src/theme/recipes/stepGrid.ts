@@ -4,6 +4,9 @@ import { defineSlotRecipe } from "@chakra-ui/react"
 const BEAT = "repeat(4, minmax(1.25rem, 2.25rem))"
 /** …but never under 28px for a finger: a touch screen scrolls sooner instead. */
 const BEAT_COARSE = "repeat(4, minmax(1.75rem, 2.25rem))"
+/** A row's `--tint` (a panel finish) lifted to a bright accent, as `finishAccent` does for a header icon. */
+export const TINT_ACCENT = "oklch(from var(--tint) 0.74 calc(c * 2.4) h)"
+
 const columns = (beat: string) => `max-content ${beat} 0.5rem ${beat} 0.5rem ${beat} 0.5rem ${beat}`
 
 /**
@@ -77,6 +80,8 @@ export const stepGridRecipe = defineSlotRecipe({
       alignSelf: "stretch",
       display: "inline-flex",
       alignItems: "center",
+      // Between a row's pictogram (when it has one) and its name.
+      gap: "1.5",
       my: "-2.5",
       py: "2.5",
     },
@@ -101,9 +106,37 @@ export const stepGridRecipe = defineSlotRecipe({
         outlineOffset: "1px",
       },
       "&[data-accent]": { bg: "rack.step.accent" },
+      // A marked cell prints its row's pictogram in the middle (the bank's matrix: this part has
+      // notes in this pattern), in the row's accent — dimmed while the cell is off.
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      p: "0",
+      "& > svg": { w: "52%", h: "52%", pointerEvents: "none" },
+      "&[data-marked]": { color: "whiteAlpha.600" },
+      "&[data-tinted][data-marked]": { color: TINT_ACCENT },
+      "&[data-tinted][data-marked]:not([aria-pressed=true]) > svg": { opacity: 0.55 },
       "&[aria-pressed=true]": { bg: "rack.step.on", shadow: "stepOn" },
       "&[data-playing]": { borderColor: "rack.step.playing", shadow: "stepPlaying" },
       "&[data-playing][aria-pressed=true]": { bg: "rack.step.playing" },
+      // A tinted row's lit cells are painted like the machine's own panel — its finish fading to the
+      // graphite — instead of amber; the sounding column brightens.
+      "&[data-tinted][aria-pressed=true]": {
+        bg: "var(--tint)",
+        // Just a touch of the finish in the top-left corner, the rest graphite.
+        bgImage:
+          "linear-gradient(135deg, color-mix(in oklab, var(--tint) 55%, {colors.finish.graphite.panel}) 0%, {colors.finish.graphite.panel} 65%)",
+        color: TINT_ACCENT,
+        shadow: "none",
+      },
+      "&[data-tinted][data-playing][aria-pressed=true]": { filter: "brightness(1.4)" },
+      // Drag and drop between cells: a marked cell can be picked up, the cell under it is outlined.
+      "&[draggable=true]": { cursor: "grab" },
+      "&[data-drop-target]": {
+        outline: "2px dashed",
+        outlineColor: "rack.led.on",
+        outlineOffset: "1px",
+      },
     },
   },
 })

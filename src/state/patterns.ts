@@ -19,6 +19,10 @@ export function padBank(patterns: readonly Pattern[], instances: readonly TrackO
   return out
 }
 
+/** Slot `a` where the chain said `b` and the other way round: the song sounds as before a swap. */
+export const swapSlots = (chain: readonly number[], a: number, b: number): number[] =>
+  chain.map((s) => (s === a ? b : s === b ? a : s))
+
 export interface PlayingPattern {
   /** Bank slot, 0-based. */
   index: number

@@ -93,6 +93,13 @@ export const timelineRecipe = defineSlotRecipe({
       ...slotColours(true),
       // The bank's slot being edited.
       "&[data-active]": { borderColor: "rack.led.on", boxShadow: "0 0 0 1px {colors.rack.led.on}" },
+      // The bank's slots drag: onto another slot to swap (⌥ copies), and a part dropped on one lands there.
+      "&[draggable=true]": { cursor: "grab" },
+      "&[data-drop-target]": {
+        outline: "2px dashed",
+        outlineColor: "rack.led.on",
+        outlineOffset: "1px",
+      },
     },
     number: {
       pointerEvents: "none",

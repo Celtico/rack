@@ -380,6 +380,23 @@ strict build order:
      over its column; the matrix renders with no rows on an empty rack so the slots stay. The separate
      two-row slot grid and the "copy active → next slot" button are gone (`copyActivePatternTo` stays in the
      store, unused by the UI; Copy part / Paste to pattern cover the need).
+   - ✅ Extra — the BANK's **parts matrix shows who and what**: each row carries the machine's icon
+     (`StepGridRow.icon`, printed in the label in the finish's accent — `TINT_ACCENT` in the `stepGrid`
+     recipe is `finishAccent`'s formula over a CSS variable) and a `tint` (`{colors.finish.<name>.panel}`,
+     set as `--tint` on the row): a lit cell is painted like the machine's own panel (a touch of the finish
+     fading to graphite, `data-tinted`, the sounding column brightens) and a cell where the part has
+     notes (`marks`, from `isTrackEmpty`; `data-marked`) prints the icon inside in the same accent, dimmed
+     while the cell is off — an empty slot reads as empty. **Drag and drop in the BANK** (HTML5, mouse only — touch keeps Copy part / Paste to
+     pattern in the grip menu): a slot button dragged onto another **swaps** the two patterns
+     (`swapPatterns(a, b)`: the chain is renumbered with `swapSlots` in `patterns.ts` and `activePattern`
+     follows, so nothing sounds different) or, with ⌥/Alt held, **copies** it there (`copyPattern(from, to)`;
+     the slot on screen stays); a marked matrix cell dragged onto another cell (any row of the same kind)
+     or onto a slot button copies that part there (`setTrack`). `StepGrid` takes an optional `drag`
+     (`CellDrag`: `type`, `dataOf`, `accepts`, `onDrop`), handled on the grid so the memoised cells stay
+     handler-free; the cell under the drag is outlined on the DOM (`data-drop-target`); the grid's own
+     `dragstart` ignores anything that is not a cell so the header buttons drag on their own. With `drag`
+     set, a mouse no longer paints that grid (a press would toggle the cell it is about to pick up). Both
+     drops are one undo step.
    - ✅ Extra — a folded unit's `MiniGrid` goes **dark while the machine is not heard** (`selectSilent`: sits
      the sounding slot out, muted, or silenced by another's solo) — the matrix shows what plays, not the part.
    - ✅ Extra — **parts per pattern**: `Pattern.muted?: string[]` — instance ids that keep their part but

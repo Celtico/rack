@@ -6,6 +6,7 @@ import {
   useMemo,
   useRef,
   type CSSProperties,
+  type DragEvent,
   type PointerEvent,
   type MouseEvent,
   type ReactNode,
@@ -13,11 +14,32 @@ import {
 
 import { STEP_COUNT } from "../state/pattern"
 import { useRackStore, type RackState } from "../state/store"
+import { TINT_ACCENT } from "../theme/recipes/stepGrid"
 
 export interface StepGridRow<Id extends string> {
   id: Id
   label: string
+  /** A pictogram before the label, and inside every marked cell — the bank's matrix shows each machine's mark. */
+  icon?: ReactNode
+  /**
+   * The row's colour, a panel finish (`{colors.finish.<name>.panel}`): its lit cells are painted
+   * like that panel, and its pictogram in the finish's bright accent.
+   */
+  tint?: string
   steps: readonly boolean[]
+  /** Cells that print the pictogram — the bank's matrix marks the patterns where the part has notes. */
+  marks?: readonly boolean[]
+}
+
+/** Drag and drop between cells: a marked cell can be picked up, any cell can take a drop. */
+export interface CellDrag<Id extends string> {
+  /** The `DataTransfer` type carried. */
+  type: string
+  /** What a marked cell carries; null means this one cannot be dragged. */
+  dataOf: (row: Id, step: number) => string | null
+  /** Types a cell accepts (the grid's own, and any other). */
+  accepts: readonly string[]
+  onDrop: (row: Id, step: number, e: DragEvent<HTMLElement>) => void
 }
 
 export interface StepGridProps<Id extends string> {
@@ -29,6 +51,11 @@ export interface StepGridProps<Id extends string> {
   playheadOf?: (s: RackState) => number
   /** A row above the cells, one element per column on the very same tracks — the bank's slot buttons. */
   header?: (step: number) => ReactNode
+  /**
+   * Drag and drop of marked cells (the bank's parts). With it, a mouse no longer paints: a press
+   * would toggle the cell it is about to pick up. Clicks still toggle.
+   */
+  drag?: CellDrag<Id>
 }
 
 const STEPS = Array.from({ length: STEP_COUNT }, (_, i) => i)
@@ -46,6 +73,11 @@ interface StepCellProps {
   label: string
   step: number
   on: boolean
+  /** The row's pictogram, printed inside when `marked`. */
+  icon: ReactNode
+  marked: boolean
+  tinted: boolean
+  draggable: boolean
   onToggle: (row: never, step: number) => void
   columnName: string
 }
@@ -61,6 +93,10 @@ const StepCell = memo(function StepCell({
   label,
   step,
   on,
+  icon,
+  marked,
+  tinted,
+  draggable,
   onToggle,
   columnName,
 }: StepCellProps) {
@@ -71,11 +107,16 @@ const StepCell = memo(function StepCell({
       aria-label={`${label} ${columnName} ${step + 1}`}
       aria-pressed={on}
       data-accent={step % 4 === 0 ? "" : undefined}
+      data-marked={marked ? "" : undefined}
+      data-tinted={tinted ? "" : undefined}
       data-row={rowId}
       data-step={step}
+      draggable={draggable || undefined}
       style={COLUMN_STYLE[step]}
       onClick={() => onToggle(rowId as never, step)}
-    />
+    >
+      {marked && icon}
+    </chakra.button>
   )
 })
 
@@ -123,6 +164,7 @@ export function StepGrid<Id extends string>({
   columnName = "step",
   playheadOf = stepPlayhead,
   header,
+  drag,
 }: StepGridProps<Id>) {
   const recipe = useSlotRecipe({ key: "stepGrid" })
   const styles = useMemo(() => recipe(), [recipe])
@@ -164,7 +206,7 @@ export function StepGrid<Id extends string>({
 
   const onPointerDown = (e: PointerEvent<HTMLDivElement>) => {
     pressed.current = false
-    if (e.pointerType === "touch" || e.button !== 0) return
+    if (drag || e.pointerType === "touch" || e.button !== 0) return
     const cell = cellOf(e.target)
     if (!cell) return
     pressed.current = true
@@ -199,6 +241,48 @@ export function StepGrid<Id extends string>({
     if (cellOf(e.target)) e.stopPropagation()
   }
 
+  // Drag and drop of cells, handled on the grid so the memoised cells need no handlers. The cell
+  // under the drag is outlined on the DOM (`data-drop-target`), like the playhead: no render.
+  const dropTarget = useRef<Element | null>(null)
+  const outline = (el: Element | null) => {
+    if (el === dropTarget.current) return
+    dropTarget.current?.removeAttribute("data-drop-target")
+    el?.setAttribute("data-drop-target", "")
+    dropTarget.current = el
+  }
+  const cellElement = (target: EventTarget | null) =>
+    target instanceof Element ? target.closest("[data-step]") : null
+  const accepts = (dt: DataTransfer) => drag?.accepts.some((t) => dt.types.includes(t)) === true
+  const onDragStart = (e: DragEvent<HTMLDivElement>) => {
+    const cell = cellOf(e.target)
+    // Not a cell (a header element of the caller's, which drags on its own): none of our business.
+    if (!cell || !drag) return
+    const data = drag.dataOf(cell.row as Id, cell.step)
+    if (data === null) {
+      e.preventDefault()
+      return
+    }
+    e.dataTransfer.setData(drag.type, data)
+    e.dataTransfer.effectAllowed = "copy"
+  }
+  const onDragOver = (e: DragEvent<HTMLDivElement>) => {
+    const cell = cellElement(e.target)
+    if (!cell || !accepts(e.dataTransfer)) return
+    e.preventDefault()
+    e.dataTransfer.dropEffect = "copy"
+    outline(cell)
+  }
+  const onDragLeave = (e: DragEvent<HTMLDivElement>) => {
+    if (!cellElement(e.relatedTarget)) outline(null)
+  }
+  const onDrop = (e: DragEvent<HTMLDivElement>) => {
+    outline(null)
+    const cell = cellOf(e.target)
+    if (!cell || !drag || !accepts(e.dataTransfer)) return
+    e.preventDefault()
+    drag.onDrop(cell.row as Id, cell.step, e)
+  }
+
   return (
     <chakra.div css={styles.root}>
       <chakra.div
@@ -209,6 +293,11 @@ export function StepGrid<Id extends string>({
         onPointerUp={endStroke}
         onPointerCancel={endStroke}
         onClickCapture={onClickCapture}
+        onDragStart={drag ? onDragStart : undefined}
+        onDragOver={drag ? onDragOver : undefined}
+        onDragLeave={drag ? onDragLeave : undefined}
+        onDrop={drag ? onDrop : undefined}
+        onDragEnd={drag ? () => outline(null) : undefined}
       >
         {header && (
           <chakra.div css={styles.row} role="presentation">
@@ -221,8 +310,20 @@ export function StepGrid<Id extends string>({
           </chakra.div>
         )}
         {rows.map((row) => (
-          <chakra.div key={row.id} css={styles.row} role="group" aria-label={row.label}>
-            <chakra.span css={styles.label}>{row.label}</chakra.span>
+          <chakra.div
+            key={row.id}
+            css={[styles.row, row.tint ? { "--tint": row.tint } : {}]}
+            role="group"
+            aria-label={row.label}
+          >
+            <chakra.span css={styles.label}>
+              {row.icon && (
+                <chakra.span display="inline-flex" color={TINT_ACCENT} aria-hidden="true">
+                  {row.icon}
+                </chakra.span>
+              )}
+              {row.label}
+            </chakra.span>
             {STEPS.map((step) => (
               <StepCell
                 key={step}
@@ -231,6 +332,10 @@ export function StepGrid<Id extends string>({
                 label={row.label}
                 step={step}
                 on={row.steps[step] === true}
+                icon={row.icon}
+                marked={row.marks?.[step] === true}
+                tinted={row.tint !== undefined}
+                draggable={drag !== undefined && row.marks?.[step] === true}
                 onToggle={toggleCell}
                 columnName={columnName}
               />

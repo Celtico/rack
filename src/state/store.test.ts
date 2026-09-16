@@ -241,6 +241,35 @@ describe("rack store", () => {
     expect(rowsOf(s.patterns[0]!.tracks["drums-1"] as KitTrack).hat![7]).toBe(true)
   })
 
+  it("swaps two slots, renumbering the chain and the slot on screen so nothing sounds different", () => {
+    const store = useRackStore.getState()
+    store.toggleStep("drums-1", "hat", 7)
+    store.appendToChain(0)
+    store.appendToChain(2)
+    store.appendToChain(0)
+    const before = useRackStore.getState()
+    store.swapPatterns(0, 2)
+    const s = useRackStore.getState()
+    expect(s.patterns[2]).toBe(before.patterns[0])
+    expect(s.patterns[0]).toBe(before.patterns[2])
+    expect(s.chain).toEqual([2, 0, 2])
+    expect(s.activePattern).toBe(2)
+    expect(before.patterns[0]).not.toBe(s.patterns[0])
+    store.undo()
+    expect(useRackStore.getState().chain).toEqual([0, 2, 0])
+    expect(useRackStore.getState().activePattern).toBe(0)
+  })
+
+  it("copies any slot onto another, leaving the slot on screen alone", () => {
+    const store = useRackStore.getState()
+    store.toggleStep("drums-1", "hat", 7)
+    store.copyPattern(0, 5)
+    const s = useRackStore.getState()
+    expect(s.activePattern).toBe(0)
+    expect(rowsOf(s.patterns[5]!.tracks["drums-1"] as KitTrack).hat![7]).toBe(true)
+    expect(rowsOf(s.patterns[0]!.tracks["drums-1"] as KitTrack).hat![7]).toBe(true)
+  })
+
   it("builds and clears the chain immutably, clamping slots and length", () => {
     const store = useRackStore.getState()
     const before = useRackStore.getState().chain

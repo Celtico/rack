@@ -52,7 +52,7 @@ import {
   type ModParams,
   type RandomParams,
 } from "./mod"
-import { createDefaultBank, MAX_CHAIN, PATTERN_COUNT } from "./patterns"
+import { createDefaultBank, MAX_CHAIN, PATTERN_COUNT, swapSlots } from "./patterns"
 import { randomFilter, randomizeInstance, randomSynthFilter } from "./random"
 import { randomTrack } from "./randomPart"
 import { SONG_VERSION, type Song } from "./song"
@@ -126,6 +126,10 @@ export interface RackState {
   setActivePattern: (index: number) => void
   setFollowSong: (follow: boolean) => void
   copyActivePatternTo: (index: number) => void
+  /** Two bank slots change places; the chain and the slot on screen follow, so nothing sounds different. */
+  swapPatterns: (a: number, b: number) => void
+  /** Slot `to` becomes a copy of slot `from` (its parts and who sits it out). */
+  copyPattern: (from: number, to: number) => void
   appendToChain: (index: number) => void
   /** One more bar of whatever the last bar plays — "again". */
   repeatLastBar: () => void
@@ -399,6 +403,29 @@ export const useRackStore = create<RackState>()((set, get) => ({
         ...remember(state),
         patterns: state.patterns.map((p, i) => (i === target ? source : p)),
         activePattern: target,
+      }
+    }),
+  swapPatterns: (a, b) =>
+    set((state) => {
+      const [from, to] = [slot(a), slot(b)]
+      if (from === to) return state
+      const patterns = [...state.patterns]
+      ;[patterns[from], patterns[to]] = [patterns[to]!, patterns[from]!]
+      const follow = (s: number) => (s === from ? to : s === to ? from : s)
+      return {
+        ...remember(state),
+        patterns,
+        chain: swapSlots(state.chain, from, to),
+        activePattern: follow(state.activePattern),
+      }
+    }),
+  copyPattern: (from, to) =>
+    set((state) => {
+      const [source, target] = [slot(from), slot(to)]
+      if (source === target) return state
+      return {
+        ...remember(state),
+        patterns: state.patterns.map((p, i) => (i === target ? state.patterns[source]! : p)),
       }
     }),
   appendToChain: (index) =>
