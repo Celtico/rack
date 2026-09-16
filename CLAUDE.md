@@ -564,7 +564,7 @@ strict build order:
      `clampMod`): `tune` (semitones, melodic kinds — `hasTune`; the device transposes each note with
      `transposeNote`, no signal), `drive` (0–1, the `wet` of a `Tone.Distortion` on the strip), two **LFOs**
      (`shape`, `rate` Hz, `target`, `amount`), a per-step **random** source (`target`, `amount`) and four
-     **macros** (`value` + `targets: { key, min, max }[]`). Targets: `cutoff` / `pitch` / `level` / `off`
+     **macros** (`value` + `targets: { key, min, max }[]`). Targets: `cutoff` / `pitch` / `level` / `pan` / `off`
      (`modTargetsFor(kind)`: pitch only where voices carry a `detune` signal — synth, bass, poly, ep).
      Engine: the strip is device → [filter] → drive → trem → input; the modulators are Tone signals summed
      into the target (`Strip.filterBase`, `tremBase` and PolyPad's `cutoff` signal carry the knob's own value
@@ -625,6 +625,21 @@ strict build order:
      (36×24 coarse), the control padded `px: 3` so the cap has room.
    - ✅ Extra — FX-2's **strips are cards**: each machine's meter, fader and send sit in a bordered box
      (`blackAlpha.300`, `rack.panel.divider`) headed by the kind's icon in its finish accent and its label.
+   - ✅ Extra — **stereo**. `Instance.pan` (−1…1, `PAN_RANGE`, saved; missing → 0) and `Instance.space`
+     (`{ angle: −180…180°, distance: 0…1 }`, `SPACE_DEFAULT` / `clampSpace`, saved; missing → default);
+     `FxParams.pingPong` and `FxParams.space` (booleans, saved, missing → false — a song from before sounds
+     as it did). Engine: every strip is now trem → [`panner3d`] → `panner` (`Tone.Panner`, `panBase`
+     signal carries the knob, the pan modulators sum into `panner.pan`) → `panTrim` (a gain of √2: a
+     panner at the centre halves the power per channel, so without it every old song would have dropped
+     3 dB) → input. **3D** (`fx.space`, "for headphones"): `wireSpace` puts a `Tone.Panner3D` (HRTF,
+     inverse distance, `SPACE_NEAR`…`SPACE_FAR` units, `placeInSpace`: front is −z, right +x) before the
+     panner, and disposes it when the mode is off — an HRTF per machine is not free. **Ping-pong**
+     (`fx.pingPong`): a `Tone.PingPongDelay` built beside the `FeedbackDelay`, both fed the same
+     time/feedback, the FX send wired to one or the other. Modulation target `pan` on every kind
+     (`PAN_MOD_FRACTION` = 1: full amount swings the whole way). Store `setInstancePan` (key `pan:<id>`) /
+     `setInstanceSpace` (key `space:<id>:<keys>`); `syncFromStore` pushes both. FX-2: a Pan knob per strip
+     ("L 40" / "C" / "R 40"), Angle / Dist knobs while 3D is on, and a "Stereo" section with the two
+     switches. `ModPanel`'s target picker gained the pan icon (`LuMoveHorizontal`).
    - ✅ Extra — the **fold chevron closes the unit header**, after the grip menu (mute, solo, ⋮, then the
      chevron), so the panel's own fold sits at the very edge.
    - ✅ Extra — a **version number** by the toolbar mark: `v<n>`, the commit count on the branch

@@ -315,7 +315,26 @@ export interface FxParams {
   feedback: number
   /** Reverb tail, seconds. */
   reverbDecay: number
+  /** The echo bounces between left and right instead of repeating in the middle. */
+  pingPong: boolean
+  /** 3D placement for headphones (HRTF): every machine sits at its angle and distance. */
+  space: boolean
 }
+
+/** Where a machine sits around the listener in 3D mode. */
+export interface SpaceParams {
+  /** Degrees around the listener: 0 in front, ±90 the sides, ±180 behind. */
+  angle: number
+  /** 0 close, 1 far. */
+  distance: number
+}
+export const SPACE_RANGES = {
+  angle: { min: -180, max: 180 },
+  distance: { min: 0, max: 1 },
+} as const
+export const SPACE_DEFAULT: SpaceParams = { angle: 0, distance: 0.5 }
+/** Stereo position, −1 left … 1 right. */
+export const PAN_RANGE = { min: -1, max: 1 } as const
 
 export const FX_RANGES = {
   feedback: { min: 0, max: 0.9 },
@@ -326,6 +345,8 @@ export const FX_DEFAULT: FxParams = {
   delayTime: "8n.",
   feedback: 0.35,
   reverbDecay: 2.5,
+  pingPong: false,
+  space: false,
 }
 
 export const clamp = (value: number, min: number, max: number) =>

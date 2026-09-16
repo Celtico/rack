@@ -13,9 +13,9 @@ import {
 
 describe("mod model", () => {
   it("offers pitch only to kinds with a detune signal, and tune only to melodic kinds", () => {
-    expect(modTargetsFor("synth")).toEqual(["off", "cutoff", "pitch", "level"])
-    expect(modTargetsFor("drums")).toEqual(["off", "cutoff", "level"])
-    expect(modTargetsFor("strings")).toEqual(["off", "cutoff", "level"])
+    expect(modTargetsFor("synth")).toEqual(["off", "cutoff", "pitch", "level", "pan"])
+    expect(modTargetsFor("drums")).toEqual(["off", "cutoff", "level", "pan"])
+    expect(modTargetsFor("strings")).toEqual(["off", "cutoff", "level", "pan"])
     expect(macroTargetsFor("drums", true).map((t) => t.key)).toEqual([
       "param:kick",
       "param:snare",
@@ -54,6 +54,7 @@ describe("mod model", () => {
     expect(modSwing("pitch", 0.5, 1000)).toBe(PITCH_MOD_CENTS / 2)
     expect(modSwing("cutoff", 1, 1000)).toBeCloseTo(900)
     expect(modSwing("level", 0.5, 1000)).toBeCloseTo(0.45)
+    expect(modSwing("pan", 0.5, 1000)).toBeCloseTo(0.5)
     expect(modSwing("off", 1, 1000)).toBe(0)
   })
 

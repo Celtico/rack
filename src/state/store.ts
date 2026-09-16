@@ -3,6 +3,7 @@ import { create } from "zustand"
 import {
   clampFilter,
   clampParams,
+  clampSpace,
   createInstance,
   defaultInstances,
   defaultParams,
@@ -18,8 +19,9 @@ import {
   FX_DEFAULT,
   FX_RANGES,
   MASTER_DEFAULT,
+  PAN_RANGE,
 } from "./params"
-import { FILTER_DEFAULT, type FilterParams, type FxParams } from "./params"
+import { FILTER_DEFAULT, type FilterParams, type FxParams, type SpaceParams } from "./params"
 import {
   emptyTrack,
   toggleBassFlag,
@@ -198,6 +200,10 @@ export interface RackState {
   setInstanceParams: (id: string, patch: Partial<KindParams[Kind]>) => void
   setInstanceLevel: (id: string, level: number) => void
   setInstanceSend: (id: string, send: number) => void
+  /** Stereo position, −1…1. */
+  setInstancePan: (id: string, pan: number) => void
+  /** Where the machine sits in 3D mode. */
+  setInstanceSpace: (id: string, patch: Partial<SpaceParams>) => void
   setInstanceMute: (id: string, mute: boolean) => void
   setInstanceSolo: (id: string, solo: boolean) => void
   /** Change part of a strip filter; nothing happens on a kind whose filter is in its params. */
@@ -303,6 +309,9 @@ const clampFx = (fx: FxParams): FxParams => ({
   delayTime: fx.delayTime,
   feedback: clamp(fx.feedback, FX_RANGES.feedback.min, FX_RANGES.feedback.max),
   reverbDecay: clamp(fx.reverbDecay, FX_RANGES.reverbDecay.min, FX_RANGES.reverbDecay.max),
+  // Songs from before the switches have neither: off, as they sounded.
+  pingPong: fx.pingPong === true,
+  space: fx.space === true,
 })
 
 /**
@@ -317,6 +326,8 @@ const clampInstance = (inst: Instance): Instance =>
     level: clamp(inst.level, 0, 1),
     send: clamp(inst.send, 0, 1),
     mute: inst.mute === true,
+    pan: clamp(inst.pan ?? 0, PAN_RANGE.min, PAN_RANGE.max),
+    space: clampSpace(inst.space),
     ...(hasStripFilter(inst.kind)
       ? { filter: clampFilter({ ...FILTER_DEFAULT, ...(inst.filter ?? {}) }) }
       : {}),
@@ -729,6 +740,8 @@ export const useRackStore = create<RackState>()((set, get) => ({
       level: source.level,
       send: source.send,
       mute: source.mute,
+      pan: source.pan,
+      space: { ...source.space },
     } as Instance
     const instances = [...state.instances]
     instances.splice(index + 1, 0, inst)
@@ -849,6 +862,16 @@ export const useRackStore = create<RackState>()((set, get) => ({
     set((state) => ({
       ...remember(state, `send:${id}`),
       ...editInstance(state, id, (i) => ({ ...i, send: clamp(send, 0, 1) })),
+    })),
+  setInstancePan: (id, pan) =>
+    set((state) => ({
+      ...remember(state, `pan:${id}`),
+      ...editInstance(state, id, (i) => ({ ...i, pan: clamp(pan, PAN_RANGE.min, PAN_RANGE.max) })),
+    })),
+  setInstanceSpace: (id, patch) =>
+    set((state) => ({
+      ...remember(state, `space:${id}:${Object.keys(patch).sort().join(",")}`),
+      ...editInstance(state, id, (i) => ({ ...i, space: clampSpace({ ...i.space, ...patch }) })),
     })),
   setInstanceMute: (id, mute) =>
     set((state) => ({
@@ -1016,6 +1039,7 @@ export function toSong(state: RackState): Song {
         ({
           ...i,
           params: structuredClone(i.params),
+          space: { ...i.space },
           ...(i.filter ? { filter: { ...i.filter } } : {}),
           mod: structuredClone(i.mod),
         }) as Instance,

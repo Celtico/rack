@@ -10,6 +10,7 @@ import {
   type FxParams,
   type PadParams,
   type RackState,
+  type SpaceParams,
 } from "../state/store"
 import { BassVoice } from "./devices/bass"
 import { DrumKit } from "./devices/drums"
@@ -54,6 +55,15 @@ interface Strip {
   /** A gain the level modulators move — separate from `input`, which mute and solo own. */
   trem: Tone.Gain
   tremBase: Tone.Signal
+  /** Stereo position after the tremolo; `panBase` carries the knob, the pan modulators sum into it. */
+  panner: Tone.Panner
+  panBase: Tone.Signal
+  /** A panner at the centre halves the power per channel (cos 45°): this puts it back, so a strip
+   *  that was never panned sounds exactly as it did before there was a panner. */
+  panTrim: Tone.Gain
+  /** 3D placement (HRTF) before the panner, only while `fx.space` is on. */
+  panner3d: Tone.Panner3D | null
+  space: SpaceParams
   /** Each LFO exists only while it points somewhere: a running oscillator is not free on a phone. */
   lfos: [Tone.LFO | null, Tone.LFO | null]
   /** Where each LFO is connected, to know when to rewire. */
@@ -120,6 +130,9 @@ const REVERB_DEBOUNCE_MS = 150
 const METER_SMOOTHING = 0.85
 /** The drive stage's curve; the knob only sets how much of it is heard (`wet`). */
 const DRIVE_CURVE = 0.5
+/** How far a machine sits in 3D mode, in Web Audio units, at distance 0 and 1. */
+const SPACE_NEAR = 1
+const SPACE_FAR = 6
 
 /**
  * The single audio engine. Owns every Tone node; React never creates one.
@@ -138,6 +151,7 @@ export class AudioEngine {
   private masterMeter: Tone.Meter | null = null
   private fxInput: Tone.Gain | null = null
   private delay: Tone.FeedbackDelay | null = null
+  private pingPong: Tone.PingPongDelay | null = null
   private reverb: Tone.Reverb | null = null
   private reverbDecayTimer: ReturnType<typeof setTimeout> | null = null
   private readonly strips = new Map<string, Strip>()
@@ -189,7 +203,14 @@ export class AudioEngine {
       feedback: state.fx.feedback,
       wet: 0.5,
     }).connect(reverb)
-    const fxInput = new Tone.Gain(1).connect(delay)
+    // The same echo bouncing between the sides; the send goes to one or the other (`fx.pingPong`).
+    const pingPong = new Tone.PingPongDelay({
+      delayTime: state.fx.delayTime,
+      feedback: state.fx.feedback,
+      wet: 0.5,
+    }).connect(reverb)
+    const fxInput = new Tone.Gain(1).connect(state.fx.pingPong ? pingPong : delay)
+    this.pingPong = pingPong
 
     this.master = master
     this.reverb = reverb
@@ -264,7 +285,11 @@ export class AudioEngine {
     input.connect(send)
     input.connect(meter)
     // device → [filter] → drive → trem → input. Modulators sum into signals the strip owns.
-    const trem = new Tone.Gain(0).connect(input)
+    // trem → [panner3d] → panner → panTrim → input
+    const panTrim = new Tone.Gain(Math.SQRT2).connect(input)
+    const panner = new Tone.Panner(0).connect(panTrim)
+    const panBase = new Tone.Signal(inst.pan).connect(panner.pan)
+    const trem = new Tone.Gain(0)
     const tremBase = new Tone.Signal(1).connect(trem.gain)
     const drive = new Tone.Distortion({ distortion: DRIVE_CURVE, wet: inst.mod.drive }).connect(
       trem,
@@ -289,6 +314,11 @@ export class AudioEngine {
       drive,
       trem,
       tremBase,
+      panner,
+      panBase,
+      panTrim,
+      panner3d: null,
+      space: inst.space,
       lfos: [null, null],
       lfoTargets: ["off", "off"],
       random: new Tone.Signal(0),
@@ -301,6 +331,7 @@ export class AudioEngine {
       device: this.createDevice(inst, filter ?? drive),
     }
     this.strips.set(inst.id, strip)
+    this.wireSpace(strip, this.source.getState().fx.space)
     this.applyMod(strip, inst.mod)
     // Born at its resting gain — and, if it is the first solo, the others go quiet.
     if (strip.solo) this.applyAllGains()
@@ -348,6 +379,10 @@ export class AudioEngine {
     strip.filterBase?.dispose()
     strip.filter?.dispose()
     strip.drive.dispose()
+    strip.panner3d?.dispose()
+    strip.panner.dispose()
+    strip.panBase.dispose()
+    strip.panTrim.dispose()
     strip.tremBase.dispose()
     strip.trem.dispose()
     strip.input.dispose()
@@ -465,6 +500,55 @@ export class AudioEngine {
     this.strips.get(id)?.send.gain.rampTo(level, RAMP)
   }
 
+  /** Stereo position, −1…1, with a ramp. */
+  setInstancePan(id: string, pan: number): void {
+    this.strips.get(id)?.panBase.rampTo(pan, RAMP)
+  }
+
+  /** Where the machine sits in 3D mode; applied at once if the mode is on. */
+  setInstanceSpace(id: string, space: SpaceParams): void {
+    const strip = this.strips.get(id)
+    if (!strip) return
+    strip.space = space
+    if (strip.panner3d) this.placeInSpace(strip)
+  }
+
+  /**
+   * The strip's path after the tremolo: through an HRTF panner (3D, for
+   * headphones) when the mode is on, straight to the stereo panner when it is
+   * not. The 3D panner exists only while the mode is on — an HRTF convolution
+   * per machine is not free.
+   */
+  private wireSpace(strip: Strip, on: boolean): void {
+    strip.trem.disconnect()
+    if (on) {
+      if (!strip.panner3d) {
+        strip.panner3d = new Tone.Panner3D({
+          panningModel: "HRTF",
+          distanceModel: "inverse",
+          refDistance: 1,
+          rolloffFactor: 0.5,
+          maxDistance: 20,
+        })
+        this.placeInSpace(strip)
+      }
+      strip.trem.connect(strip.panner3d)
+      strip.panner3d.connect(strip.panner)
+    } else {
+      strip.panner3d?.dispose()
+      strip.panner3d = null
+      strip.trem.connect(strip.panner)
+    }
+  }
+
+  /** Angle and distance to a point around the listener: in front is −z, the right is +x. */
+  private placeInSpace(strip: Strip): void {
+    const { angle, distance } = strip.space
+    const radius = SPACE_NEAR + distance * (SPACE_FAR - SPACE_NEAR)
+    const a = (angle * Math.PI) / 180
+    strip.panner3d?.setPosition(radius * Math.sin(a), 0, -radius * Math.cos(a))
+  }
+
   /** Apply (part of) a strip filter: the type at once, cutoff and Q with a ramp. */
   setInstanceFilter(id: string, patch: Partial<FilterParams>): void {
     const strip = this.strips.get(id)
@@ -543,6 +627,8 @@ export class AudioEngine {
         return hooks?.pitchInputs() ?? []
       case "level":
         return [strip.trem.gain]
+      case "pan":
+        return [strip.panner.pan]
       case "off":
         return []
     }
@@ -770,12 +856,23 @@ export class AudioEngine {
     switch (key) {
       case "delayTime":
         this.delay?.delayTime.rampTo(value as FxParams["delayTime"], 0.05)
+        this.pingPong?.delayTime.rampTo(value as FxParams["delayTime"], 0.05)
         break
       case "feedback":
         this.delay?.feedback.rampTo(value as number, RAMP)
+        this.pingPong?.feedback.rampTo(value as number, RAMP)
         break
       case "reverbDecay":
         this.setReverbDecay(value as number)
+        break
+      case "pingPong":
+        if (this.fxInput && this.delay && this.pingPong) {
+          this.fxInput.disconnect()
+          this.fxInput.connect(value ? this.pingPong : this.delay)
+        }
+        break
+      case "space":
+        for (const strip of this.strips.values()) this.wireSpace(strip, value as boolean)
         break
     }
   }
@@ -819,6 +916,8 @@ export class AudioEngine {
       strip.muted = inst.mute
       strip.solo = s.solo[inst.id] === true
       this.setInstanceSend(inst.id, inst.send)
+      this.setInstancePan(inst.id, inst.pan)
+      this.setInstanceSpace(inst.id, inst.space)
       this.setInstanceParams(inst.id, inst.params)
       if (inst.filter) this.setInstanceFilter(inst.id, inst.filter)
       this.setInstanceMod(inst.id, inst.mod)
@@ -844,6 +943,7 @@ export class AudioEngine {
     this.masterMeter?.dispose()
     this.fxInput?.dispose()
     this.delay?.dispose()
+    this.pingPong?.dispose()
     this.reverb?.dispose()
     this.master?.dispose()
     this.compressor?.dispose()

@@ -119,6 +119,34 @@ describe("song save/load", () => {
     expect(s.chain).toEqual([3, 2])
   })
 
+  it("keeps pan, 3D place and the stereo switches, and defaults them where a file lacks them", () => {
+    const store = useRackStore.getState()
+    store.setInstancePan("perc-1", 0.6)
+    store.setInstanceSpace("perc-1", { angle: -90, distance: 0.8 })
+    store.setFxParam("pingPong", true)
+    store.setFxParam("space", true)
+    const song = parseSong(serializeSong(toSong(useRackStore.getState())))
+    expect(instOf<"perc">(song, "perc-1").pan).toBe(0.6)
+    expect(instOf<"perc">(song, "perc-1").space).toEqual({ angle: -90, distance: 0.8 })
+    expect(song.fx).toMatchObject({ pingPong: true, space: true })
+
+    // A file from before stereo: centre, the default place, both switches off.
+    const old = JSON.parse(serializeSong(song)) as {
+      instances: Record<string, unknown>[]
+      fx: Record<string, unknown>
+    }
+    for (const i of old.instances) {
+      delete i.pan
+      delete i.space
+    }
+    delete old.fx.pingPong
+    delete old.fx.space
+    const parsed = parseSong(JSON.stringify(old))
+    expect(instOf<"perc">(parsed, "perc-1").pan).toBe(0)
+    expect(instOf<"perc">(parsed, "perc-1").space).toEqual({ angle: 0, distance: 0.5 })
+    expect(parsed.fx).toMatchObject({ pingPong: false, space: false })
+  })
+
   it("keeps swing through a round-trip and defaults it when the file lacks it", () => {
     useRackStore.getState().setSwing(0.6)
     const song = parseSong(serializeSong(toSong(useRackStore.getState())))

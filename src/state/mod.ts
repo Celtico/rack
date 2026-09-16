@@ -21,7 +21,7 @@ export const LFO_SHAPES = ["sine", "triangle", "square", "sawtooth"] as const
 export type LfoShape = (typeof LFO_SHAPES)[number]
 
 /** What an LFO or the random source can move. */
-export const MOD_TARGETS = ["off", "cutoff", "pitch", "level"] as const
+export const MOD_TARGETS = ["off", "cutoff", "pitch", "level", "pan"] as const
 export type ModTarget = (typeof MOD_TARGETS)[number]
 
 export interface LfoParams {
@@ -132,6 +132,8 @@ export const PITCH_MOD_CENTS = 1200
 export const CUTOFF_MOD_FRACTION = 0.9
 /** A full level swing, as a fraction of the strip's gain either way. */
 export const LEVEL_MOD_FRACTION = 0.9
+/** At full amount the pan swings the whole way, left to right. */
+export const PAN_MOD_FRACTION = 1
 
 /**
  * How far a modulator at `amount` swings a target, in the target's own unit
@@ -145,6 +147,8 @@ export function modSwing(target: ModTarget, amount: number, cutoffHz: number): n
       return amount * PITCH_MOD_CENTS
     case "level":
       return amount * LEVEL_MOD_FRACTION
+    case "pan":
+      return amount * PAN_MOD_FRACTION
     case "off":
       return 0
   }

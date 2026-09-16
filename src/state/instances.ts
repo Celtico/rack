@@ -26,8 +26,11 @@ import {
   type StringsParams,
   type SynthParams,
   type MicParams,
+  type SpaceParams,
   type VideoParams,
   MIC_PARAMS_DEFAULT,
+  SPACE_DEFAULT,
+  SPACE_RANGES,
   MIC_RANGES,
   VIDEO_BARS,
   VIDEO_PARAMS_DEFAULT,
@@ -59,6 +62,10 @@ export type Instance = {
     level: number
     send: number
     mute: boolean
+    /** Stereo position, −1 left … 1 right; 0 leaves the sound exactly as a mono strip. */
+    pan: number
+    /** Where it sits in 3D mode (`fx.space`). */
+    space: SpaceParams
     /** The strip's filter — only on the kinds without a filter of their own (`hasStripFilter`). */
     filter?: FilterParams
     /** Tuning, drive, LFOs, random and macros — every kind. */
@@ -225,10 +232,22 @@ export function createInstance(kind: Kind, existing: readonly Instance[]): Insta
     level: MIX_DEFAULT[kind].level,
     send: MIX_DEFAULT[kind].send,
     mute: false,
+    pan: 0,
+    space: { ...SPACE_DEFAULT },
     ...(hasStripFilter(kind) ? { filter: { ...FILTER_DEFAULT } } : {}),
     mod: defaultMod(),
   } as Instance
 }
+
+/** A 3D position pulled into range; anything missing (older songs) is the default. */
+export const clampSpace = (space: Partial<SpaceParams> | undefined): SpaceParams => ({
+  angle: clamp(space?.angle ?? SPACE_DEFAULT.angle, SPACE_RANGES.angle.min, SPACE_RANGES.angle.max),
+  distance: clamp(
+    space?.distance ?? SPACE_DEFAULT.distance,
+    SPACE_RANGES.distance.min,
+    SPACE_RANGES.distance.max,
+  ),
+})
 
 /** One of each kind — the factory rack. */
 export function defaultInstances(): Instance[] {

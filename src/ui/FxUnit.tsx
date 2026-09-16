@@ -1,6 +1,6 @@
-import { Box, Flex, HStack, SegmentGroup, Separator, Text, VStack } from "@chakra-ui/react"
+import { Box, Button, Flex, HStack, SegmentGroup, Separator, Text, VStack } from "@chakra-ui/react"
 import type { ReactNode } from "react"
-import { LuSlidersHorizontal } from "react-icons/lu"
+import { LuHeadphones, LuRepeat, LuSlidersHorizontal } from "react-icons/lu"
 
 import { getEngine } from "../audio/engine"
 import { instanceLabel } from "../state/instances"
@@ -8,6 +8,9 @@ import {
   DELAY_TIMES,
   FX_DEFAULT,
   FX_RANGES,
+  PAN_RANGE,
+  SPACE_DEFAULT,
+  SPACE_RANGES,
   useRackStore,
   type DelayTime,
   type FxParams,
@@ -28,6 +31,10 @@ const DELAY_LABELS: Record<DelayTime, string> = {
 
 const isDelayTime = (v: string | null): v is DelayTime => DELAY_TIMES.includes(v as DelayTime)
 const formatSeconds = (v: number) => `${v.toFixed(1)} s`
+/** "L 40", "C", "R 100". */
+const formatPan = (v: number) =>
+  Math.abs(v) < 0.005 ? "C" : `${v < 0 ? "L" : "R"} ${Math.round(Math.abs(v) * 100)}`
+const formatAngle = (v: number) => `${Math.round(v)}°`
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -44,7 +51,9 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 function Strip({ id }: { id: string }) {
   const inst = useRackStore((s) => s.instances.find((i) => i.id === id))
   const label = useRackStore((s) => (inst ? instanceLabel(inst, s.instances) : ""))
-  const { setInstanceLevel, setInstanceSend } = useRackStore.getState()
+  const { setInstanceLevel, setInstanceSend, setInstancePan, setInstanceSpace } =
+    useRackStore.getState()
+  const space = useRackStore((s) => s.fx.space)
   if (!inst) return null
 
   return (
@@ -97,6 +106,53 @@ function Strip({ id }: { id: string }) {
             getEngine().setInstanceSend(id, v)
           }}
         />
+        <Knob
+          size="sm"
+          label="Pan"
+          value={inst.pan}
+          min={PAN_RANGE.min}
+          max={PAN_RANGE.max}
+          step={0.01}
+          defaultValue={0}
+          format={formatPan}
+          onChange={(v) => {
+            setInstancePan(id, v)
+            getEngine().setInstancePan(id, v)
+          }}
+        />
+        {/* In 3D mode the machine also has a place around the listener. */}
+        {space && (
+          <>
+            <Knob
+              size="sm"
+              label="Angle"
+              value={inst.space.angle}
+              min={SPACE_RANGES.angle.min}
+              max={SPACE_RANGES.angle.max}
+              step={5}
+              defaultValue={SPACE_DEFAULT.angle}
+              format={formatAngle}
+              onChange={(angle) => {
+                setInstanceSpace(id, { angle })
+                getEngine().setInstanceSpace(id, { ...inst.space, angle })
+              }}
+            />
+            <Knob
+              size="sm"
+              label="Dist"
+              value={inst.space.distance}
+              min={SPACE_RANGES.distance.min}
+              max={SPACE_RANGES.distance.max}
+              step={0.01}
+              defaultValue={SPACE_DEFAULT.distance}
+              format={formatPercent}
+              onChange={(distance) => {
+                setInstanceSpace(id, { distance })
+                getEngine().setInstanceSpace(id, { ...inst.space, distance })
+              }}
+            />
+          </>
+        )}
       </HStack>
     </VStack>
   )
@@ -198,6 +254,41 @@ export function FxUnit() {
               format={formatSeconds}
               onChange={changeFx("reverbDecay")}
             />
+          </Section>
+
+          <Separator
+            orientation="vertical"
+            borderColor="rack.panel.edge"
+            alignSelf="stretch"
+            hideBelow="md"
+          />
+
+          {/* Both off by default: a song made before them sounds as it did. */}
+          <Section title="Stereo">
+            <HStack gap="2" wrap="wrap">
+              <Button
+                size="xs"
+                rounded="sm"
+                variant={fx.pingPong ? "solid" : "outline"}
+                colorPalette={fx.pingPong ? "orange" : "gray"}
+                aria-pressed={fx.pingPong}
+                title="The echo bounces between left and right"
+                onClick={() => changeFx("pingPong")(!fx.pingPong)}
+              >
+                <LuRepeat /> Ping-pong echo
+              </Button>
+              <Button
+                size="xs"
+                rounded="sm"
+                variant={fx.space ? "solid" : "outline"}
+                colorPalette={fx.space ? "orange" : "gray"}
+                aria-pressed={fx.space}
+                title="Every machine at its angle and distance around you — for headphones"
+                onClick={() => changeFx("space")(!fx.space)}
+              >
+                <LuHeadphones /> 3D
+              </Button>
+            </HStack>
           </Section>
         </Flex>
       </VStack>

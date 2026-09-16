@@ -16,6 +16,7 @@ import {
   LuChevronDown,
   LuChevronUp,
   LuFilter,
+  LuMoveHorizontal,
   LuMusic,
   LuPlus,
   LuVolume2,
@@ -51,6 +52,7 @@ const TARGET_LABELS: Readonly<Record<ModTarget, string>> = {
   cutoff: "Cutoff",
   pitch: "Pitch",
   level: "Level",
+  pan: "Pan",
 }
 /** What each target is drawn as: nothing, the filter, a note, a speaker. */
 const TARGET_ICONS: Readonly<Record<ModTarget, ReactNode>> = {
@@ -58,6 +60,7 @@ const TARGET_ICONS: Readonly<Record<ModTarget, ReactNode>> = {
   cutoff: <LuFilter />,
   pitch: <LuMusic />,
   level: <LuVolume2 />,
+  pan: <LuMoveHorizontal />,
 }
 
 const formatSemitones = (v: number) => `${v > 0 ? "+" : ""}${v} st`

@@ -14,9 +14,11 @@ import {
   FILTER_DEFAULT,
   FILTER_TYPES,
   FX_DEFAULT,
+  SPACE_DEFAULT,
   WAVEFORMS,
   type FilterParams,
   type FxParams,
+  type SpaceParams,
 } from "./params"
 import {
   BASS_NOTES,
@@ -315,9 +317,20 @@ function parseInstance(v: unknown, path: string): Instance {
     level: num(obj.level, `${path}.level`),
     send: num(obj.send, `${path}.send`),
     mute: bool(obj.mute ?? false, `${path}.mute`),
+    // Older files sit in the middle, at the default distance.
+    pan: num(obj.pan ?? 0, `${path}.pan`),
+    space: parseSpace(obj.space, `${path}.space`),
     ...(hasStripFilter(kind) ? { filter: parseFilter(obj.filter, `${path}.filter`) } : {}),
     mod: parseMod(obj.mod, `${path}.mod`),
   } as Instance
+}
+
+function parseSpace(v: unknown, path: string): SpaceParams {
+  const obj = v === undefined ? {} : record(v, path)
+  return {
+    angle: num(obj.angle ?? SPACE_DEFAULT.angle, `${path}.angle`),
+    distance: num(obj.distance ?? SPACE_DEFAULT.distance, `${path}.distance`),
+  }
 }
 
 function parseSongV2(s: Record<string, unknown>): Song {
@@ -389,6 +402,8 @@ function parseSongV2(s: Record<string, unknown>): Song {
       delayTime: oneOf(fx.delayTime ?? FX_DEFAULT.delayTime, "song.fx.delayTime", DELAY_TIMES),
       feedback: num(fx.feedback ?? FX_DEFAULT.feedback, "song.fx.feedback"),
       reverbDecay: num(fx.reverbDecay ?? FX_DEFAULT.reverbDecay, "song.fx.reverbDecay"),
+      pingPong: bool(fx.pingPong ?? false, "song.fx.pingPong"),
+      space: bool(fx.space ?? false, "song.fx.space"),
     },
   }
 }

@@ -17,6 +17,7 @@ import {
   STRINGS_PARAMS_DEFAULT,
   SYNTH_PARAMS_DEFAULT,
   MIC_PARAMS_DEFAULT,
+  SPACE_DEFAULT,
   VIDEO_PARAMS_DEFAULT,
   WAVEFORMS,
   type BassParams,
@@ -319,6 +320,8 @@ export function parseSongV1(s: Record<string, unknown>): Song {
         level: level[kind],
         send: send[kind],
         mute: mute[kind],
+        pan: 0,
+        space: { ...SPACE_DEFAULT },
         // Strip filters and modulation came later: wide open and still, as these files sounded.
         ...(hasStripFilter(kind) ? { filter: { ...FILTER_DEFAULT } } : {}),
         mod: defaultMod(),
@@ -357,6 +360,8 @@ export function parseSongV1(s: Record<string, unknown>): Song {
       delayTime: oneOf(fx.delayTime, "song.fx.delayTime", DELAY_TIMES),
       feedback: num(fx.feedback, "song.fx.feedback"),
       reverbDecay: num(fx.reverbDecay, "song.fx.reverbDecay"),
+      pingPong: false,
+      space: false,
     } satisfies FxParams,
   }
 }

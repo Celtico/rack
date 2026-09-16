@@ -132,6 +132,26 @@ describe("rack store", () => {
     expect(useRackStore.getState().swing).toBe(1)
   })
 
+  it("pans a machine and places it in 3D, within range, as coalescing knob steps", () => {
+    const store = useRackStore.getState()
+    store.setInstancePan("drums-1", -0.4)
+    store.setInstancePan("drums-1", 3)
+    store.setInstanceSpace("drums-1", { angle: 500 })
+    store.setInstanceSpace("drums-1", { distance: 0.25 })
+    const inst = useRackStore.getState().instances.find((i) => i.id === "drums-1")!
+    expect(inst.pan).toBe(1)
+    expect(inst.space).toEqual({ angle: 180, distance: 0.25 })
+    // Turns of one knob within the window are one step (the two pan turns), each knob its own:
+    // three undos land before any of it.
+    store.undo()
+    store.undo()
+    expect(useRackStore.getState().instances.find((i) => i.id === "drums-1")!.pan).toBe(1)
+    store.undo()
+    const back = useRackStore.getState().instances.find((i) => i.id === "drums-1")!
+    expect(back.pan).toBe(0)
+    expect(back.space.angle).toBe(0)
+  })
+
   it("clamps master volume to 0–1", () => {
     const { setMasterVolume } = useRackStore.getState()
     setMasterVolume(-1)

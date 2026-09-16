@@ -25,7 +25,7 @@ const song = (bpm: number): Song => {
     activePattern: 0,
     chain: [],
     sections: [],
-    fx: { delayTime: "8n", feedback: 0.3, reverbDecay: 2 },
+    fx: { delayTime: "8n", feedback: 0.3, reverbDecay: 2, pingPong: false, space: false },
   }
 }
 
