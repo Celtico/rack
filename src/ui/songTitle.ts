@@ -2,8 +2,8 @@ import { useLibraryStore } from "../state/songLibrary"
 import { useRackStore } from "../state/store"
 import { humanize } from "./autosave"
 
-/** Shown for a rack with nothing in it. */
-export const NO_SONG = "—"
+/** Shown for a rack with nothing in it — the toolbar's title is a button that opens the Songs panel. */
+export const NO_SONG = "Select a song"
 
 /**
  * The name of the song the rack holds, as the transport prints it: the saved

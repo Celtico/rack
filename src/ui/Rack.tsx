@@ -16,6 +16,7 @@ import { DemoShelf } from "./DemoShelf"
 import { FxUnit } from "./FxUnit"
 import { InstanceUnit } from "./InstanceUnit"
 import { MasterUnit } from "./MasterUnit"
+import { usePanelStore } from "./panels"
 import { PinnedUnits } from "./PinnedUnits"
 import { SongsButton, SongsPanel } from "./SongLibrary"
 import { useSongTitle } from "./songTitle"
@@ -27,13 +28,19 @@ const FIXED: Record<FixedUnitId, ReactNode> = {
   "FX-2": <FxUnit />,
 }
 
-/** The name of the song the rack holds, printed on the toolbar like a silkscreen legend. */
+/**
+ * The name of the song the rack holds, printed on the toolbar like a silkscreen
+ * legend — or "Select a song" on an empty rack. Pressing it opens the Songs panel.
+ */
 function SongTitle() {
   const title = useSongTitle()
+  const open = usePanelStore((s) => s.panel === "songs")
+  const { toggle } = usePanelStore.getState()
   return (
-    <chakra.span
-      role="status"
-      aria-label="Song"
+    <chakra.button
+      type="button"
+      aria-label={`Song: ${title}. Open the songs panel`}
+      aria-expanded={open}
       title={title}
       textStyle="silkscreen"
       color="rack.silkscreen"
@@ -43,9 +50,16 @@ function SongTitle() {
       overflow="hidden"
       textOverflow="ellipsis"
       whiteSpace="nowrap"
+      cursor="pointer"
+      rounded="sm"
+      px="2"
+      py="1"
+      _hover={{ bg: "whiteAlpha.50" }}
+      _focusVisible={{ outline: "2px solid", outlineColor: "rack.led.on", outlineOffset: "1px" }}
+      onClick={() => toggle("songs")}
     >
       {title}
-    </chakra.span>
+    </chakra.button>
   )
 }
 

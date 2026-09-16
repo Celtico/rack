@@ -25,6 +25,9 @@ export default defineConfig({
     __RACK_VERSION__: JSON.stringify(version),
     __RACK_COMMIT__: JSON.stringify(commit),
   },
+  // The encoding worker (`src/audio/encodeWorker.ts`) loads the MP3 encoder on demand, and a
+  // worker that splits code has to be an ES module.
+  worker: { format: "es" },
   plugins: [
     react(),
     // Installable, works offline: the app shell is precached; songs, samples and MIDI are
@@ -40,7 +43,9 @@ export default defineConfig({
         ...({ version, commit } as object),
         description: "A web audio rack: drum machine, synths, sampler and step sequencer.",
         theme_color: "#111214",
-        background_color: "#111214",
+        // Android paints its launch screen with this, the icon and the name: white with the logo,
+        // like the iOS launch screens in `public/splash/`.
+        background_color: "#ffffff",
         display: "standalone",
         orientation: "any",
         start_url: "/",
@@ -57,7 +62,8 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ["**/*.{js,css,html,svg,png,json}"],
-        globIgnores: ["songs/**", "samples/**", "midi/**"],
+        // The launch screens are the OS's to fetch at install time, one of forty — not for the precache.
+        globIgnores: ["songs/**", "samples/**", "midi/**", "splash/**"],
         runtimeCaching: [
           {
             urlPattern: ({ url }) =>

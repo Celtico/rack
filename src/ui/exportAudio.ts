@@ -1,26 +1,22 @@
-import { encodeMp3 } from "../audio/mp3"
+import { encodeAudio, type AudioFormat } from "../audio/encode"
 import { renderSong } from "../audio/render"
-import { encodeWav } from "../audio/wav"
 import { toaster } from "../components/ui/toaster"
 import type { Song } from "../state/song"
 import { songFileName } from "../state/songLibrary"
 import { downloadBlob } from "./download"
 
-export type AudioFormat = "wav" | "mp3"
+export type { AudioFormat } from "../audio/encode"
 
 /**
  * Render a song offline and download it as audio. One toast follows the work
- * from "rendering" to done or to the error; the rack keeps playing meanwhile.
+ * from "rendering" to done or to the error; the rack keeps playing meanwhile —
+ * the render runs in the audio subsystem and the encoding in a worker.
  */
 export function exportSongAudio(song: Song, name: string, format: AudioFormat): Promise<void> {
   const label = format.toUpperCase()
   const work = (async () => {
     const buffer = await renderSong(song)
-    const blob =
-      format === "wav"
-        ? new Blob([encodeWav(buffer)], { type: "audio/wav" })
-        : await encodeMp3(buffer)
-    downloadBlob(songFileName(name, format), blob)
+    downloadBlob(songFileName(name, format), await encodeAudio(buffer, format))
   })()
   toaster.promise(work, {
     loading: { title: `Rendering ${label}…`, description: name },

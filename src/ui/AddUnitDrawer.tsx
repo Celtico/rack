@@ -196,7 +196,7 @@ function InstanceRow({
 }
 
 /**
- * "Add machine" as a drawer, like the song library: one row per kind of machine
+ * "Modules" as a drawer, like the song library: one tile per kind of machine
  * (add as many as you like) with the ones already in the rack listed under it
  * — tap one to scroll to it, or take it out — then the panels that were
  * hidden, to put back.
@@ -230,7 +230,7 @@ export function AddUnitPanel() {
   }
 
   return (
-    <SidePanel id="add" title="Add machine">
+    <SidePanel id="add" title="Modules">
       <Text textStyle="silkscreen" color="rack.silkscreen.muted" mb="2">
         New machine
       </Text>
@@ -335,7 +335,7 @@ export function AddUnitButton() {
       aria-pressed={open}
       onClick={() => toggle("add")}
     >
-      <LuServer /> Add
+      <LuServer /> Modules
     </Button>
   )
 }

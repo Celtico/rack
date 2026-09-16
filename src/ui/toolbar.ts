@@ -8,10 +8,11 @@ export const toolbarButton = {
   variant: "subtle",
   rounded: "sm",
   flex: { base: "1 1 0", md: "0 0 auto" },
-  minH: { base: "12", md: "auto" },
-  fontSize: { base: "md", md: "sm" },
+  // 36 px tall on a phone — the user asked for smaller twice (they were 48, then 40).
+  minH: { base: "9", md: "auto" },
+  fontSize: { base: "xs", md: "sm" },
   px: { base: "2", md: "3" },
-  "& svg": { fontSize: { base: "xl", md: "md" } },
+  "& svg": { fontSize: "md" },
 } as const
 
 /** Same, but only as wide as its icon — and with no fill (undo, redo, fold all sit plain on the strip). */
@@ -19,6 +20,6 @@ export const toolbarIconButton = {
   ...toolbarButton,
   variant: "ghost",
   flex: "0 0 auto",
-  minW: { base: "12", md: "auto" },
+  minW: { base: "9", md: "auto" },
   px: { base: "0", md: "3" },
 } as const

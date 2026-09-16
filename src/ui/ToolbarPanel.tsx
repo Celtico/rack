@@ -19,6 +19,9 @@ export function ToolbarPanel({ children }: { children: ReactNode }) {
       // The panel shadow's 1 px inset highlight sits at the very top of a phone's screen, under the
       // status bar, where it reads as a stray bright line: this first panel goes without it there.
       shadow={{ base: "none", md: "panel" }}
+      // Plain black, not the units' graphite with its glow: the strip reads as the frame, not a module.
+      bg="black"
+      bgImage="none"
       pt={{ base: "max(50px, env(safe-area-inset-top))", md: "3" }}
       pb={{ base: "2", md: "3" }}
     >

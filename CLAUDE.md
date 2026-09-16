@@ -115,7 +115,8 @@ strict build order:
    - ✅ Extra — the **song's name on the toolbar**: `SongTitle` in `Rack.tsx`, plain silkscreen capitals
      (no display box — tried, the user wanted it without a fill) in the middle of the toolbar (the box that
      used to be the spacer before the buttons; `hideBelow="md"`, so not on a phone — the user asked for
-     that) printing `useSongTitle()` (`src/ui/songTitle.ts`;
+     that). It is a button that opens the Songs panel (`usePanelStore.toggle("songs")`), and reads
+     "Select a song" (`NO_SONG`) on an empty rack. It prints `useSongTitle()` (`src/ui/songTitle.ts`;
      `songTitle` is pure: the library entry's name, a demo's file name humanized, the loaded file's name,
      "Untitled", or "—" for an empty rack). A display on the transport was tried first and squeezed the
      controls at laptop widths. `humanize` is exported from `autosave.ts` for it.
@@ -156,7 +157,11 @@ strict build order:
      and `sips` scales down; the Apple and maskable icons are full-bleed with the panel shrunk inside; the app shell is precached, `songs/`,
      `samples/`, `midi/` and the factory song are cached stale-while-revalidate as `rack-content`). `index.html`
      carries the iOS home-screen metas and `viewport-fit=cover`. `sw.js` and the manifest must be served
-     without long caching.
+     without long caching. **Launch screens**: `scripts/render-splash.sh` renders `public/splash/<w>x<h>.png`
+     (the logo's art over the word RACK, black on white, sized in vmin) for every iPhone / iPad size in
+     both orientations with headless Chrome and prints the `apple-touch-startup-image` `<link>` tags, which
+     `index.html` carries (one per size and orientation — iOS wants an exact match); `splash/**` is out of
+     the precache. Android builds its own from the manifest, whose `background_color` is white for it.
    - ✅ Extra — **instances** (any number of each machine, e.g. two DR-4s). `src/state/instances.ts`:
      `Instance { id: "${kind}-${n}", kind, params, level, send, mute }` (discriminated by `Kind`, one
      `KindParams` per kind, `clampParams`, `instanceLabel` → "DR-4" or "DR-4 #2"). `Pattern.tracks` is
@@ -222,7 +227,7 @@ strict build order:
      redo, fold all — are `ghost`: no fill, the user asked) buttons from
      `src/ui/toolbar.ts`: Songs (the library drawer, which also holds Load — `LoadSongButton`, .json or
      .mid — and New song under the save form), Add unit and one fold/unfold-all toggle; on a phone the buttons
-     share the width and are 48px tall) — the bank only keeps the copy row (active
+     share the width and are 36px tall with `xs` text — they were 48, the user wanted them smaller twice) — the bank only keeps the copy row (active
      slot → Copy → next slot). The CLOCK is two rows (`Transport`): run button + Tempo/Swing/Master knobs, then
      BEAT LEDs + BPM/STEP displays + OUT meter; side by side from `md`. The bank is a `repeat(8, minmax(0, 4rem))` grid (16 in a row from `xl`);
      song bars are `12` wide instead of `16` (`BAR_WIDTH` in the timeline recipe). Touch screens
@@ -269,7 +274,13 @@ strict build order:
      (`SamplerKit.ready`, decoded through the player's own context); `run(0)` starts the offline clock, which
      stops a millisecond before the last bar line, and a transport `"stop"` releases a held BASS-2 slide
      (`engine.release(time)`). The chain plays once (a chainless song loops `LOOP_BARS` = 4), plus a tail of
-     `reverbDecay + 1` s capped at 8 (`renderPlan`, pure). `encodeWav` (`src/audio/wav.ts`, 16-bit PCM, pure)
+     `reverbDecay + 1` s capped at 8 (`renderPlan`, pure). **Both encoders run in a Web Worker**: `encodeAudio(buffer, format)`
+     (`src/audio/encode.ts`) copies the channels, transfers them to `src/audio/encodeWorker.ts` (a module
+     worker, `new Worker(new URL(…), { type: "module" })`; `worker.format: "es"` in `vite.config.ts` since it
+     loads lamejs on demand) and gets the `Blob` back; without `Worker` (tests) it encodes in place. The
+     worker file's top level sets `self.onmessage`, so nothing else may import it — the shared pieces
+     (`pcmSource`, `encodePcm`, the message types) live in `src/audio/encodePcm.ts`. `encodeWav`
+     (`src/audio/wav.ts`, 16-bit PCM, pure)
      and `encodeMp3` (`src/audio/mp3.ts`, `@breezystack/lamejs` loaded on first use, 192 kbps, yields to the
      event loop between blocks). The scheduler reaches Draw through its sequence's context and skips it when
      `onStep` is absent. **The oscillator leak patch skips offline contexts**: detaching a signal inside an
@@ -551,8 +562,9 @@ strict build order:
      it falls back to `RACK_VERSION` / `RACK_COMMIT` from the environment, else "dev". The same `version`
      and `commit` go into the PWA manifest as informational (non-standard) fields. The Docker build
      installs git and `.dockerignore` no longer drops `.git` (34 MB), so the container shows the real number.
-   - ✅ Extra — the toolbar's add button is labelled just **"Add"** (rack icon + "Add"); the panel it opens
-     is titled "Add machine". Ids, files and store names keep `add` / `AddUnit`.
+   - ✅ Extra — the toolbar's add button is labelled **"Modules"** (rack icon + "Modules", beside "Songs";
+     it was "Add" and before that "Add unit"); the panel it opens is titled "Modules" too. Ids, files and
+     store names keep `add` / `AddUnit`.
 
 **All extras above are done.** Other ideas: LCD readouts per synth, drag-reorder on the timeline, per-step
 velocity on the kits.
