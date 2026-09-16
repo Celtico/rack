@@ -40,7 +40,7 @@ function dropPart(data: string, id: string, slot: number): void {
 }
 
 /**
- * Double-click on a machine's name in the matrix: the song pauses on the slot on screen (it keeps
+ * A click on a machine's name in the matrix: the song pauses on the slot on screen (it keeps
  * looping, as picking a slot does), and the machine's panel unfolds and scrolls into view.
  */
 function openInstrument(id: string): void {
@@ -129,8 +129,11 @@ function PartsMatrix({ header }: { header: (slot: number) => ReactNode }) {
         playheadOf={slotPlayhead}
         onToggle={(id, slot) => togglePartMute(id, slot)}
         drag={drag}
-        onRowOpen={openInstrument}
-        onRowSelect={(id) => setSelected((s) => (s === id ? null : id))}
+        // One click does both: the machine is selected (Delete takes it out) and its panel opens.
+        onRowSelect={(id) => {
+          setSelected(id)
+          openInstrument(id)
+        }}
         selectedRow={selectedInstance?.id ?? null}
       />
     </VStack>

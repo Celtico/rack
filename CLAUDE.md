@@ -490,12 +490,12 @@ strict build order:
      handler-free; the cell under the drag is outlined on the DOM (`data-drop-target`); the grid's own
      `dragstart` ignores anything that is not a cell so the header buttons drag on their own. With `drag`
      set, a mouse no longer paints that grid (a press would toggle the cell it is about to pick up). Both
-     drops are one undo step. **Double-click on a machine's name** in the matrix (`StepGrid.onRowOpen`,
-     `openInstrument` in `PatternBank.tsx`): the song pauses on the slot on screen (`setFollowSong(false)`,
-     it keeps looping as picking a slot does), the panel unfolds and scrolls into view (`scrollToUnit`).
-     **A single click selects the machine** (`onRowSelect` / `selectedRow`, `data-selected` on the label,
-     `role="button"`, the selection is `PartsMatrix` state): Delete or Backspace then takes it out of
-     the rack (`removeInstanceWithUndo`, the same Undo toast as the grip menu), Escape or a press anywhere
+     drops are one undo step. **A click on a machine's name** in the matrix (`onRowSelect` /
+     `selectedRow`, `data-selected` on the label, `role="button"`, the selection is `PartsMatrix` state)
+     does two things: `openInstrument` in `PatternBank.tsx` pauses the song on the slot on screen
+     (`setFollowSong(false)`, it keeps looping as picking a slot does) and unfolds and scrolls the panel
+     into view (`scrollToUnit`) — it was a double-click, the user wanted one —, and the machine is
+     selected: Delete or Backspace then takes it out of the rack (`removeInstanceWithUndo`, the same Undo toast as the grip menu), Escape or a press anywhere
      else lets it go; the key handler skips text fields (`inTextField`, exported from `undoRedo.ts`).
    - ✅ Extra — a folded unit's `MiniGrid` goes **dark while the machine is not heard** (`selectSilent`: sits
      the sounding slot out, muted, or silenced by another's solo) — the matrix shows what plays, not the part.

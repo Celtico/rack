@@ -347,7 +347,13 @@ export function StepGrid<Id extends string>({
                   : undefined
               }
               onDoubleClick={onRowOpen ? () => onRowOpen(row.id) : undefined}
-              title={onRowOpen ? `Double-click to open ${row.label}` : undefined}
+              title={
+                onRowOpen
+                  ? `Double-click to open ${row.label}`
+                  : onRowSelect
+                    ? `Open ${row.label}`
+                    : undefined
+              }
             >
               {row.icon && (
                 <chakra.span display="inline-flex" color={TINT_ACCENT} aria-hidden="true">
