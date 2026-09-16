@@ -18,12 +18,35 @@ import { InstanceUnit } from "./InstanceUnit"
 import { MasterUnit } from "./MasterUnit"
 import { PinnedUnits } from "./PinnedUnits"
 import { SongsButton, SongsPanel } from "./SongLibrary"
+import { useSongTitle } from "./songTitle"
 import { ToolbarPanel } from "./ToolbarPanel"
 import { toolbarIconButton } from "./toolbar"
 import { UndoRedoButtons } from "./UndoRedoButtons"
 
 const FIXED: Record<FixedUnitId, ReactNode> = {
   "FX-2": <FxUnit />,
+}
+
+/** The name of the song the rack holds, printed on the toolbar like a silkscreen legend. */
+function SongTitle() {
+  const title = useSongTitle()
+  return (
+    <chakra.span
+      role="status"
+      aria-label="Song"
+      title={title}
+      textStyle="silkscreen"
+      color="rack.silkscreen"
+      textTransform="uppercase"
+      letterSpacing="wider"
+      maxW="full"
+      overflow="hidden"
+      textOverflow="ellipsis"
+      whiteSpace="nowrap"
+    >
+      {title}
+    </chakra.span>
+  )
 }
 
 /** The rack itself: a toolbar panel, then the units in the user's order. */
@@ -101,8 +124,11 @@ export function Rack() {
                 v{__RACK_VERSION__}
               </chakra.span>
               <UndoRedoButtons />
-              {/* Pushes the buttons to the far side on a desktop; on a phone they share the width. */}
-              <Box flex="1" hideBelow="md" />
+              {/* The song's name on a readout in the middle, which also pushes the buttons to the far
+                  side on a desktop; on a phone there is no room for it and the buttons share the width. */}
+              <Box flex="1" hideBelow="md" minW="0" display="flex" justifyContent="center" px="3">
+                <SongTitle />
+              </Box>
               <SongsButton />
               <AddUnitButton />
               <IconButton

@@ -112,7 +112,7 @@ export function SamplerUnit({ id }: { id: string }) {
       icon={kindIcon("sampler")}
       instance
     >
-      <Flex direction={{ base: "column", xl: "row" }} gap={{ base: "5", xl: "8" }} align="stretch">
+      <Flex wrap="wrap" gap={{ base: "5", xl: "8" }} align="stretch">
         <StepGrid rows={gridRows} onToggle={(p, step) => toggleStep(id, p, step)} />
 
         <Flex
@@ -120,7 +120,7 @@ export function SamplerUnit({ id }: { id: string }) {
           gap={{ base: "5", lg: "8" }}
           align="flex-start"
           alignContent="flex-start"
-          flex="1"
+          flex="1 1 20rem"
           minW="0"
         >
           <VStack gap="3" align="flex-start" maxW={{ xl: "64" }}>

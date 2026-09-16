@@ -6,7 +6,7 @@ import {
   useSlotRecipe,
   type RecipeVariantProps,
 } from "@chakra-ui/react"
-import { useState, type DragEvent, type ReactNode } from "react"
+import { useCallback, useState, type DragEvent, type ReactNode } from "react"
 import {
   LuArrowDown,
   LuArrowUp,
@@ -38,6 +38,7 @@ import {
 } from "../state/store"
 import type { rackUnitRecipe } from "../theme/recipes/rackUnit"
 import { useClipboardStore } from "./clipboard"
+import { useClearOnDragEnd } from "./dragTypes"
 import { Fold } from "./Fold"
 import { foldOnClick } from "./foldOnClick"
 import { MiniGrid } from "./MiniGrid"
@@ -123,6 +124,8 @@ export function RackUnit({
   // The grip arms dragging; the whole panel is only draggable while it is held.
   const [armed, setArmed] = useState(false)
   const [over, setOver] = useState(false)
+  const clearOver = useCallback(() => setOver(false), [])
+  useClearOnDragEnd(over, clearOver)
   // Instances are removed; the transport, FX-2, BANK and SONG are hidden (and put back from "Add unit").
   const removable = !fixed && (instance || isHideableUnit(id))
   // The transport is pinned outside the swap pair: it has a grip for its menu, but never moves.

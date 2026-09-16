@@ -46,8 +46,8 @@ function Pictogram({ finish, children }: { finish?: Finish; children: ReactNode 
     <Box
       as="span"
       display="inline-flex"
-      fontSize="2xl"
-      w="8"
+      fontSize="3xl"
+      w="10"
       justifyContent="center"
       color={finish ? finishAccent(finish) : "rack.silkscreen.muted"}
       aria-hidden="true"
@@ -68,53 +68,80 @@ interface RowProps {
   onAction: () => void
 }
 
-/** A whole row is the button: icon, name, title — the mark at the end only says what a press does. */
-function Row({ icon, name, title, count, actionLabel, actionIcon, onAction }: RowProps) {
+/** Tiles side by side, as many as fit the panel's width, wrapping — the panel can be dragged wide. */
+const TILE_GRID = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fill, minmax(7.5rem, 1fr))",
+  gap: "2",
+  listStyleType: "none",
+} as const
+
+/** A whole tile is the button: icon, name, title — the mark in the corner only says what a press does. */
+function Tile({ icon, name, title, count, actionLabel, actionIcon, onAction }: RowProps) {
   return (
     <chakra.li display="flex">
       <chakra.button
         type="button"
+        position="relative"
         display="flex"
+        flexDirection="column"
         alignItems="center"
-        gap="3"
+        gap="1"
         w="full"
         minW="0"
-        py="2"
         px="2"
-        mx="-2"
+        pt="4"
+        pb="3"
         rounded="sm"
-        textAlign="left"
+        borderWidth="1px"
+        borderColor="rack.panel.divider"
+        bg="blackAlpha.300"
+        textAlign="center"
         cursor="pointer"
         transitionProperty="background-color"
         transitionDuration="fast"
         _hover={{ bg: "whiteAlpha.50" }}
         _focusVisible={{ outline: "2px solid", outlineColor: "rack.led.on", outlineOffset: "-2px" }}
         _motionReduce={{ transition: "none" }}
-        // A machine already in the rack: its row sits on a grey ground.
+        // A machine already in the rack: its tile sits on a grey ground.
         data-present={count ? "" : undefined}
         css={{ "&[data-present]": { bg: "metal.700", _hover: { bg: "metal.600" } } }}
         aria-label={actionLabel}
         onClick={onAction}
       >
         {icon}
-        <VStack gap="0.5" align="flex-start" minW="0" flex="1">
-          <Text fontWeight="medium" lineClamp={1}>
-            {name}
-          </Text>
-          <Text textStyle="silkscreen" color="rack.silkscreen.muted">
-            {title}
-            {count ? ` · ×${count} in the rack` : ""}
-          </Text>
-        </VStack>
+        <Text fontWeight="medium" lineClamp={1} maxW="full">
+          {name}
+        </Text>
+        <Text textStyle="silkscreen" color="rack.silkscreen.muted" lineClamp={2}>
+          {title}
+        </Text>
+        {/* How many are in the rack, top-left; what a press does, top-right. */}
+        {count ? (
+          <Box
+            as="span"
+            position="absolute"
+            top="1.5"
+            left="2"
+            textStyle="silkscreen"
+            color="rack.led.on"
+            aria-hidden="true"
+          >
+            ×{count}
+          </Box>
+        ) : null}
         <Box
           as="span"
+          position="absolute"
+          top="1.5"
+          right="1.5"
           display="grid"
           placeItems="center"
-          boxSize="8"
+          boxSize="5"
           rounded="sm"
           bg="rack.led.off"
           color="rack.led.on"
-          flexShrink={0}
+          fontSize="xs"
           aria-hidden="true"
         >
           {actionIcon}
@@ -125,18 +152,19 @@ function Row({ icon, name, title, count, actionLabel, actionIcon, onAction }: Ro
 }
 
 /** One machine already in the rack: tap the name to scroll to it, or take it out. */
-function InstanceRow({ id, label, onGo }: { id: string; label: string; onGo: () => void }) {
+function InstanceRow({
+  id,
+  icon,
+  label,
+  onGo,
+}: {
+  id: string
+  icon: ReactNode
+  label: string
+  onGo: () => void
+}) {
   return (
-    <HStack
-      as="li"
-      gap="2"
-      py="1.5"
-      // Indented under its machine, with a hairline of its own that starts at the indent.
-      ml="11"
-      align="center"
-      borderTopWidth="1px"
-      borderColor="rack.panel.divider"
-    >
+    <HStack as="li" gap="2" py="1" align="center" borderTopWidth="1px" borderColor="rack.panel.divider">
       <Button
         size="xs"
         variant="ghost"
@@ -150,10 +178,7 @@ function InstanceRow({ id, label, onGo }: { id: string; label: string; onGo: () 
           onGo()
         }}
       >
-        {/* A branch of the machine above it, as in a tree. */}
-        <Box as="span" color="rack.silkscreen.muted" fontFamily="display" aria-hidden="true">
-          └
-        </Box>
+        {icon}
         {label}
       </Button>
       <IconButton
@@ -206,60 +231,83 @@ export function AddUnitPanel() {
 
   return (
     <SidePanel id="add" title="Add machine">
-      <Text textStyle="silkscreen" color="rack.silkscreen.muted" mb="1">
+      <Text textStyle="silkscreen" color="rack.silkscreen.muted" mb="2">
         New machine
       </Text>
-      {/* One group per kind — the machine and its instances — a hairline under each. */}
-      <VStack as="ul" gap="0" align="stretch" listStyleType="none" aria-label="Machines" mb="4">
+      {/* One tile per kind, as many across as the panel's width takes. */}
+      <chakra.ul
+        {...TILE_GRID}
+        aria-label="Machines"
+        pb="3"
+        mb="3"
+        borderBottomWidth="1px"
+        borderColor="rack.panel.divider"
+      >
         {KINDS.map((kind) => (
-          <VStack
-            as="li"
+          <Tile
             key={kind}
-            gap="0"
-            align="stretch"
-            borderBottomWidth="1px"
-            borderColor="rack.panel.divider"
-          >
-            <VStack as="ul" gap="0" align="stretch" listStyleType="none">
-              <Row
-                icon={<Pictogram finish={KIND_FINISH[kind]}>{kindIcon(kind)}</Pictogram>}
-                name={KIND_MODEL[kind]}
-                title={KIND_TITLE[kind]}
-                count={countOf.get(kind) ?? 0}
-                actionLabel={`Add ${KIND_MODEL[kind]}`}
-                actionIcon={<LuPlus />}
-                onAction={() => add(kind)}
-              />
-              {instances
-                .filter((i) => i.kind === kind)
-                .map((i) => (
-                  <InstanceRow
-                    key={i.id}
-                    id={i.id}
-                    label={instanceLabel(i, instances)}
-                    onGo={() => done()}
-                  />
-                ))}
-            </VStack>
-          </VStack>
+            icon={<Pictogram finish={KIND_FINISH[kind]}>{kindIcon(kind)}</Pictogram>}
+            name={KIND_MODEL[kind]}
+            title={KIND_TITLE[kind]}
+            count={countOf.get(kind) ?? 0}
+            actionLabel={`Add ${KIND_MODEL[kind]}`}
+            actionIcon={<LuPlus />}
+            onAction={() => add(kind)}
+          />
         ))}
-      </VStack>
+      </chakra.ul>
 
-      {hidden.length > 0 && (
+      {instances.length > 0 && (
         <>
           <Text textStyle="silkscreen" color="rack.silkscreen.muted" mb="1">
-            Put back
+            In the rack
           </Text>
+          {/* The machines in the rack, in the order of the tiles: tap to scroll to one, or take it out. */}
           <VStack
             as="ul"
             gap="0"
             align="stretch"
             listStyleType="none"
-            aria-label="Hidden units"
-            css={{ "& > li": { borderBottomWidth: "1px", borderColor: "rack.panel.divider" } }}
+            aria-label="Machines in the rack"
+            pb="3"
+            mb="3"
+            borderBottomWidth="1px"
+            borderColor="rack.panel.divider"
           >
+            {KINDS.flatMap((kind) =>
+              instances
+                .filter((i) => i.kind === kind)
+                .map((i) => (
+                  <InstanceRow
+                    key={i.id}
+                    id={i.id}
+                    icon={
+                      <Box
+                        as="span"
+                        display="inline-flex"
+                        color={finishAccent(KIND_FINISH[kind])}
+                        aria-hidden="true"
+                      >
+                        {kindIcon(kind)}
+                      </Box>
+                    }
+                    label={instanceLabel(i, instances)}
+                    onGo={() => done()}
+                  />
+                )),
+            )}
+          </VStack>
+        </>
+      )}
+
+      {hidden.length > 0 && (
+        <>
+          <Text textStyle="silkscreen" color="rack.silkscreen.muted" mb="2">
+            Put back
+          </Text>
+          <chakra.ul {...TILE_GRID} aria-label="Hidden units">
             {hidden.map((id) => (
-              <Row
+              <Tile
                 key={id}
                 icon={<Pictogram finish={HIDEABLE[id].finish}>{HIDEABLE[id].icon}</Pictogram>}
                 name={HIDEABLE[id].name}
@@ -269,7 +317,7 @@ export function AddUnitPanel() {
                 onAction={() => putBack(id)}
               />
             ))}
-          </VStack>
+          </chakra.ul>
         </>
       )}
     </SidePanel>

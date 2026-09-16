@@ -53,6 +53,15 @@ import {
   type RandomParams,
 } from "./mod"
 import { createDefaultBank, MAX_CHAIN, PATTERN_COUNT, swapSlots } from "./patterns"
+import {
+  fitSections,
+  grownLast,
+  layOut,
+  sectionName,
+  sectionSpans,
+  withoutBar,
+  type Section,
+} from "./sections"
 import { randomFilter, randomizeInstance, randomSynthFilter } from "./random"
 import { randomTrack } from "./randomPart"
 import { SONG_VERSION, type Song } from "./song"
@@ -87,6 +96,8 @@ export interface RackState {
   activePattern: number
   /** Slots to play in order, one per bar; empty means loop the active one. */
   chain: readonly number[]
+  /** Named runs of bars over the chain, covering it exactly (`sections.ts`); empty for a song without them. */
+  sections: readonly Section[]
   /**
    * True: the chain plays and the active slot follows it. False: the active
    * slot loops on its own (picked from the bank while the song ran) until the
@@ -138,6 +149,24 @@ export interface RackState {
   setChainSlot: (bar: number, index: number) => void
   removeChainSlot: (bar: number) => void
   clearChain: () => void
+  /**
+   * `bars` more bars of `pattern` (the slot on screen by default) at the end of the song, as a named
+   * section. Bars the song already had without sections become one called "Part 1" first.
+   */
+  addSection: (name: string, bars: number, pattern?: number) => void
+  /** A section and its bars out of the song. */
+  removeSection: (index: number) => void
+  renameSection: (index: number, name: string) => void
+  /** A section made `bars` long: grown by repeating its last bar, or cut at the end. */
+  setSectionBars: (index: number, bars: number) => void
+  /** Every bar of a section on `pattern`. */
+  fillSection: (index: number, pattern: number) => void
+  /** A copy of a section (bars included) right after it, as far as `MAX_CHAIN` allows. */
+  duplicateSection: (index: number) => void
+  /** A section and its bars one place up (-1) or down (+1) the song. */
+  moveSection: (index: number, direction: -1 | 1) => void
+  /** The song replaced by a structure's sections, every bar on `pattern` (the slot on screen by default). */
+  applyStructure: (structure: readonly Section[], pattern?: number) => void
   /** Add a machine of a kind; returns it. Its tracks start empty in every slot. */
   addInstance: (kind: Kind) => Instance
   /** Take a machine out with all its tracks; returns what it takes so it can be restored. */
@@ -193,7 +222,15 @@ export interface RackState {
 /** The part of the state that is the song — what `toSong` saves and what undo restores. */
 export type SongSlice = Pick<
   RackState,
-  "bpm" | "swing" | "masterVolume" | "instances" | "patterns" | "activePattern" | "chain" | "fx"
+  | "bpm"
+  | "swing"
+  | "masterVolume"
+  | "instances"
+  | "patterns"
+  | "activePattern"
+  | "chain"
+  | "sections"
+  | "fx"
 >
 
 const snapshot = (s: RackState): SongSlice => ({
@@ -204,6 +241,7 @@ const snapshot = (s: RackState): SongSlice => ({
   patterns: s.patterns,
   activePattern: s.activePattern,
   chain: s.chain,
+  sections: s.sections,
   fx: s.fx,
 })
 
@@ -309,6 +347,8 @@ export const clampSong = (song: Song): Song => ({
   instances: song.instances.map(clampInstance),
   activePattern: slot(song.activePattern),
   chain: song.chain.slice(0, MAX_CHAIN).map(slot),
+  // Songs kept in the browser's library before sections existed have none of the field at all.
+  sections: fitSections(song.sections ?? [], Math.min(song.chain.length, MAX_CHAIN)),
   fx: clampFx(song.fx),
 })
 
@@ -341,6 +381,7 @@ export const useRackStore = create<RackState>()((set, get) => ({
   patterns: createDefaultBank(initialInstances),
   activePattern: 0,
   chain: [],
+  sections: [],
   followSong: true,
   instances: initialInstances,
   selectedPad: {},
@@ -432,20 +473,36 @@ export const useRackStore = create<RackState>()((set, get) => ({
     set((state) =>
       state.chain.length >= MAX_CHAIN
         ? state
-        : { ...remember(state), chain: [...state.chain, slot(index)], followSong: true },
+        : {
+            ...remember(state),
+            chain: [...state.chain, slot(index)],
+            sections: grownLast(state.sections, 1),
+            followSong: true,
+          },
     ),
   repeatLastBar: () =>
     set((state) => {
       const last = state.chain[state.chain.length - 1]
       return last === undefined || state.chain.length >= MAX_CHAIN
         ? state
-        : { ...remember(state), chain: [...state.chain, last], followSong: true }
+        : {
+            ...remember(state),
+            chain: [...state.chain, last],
+            sections: grownLast(state.sections, 1),
+            followSong: true,
+          }
     }),
   repeatChain: () =>
     set((state) => {
       if (state.chain.length === 0 || state.chain.length >= MAX_CHAIN) return state
       const again = state.chain.slice(0, MAX_CHAIN - state.chain.length)
-      return { ...remember(state), chain: [...state.chain, ...again], followSong: true }
+      const chain = [...state.chain, ...again]
+      return {
+        ...remember(state),
+        chain,
+        sections: fitSections([...state.sections, ...state.sections], chain.length),
+        followSong: true,
+      }
     }),
   setChainSlot: (bar, index) =>
     set((state) => ({
@@ -453,8 +510,123 @@ export const useRackStore = create<RackState>()((set, get) => ({
       chain: state.chain.map((p, i) => (i === bar ? slot(index) : p)),
     })),
   removeChainSlot: (bar) =>
-    set((state) => ({ ...remember(state), chain: state.chain.filter((_, i) => i !== bar) })),
-  clearChain: () => set((state) => ({ ...remember(state), chain: [] })),
+    set((state) => ({
+      ...remember(state),
+      chain: state.chain.filter((_, i) => i !== bar),
+      sections: withoutBar(state.sections, bar),
+    })),
+  clearChain: () => set((state) => ({ ...remember(state), chain: [], sections: [] })),
+
+  addSection: (name, bars, pattern) =>
+    set((state) => {
+      const count = Math.min(Math.max(1, Math.trunc(bars)), MAX_CHAIN - state.chain.length)
+      if (count <= 0) return state
+      const at = slot(pattern ?? state.activePattern)
+      // Bars the song had without any section get one, so the new section is not the first thing named.
+      const before =
+        state.sections.length === 0 && state.chain.length > 0
+          ? [{ name: "Part 1", bars: state.chain.length }]
+          : state.sections
+      return {
+        ...remember(state),
+        chain: [...state.chain, ...Array.from({ length: count }, () => at)],
+        sections: [...before, { name: sectionName(name) || `Part ${before.length + 1}`, bars: count }],
+        followSong: true,
+      }
+    }),
+  removeSection: (index) =>
+    set((state) => {
+      const span = sectionSpans(state.sections)[index]
+      if (!span) return state
+      return {
+        ...remember(state),
+        chain: state.chain.filter((_, bar) => bar < span.start || bar >= span.start + span.bars),
+        sections: state.sections.filter((_, i) => i !== index),
+      }
+    }),
+  renameSection: (index, name) =>
+    set((state) =>
+      state.sections[index]
+        ? {
+            ...remember(state, `section-name:${index}`),
+            sections: state.sections.map((s, i) =>
+              i === index ? { ...s, name: sectionName(name) } : s,
+            ),
+          }
+        : state,
+    ),
+  setSectionBars: (index, bars) =>
+    set((state) => {
+      const span = sectionSpans(state.sections)[index]
+      if (!span) return state
+      const end = span.start + span.bars
+      const want = Math.max(1, Math.trunc(bars))
+      const count = Math.min(want, span.bars + (MAX_CHAIN - state.chain.length))
+      if (count === span.bars) return state
+      const last = state.chain[end - 1]!
+      const middle =
+        count > span.bars
+          ? [...state.chain.slice(span.start, end), ...Array.from({ length: count - span.bars }, () => last)]
+          : state.chain.slice(span.start, span.start + count)
+      return {
+        ...remember(state),
+        chain: [...state.chain.slice(0, span.start), ...middle, ...state.chain.slice(end)],
+        sections: state.sections.map((s, i) => (i === index ? { ...s, bars: count } : s)),
+      }
+    }),
+  fillSection: (index, pattern) =>
+    set((state) => {
+      const span = sectionSpans(state.sections)[index]
+      if (!span) return state
+      const at = slot(pattern)
+      return {
+        ...remember(state),
+        chain: state.chain.map((p, bar) =>
+          bar >= span.start && bar < span.start + span.bars ? at : p,
+        ),
+      }
+    }),
+  duplicateSection: (index) =>
+    set((state) => {
+      const span = sectionSpans(state.sections)[index]
+      if (!span) return state
+      const end = span.start + span.bars
+      const count = Math.min(span.bars, MAX_CHAIN - state.chain.length)
+      if (count <= 0) return state
+      const copy = state.chain.slice(span.start, span.start + count)
+      return {
+        ...remember(state),
+        chain: [...state.chain.slice(0, end), ...copy, ...state.chain.slice(end)],
+        sections: state.sections.flatMap((s, i) =>
+          i === index ? [s, { name: s.name, bars: count }] : [s],
+        ),
+        followSong: true,
+      }
+    }),
+  moveSection: (index, direction) =>
+    set((state) => {
+      const spans = sectionSpans(state.sections)
+      const [a, b] = direction < 0 ? [index - 1, index] : [index, index + 1]
+      const first = spans[a]
+      const second = spans[b]
+      if (!first || !second) return state
+      const end = second.start + second.bars
+      const chain = [
+        ...state.chain.slice(0, first.start),
+        ...state.chain.slice(second.start, end),
+        ...state.chain.slice(first.start, second.start),
+        ...state.chain.slice(end),
+      ]
+      const sections = [...state.sections]
+      ;[sections[a], sections[b]] = [sections[b]!, sections[a]!]
+      return { ...remember(state), chain, sections }
+    }),
+  applyStructure: (structure, pattern) =>
+    set((state) => ({
+      ...remember(state),
+      ...layOut(structure, slot(pattern ?? state.activePattern)),
+      followSong: true,
+    })),
 
   addInstance: (kind) => {
     const inst = createInstance(kind, get().instances)
@@ -737,6 +909,7 @@ export const useRackStore = create<RackState>()((set, get) => ({
         patterns: song.patterns,
         activePattern: song.activePattern,
         chain: song.chain,
+        sections: song.sections,
         fx: song.fx,
         selectedPad: {},
         // Solo is a moment's thing: a new song starts with everything heard, and with no past to undo.
@@ -812,6 +985,7 @@ export function toSong(state: RackState): Song {
     })),
     activePattern: state.activePattern,
     chain: [...state.chain],
+    sections: state.sections.map((s) => ({ ...s })),
     fx: { ...state.fx },
   }
 }

@@ -11,12 +11,13 @@ export const songChanged = (s: RackState, prev: RackState): boolean =>
   s.instances !== prev.instances ||
   s.fx !== prev.fx ||
   s.chain !== prev.chain ||
+  s.sections !== prev.sections ||
   s.bpm !== prev.bpm ||
   s.swing !== prev.swing ||
   s.masterVolume !== prev.masterVolume
 
 /** "songs/open-road.json" → "Open road". */
-const humanize = (file: string) => {
+export const humanize = (file: string) => {
   const base = file
     .replace(/^.*\//, "")
     .replace(/\.[^.]+$/, "")

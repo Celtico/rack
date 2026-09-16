@@ -44,7 +44,7 @@ export function MonoSynth({ id }: { id: string }) {
       icon={kindIcon("synth")}
       instance
     >
-      <Flex direction={{ base: "column", lg: "row" }} gap={{ base: "5", lg: "8" }} align="stretch">
+      <Flex wrap="wrap" gap={{ base: "5", lg: "8" }} align="stretch">
         <SynthGrid id={id} />
 
         <Flex
@@ -52,7 +52,7 @@ export function MonoSynth({ id }: { id: string }) {
           gap={{ base: "5", lg: "8" }}
           align="flex-start"
           alignContent="flex-start"
-          flex="1"
+          flex="1 1 20rem"
           minW="0"
         >
           <WavePicker

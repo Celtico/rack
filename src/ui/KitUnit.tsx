@@ -33,7 +33,9 @@ export function KitUnit({ id }: { id: string }) {
       icon={kindIcon(inst.kind)}
       instance
     >
-      <Flex direction={{ base: "column", lg: "row" }} gap={{ base: "5", lg: "8" }} align="stretch">
+      {/* The grid, then the controls beside it while at least 20rem are free, else under it: a
+          wrapping row rather than a viewport breakpoint, since a wide side panel narrows the rack. */}
+      <Flex wrap="wrap" gap={{ base: "5", lg: "8" }} align="stretch">
         <KitGrid id={id} />
 
         <Flex
@@ -41,7 +43,7 @@ export function KitUnit({ id }: { id: string }) {
           gap={{ base: "5", lg: "8" }}
           align="flex-start"
           alignContent="flex-start"
-          flex="1"
+          flex="1 1 20rem"
           minW="0"
         >
           <VStack gap="2" align="flex-start">

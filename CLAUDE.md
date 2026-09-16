@@ -112,6 +112,13 @@ strict build order:
      Songs drawer, where the factory songs wait under "Demos". `autoplay(start)` only starts the clock when
      `start` is true (a loaded song); it always installs the audio-resume handlers. The coded starter groove
      (`starterTrack`) is now only the store's pre-load state.
+   - ✅ Extra — the **song's name on the toolbar**: `SongTitle` in `Rack.tsx`, plain silkscreen capitals
+     (no display box — tried, the user wanted it without a fill) in the middle of the toolbar (the box that
+     used to be the spacer before the buttons; `hideBelow="md"`, so not on a phone — the user asked for
+     that) printing `useSongTitle()` (`src/ui/songTitle.ts`;
+     `songTitle` is pure: the library entry's name, a demo's file name humanized, the loaded file's name,
+     "Untitled", or "—" for an empty rack). A display on the transport was tried first and squeezed the
+     controls at laptop widths. `humanize` is exported from `autosave.ts` for it.
    - ✅ Extra — top panel: `MasterUnit` is `RackUnit id="CLOCK" model="TRANSPORT" pinned` — it folds from its
      own header (no inner section row any more), has no grip, is never moved or removed, and is not in the
      reorderable stack (`MASTER_SECTIONS` in the store: CLOCK, PATTERN, SONG; Fold all / Unfold all include
@@ -211,7 +218,8 @@ strict build order:
      very top of the screen as a stray bright line; the other panels keep it); the toolbar is the rack's first panel (`ToolbarPanel`, `src/ui/ToolbarPanel.tsx`: a `section` styled with the
      `rackUnit` root, 50px / safe-area padding on top on a phone — the Songs and Add unit drawers' headers (and
      their close buttons) get the same top clearance — the rack's mark (`favicon.svg` as an `img`) at the
-     left, then, right-aligned from `md`, `toolbarButton` / `toolbarIconButton` buttons from
+     left, then, right-aligned from `md`, `toolbarButton` / `toolbarIconButton` (the icon-only ones — undo,
+     redo, fold all — are `ghost`: no fill, the user asked) buttons from
      `src/ui/toolbar.ts`: Songs (the library drawer, which also holds Load — `LoadSongButton`, .json or
      .mid — and New song under the save form), Add unit and one fold/unfold-all toggle; on a phone the buttons
      share the width and are 48px tall) — the bank only keeps the copy row (active
@@ -276,7 +284,13 @@ strict build order:
      it is the Chakra `Drawer` as before; from `lg` (`useDocked()`) it is an `aside` docked to the rack's
      right — `Rack` is a `Flex` of the `Container` (`flex: 1`) and the two panels — `w="md"`, sticky, full
      viewport height, scrolling on its own, Escape closes it (the inline-field guard still applies). Docked,
-     Add unit stays open after adding; the drawer closes as it did. The Songs panel's on-open work (dirty
+     Add unit stays open after adding; the drawer closes as it did. The docked panel's **width is
+     dragged** at its left edge (`ResizeHandle` in `SidePanel.tsx`: a `role="separator"` strip, pointer
+     capture, arrows / Home / End on the keyboard; a 2 px line lights amber on hover, drag and focus) and
+     kept in the layout store (`panelWidth`, `setPanelWidth`, `clampPanelWidth` between
+     `PANEL_WIDTH_MIN` 280 and `PANEL_WIDTH_MAX` 960, default 448 = Chakra's `md`; persisted, the merge
+     clamps it), never wider than leaves the rack 360 px. Desktop only — the phone drawer is untouched.
+     The Songs panel's on-open work (dirty
      check, suggested name) runs from a `usePanelStore.subscribe` rather than an effect.
      Hairlines between rows and sections use `rack.panel.divider` (`metal.700`; `rack.panel.edge` is the
      panel's own colour and shows nothing): under each machine group and put-back row in Add unit, under the
@@ -284,9 +298,11 @@ strict build order:
      One rhythm around every hairline in Songs: 12 px (`3`) before and after; `COVER_GRID` is `pt 2 / pb 3`,
      folder and Demos sections `pt 3` and `pb 3` while closed; the Demos toggle is a folder-style row; no
      indent on a folder's grid, so all sleeves line up.
-     In Add unit every row is one full-width `chakra.button` (icon, name, title; the `+` / undo mark at the
-     end is decoration) — pressing anywhere on it adds or puts back; an instance row under a machine carries
-     its own hairline starting at its indent (`ml="11"` + `borderTop`).
+     In Add unit the machines are a **grid of tiles** (`Tile`, `TILE_GRID`: `auto-fill, minmax(7.5rem,
+     1fr)`, so a wider panel takes more across): the whole tile is one `chakra.button` (icon, name, title;
+     "×N" top-left when some are in the rack, the `+` / undo mark top-right is decoration) — pressing
+     anywhere on it adds or puts back. Under the grid, "In the rack" lists every instance in the tiles'
+     order (kind icon in its accent, tap to scroll to it, trash to remove), then "Put back" as tiles.
      Sleeves (`Cover`) print no name any more (it is under the sleeve): they show a vinyl record —
      `VINYL` gradient layers: spindle hole + `amber.500` label, a conic sheen, `repeating-radial-gradient`
      grooves — drawn on a `::after` so the spin (`cover-spin`, while `playing`, off under reduced motion)
@@ -396,7 +412,13 @@ strict build order:
      handler-free; the cell under the drag is outlined on the DOM (`data-drop-target`); the grid's own
      `dragstart` ignores anything that is not a cell so the header buttons drag on their own. With `drag`
      set, a mouse no longer paints that grid (a press would toggle the cell it is about to pick up). Both
-     drops are one undo step.
+     drops are one undo step. **Double-click on a machine's name** in the matrix (`StepGrid.onRowOpen`,
+     `openInstrument` in `PatternBank.tsx`): the song pauses on the slot on screen (`setFollowSong(false)`,
+     it keeps looping as picking a slot does), the panel unfolds and scrolls into view (`scrollToUnit`).
+     **A single click selects the machine** (`onRowSelect` / `selectedRow`, `data-selected` on the label,
+     `role="button"`, the selection is `PartsMatrix` state): Delete or Backspace then takes it out of
+     the rack (`removeInstanceWithUndo`, the same Undo toast as the grip menu), Escape or a press anywhere
+     else lets it go; the key handler skips text fields (`inTextField`, exported from `undoRedo.ts`).
    - ✅ Extra — a folded unit's `MiniGrid` goes **dark while the machine is not heard** (`selectSilent`: sits
      the sounding slot out, muted, or silenced by another's solo) — the matrix shows what plays, not the part.
    - ✅ Extra — **parts per pattern**: `Pattern.muted?: string[]` — instance ids that keep their part but
@@ -448,9 +470,13 @@ strict build order:
      `SegmentGroup` whose items draw one cycle of each waveform (`WaveGlyph`, inline SVG in `currentColor`,
      `aria-label` / `title` from `WAVE_LABELS`) instead of "Saw" / "Sqr" text.
    - ✅ Extra — **unit layout**: the step grid is `flex: 0 1 auto` (its cells' width, scrolling when short
-     of room) and every unit's controls are a `Flex wrap` row with `flex="1"` right after it — groups (Wave,
-     Filter, knobs, Envelope, Level, strip filter) flow side by side and wrap, so the panel is no taller than
-     it needs and there is no gap between the grid and the knobs. `StripFilterControls` is a wrapping row
+     of room) and every unit's controls are a `Flex wrap` row with `flex="1 1 20rem"` right after it — groups
+     (Wave, Filter, knobs, Envelope, Level, strip filter) flow side by side and wrap, so the panel is no
+     taller than it needs and there is no gap between the grid and the knobs. The body is itself a
+     **wrapping row**, not a `column`/`row` viewport breakpoint: the controls sit beside the grid while at
+     least 20rem are free and drop under it otherwise — a wide docked side panel narrows the rack while the
+     viewport stays `lg`, and with the breakpoint the controls were cut off at the panel's edge. The
+     transport row wraps from `md` for the same reason. `StripFilterControls` is a wrapping row
      (type + curve, then Cutoff/Res).
    - ✅ Extra — **modulation** on every machine (`Instance.mod: ModParams`, model in `src/state/mod.ts`, pure,
      saved in the song — `parseMod` fills any missing piece with `MOD_DEFAULT`, the v1 lifter adds it whole;
@@ -479,6 +505,24 @@ strict build order:
      (Tone, LFO 1, LFO 2, Random) sit in a `SimpleGrid` of 1 / 2 / 4 columns (`base` / `sm` / `xl`) and
      the macros in one of 1 / 2 / 4 (`base` / `sm` / `lg`), so a phone gets one tidy group per row. MONO-1 and BASS-2 gained a full amp
      **envelope** (`attack`, `sustain`, `release` params + knobs; `decay` still drives the filter envelope too).
+   - ✅ Extra — SONG **sections** (`src/state/sections.ts`, pure): `Section { name, bars }` partition the
+     chain exactly (`fitSections` cuts / stretches the last / drops empties; a song either has none or every
+     bar is in one), saved in the song as `sections` (optional in the file — missing means none; the v1
+     lifter and the MIDI import give none). The scheduler never sees them. Store: `sections`, in `SongSlice`
+     (undo) and `songChanged` (autosave); the bar actions keep them in step (`+` and "+1 bar" grow the last,
+     `removeChainSlot` → `withoutBar`, `repeatChain` doubles them, `clearChain` drops them, swaps/edits of a
+     bar's pattern leave them alone); `addSection(name, bars, pattern?)` (bars the song had without
+     sections become "Part 1" first), `removeSection`, `renameSection` (history key `section-name:<i>`),
+     `setSectionBars` (grows by repeating the last bar, cuts at the end), `fillSection(i, pattern)`,
+     `duplicateSection`, `moveSection(i, ±1)`, `applyStructure(sections, pattern?)` (`layOut`: the song
+     replaced by a skeleton on one pattern). `STRUCTURES` (Pop song 120 bars — the user's table —, Short
+     song 40, Club track 88), `SECTION_NAMES`, `SECTION_LENGTHS`. `MAX_CHAIN` is now **256**. UI
+     (`TimelineUnit`): with sections each is a `section` slot with a header (`sectionHeader`: name button →
+     inline `Input` with a `datalist` of the names — an input with a list is a **combobox** to ARIA —,
+     "bars a–b", a `NativeSelect` for the length, a `⋮` `Menu`: Fill with pattern N (the one on screen),
+     Duplicate, Move up/down, Remove) and its bars wrapping under it; the `+` bar sits after the last
+     section. Under the timeline, `AddSection`: name + length + "Add section" (on the pattern on screen) and
+     a "Structure" `Menu` of `STRUCTURES`. Without sections the unit looks as before ("Song bars" list).
    - ✅ Extra — SONG **repeat**: "+1 bar" (`repeatLastBar`, the last bar once more) and "×2"
      (`repeatChain`, the chain after itself, cut at `MAX_CHAIN`) next to Clear; both resume the song and are
      one undo step.

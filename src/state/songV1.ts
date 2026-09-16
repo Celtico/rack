@@ -350,6 +350,7 @@ export function parseSongV1(s: Record<string, unknown>): Song {
     chain: list(s.chain, "song.chain")
       .slice(0, MAX_CHAIN)
       .map((c, i) => int(c, `song.chain[${i}]`, PATTERN_COUNT)),
+    sections: [],
     fx: {
       delayTime: oneOf(fx.delayTime, "song.fx.delayTime", DELAY_TIMES),
       feedback: num(fx.feedback, "song.fx.feedback"),

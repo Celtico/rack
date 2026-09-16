@@ -1,20 +1,18 @@
 import { Button, chakra, HStack, useSlotRecipe, VStack } from "@chakra-ui/react"
-import { useMemo, useState, type DragEvent, type ReactNode } from "react"
+import { useCallback, useEffect, useMemo, useState, type DragEvent, type ReactNode } from "react"
 import { LuPlay, LuRepeat } from "react-icons/lu"
 
 import { instanceLabel } from "../state/instances"
 import { isMutedIn, isPatternEmpty, isTrackEmpty } from "../state/pattern"
 import { useRackStore, type RackState } from "../state/store"
+import { PART_DRAG, PATTERN_DRAG, useClearOnDragEnd } from "./dragTypes"
+import { removeInstanceWithUndo, scrollToUnit } from "./removeInstance"
 import { StepGrid, type CellDrag } from "./StepGrid"
 import { startTransport } from "./transportControl"
+import { inTextField } from "./undoRedo"
 import { KIND_FINISH, kindIcon } from "./unitMeta"
 
 const slotPlayhead = (s: RackState) => s.playingPattern
-
-/** A bank slot being dragged: the slot number. */
-const PATTERN_DRAG = "application/x-rack-pattern"
-/** A part being dragged from the matrix: `<instance id>:<slot>`. */
-const PART_DRAG = "application/x-rack-part"
 
 const partData = (id: string, slot: number) => `${id}:${slot}`
 const parsePart = (data: string): { id: string; slot: number } | null => {
@@ -34,6 +32,18 @@ function dropPart(data: string, id: string, slot: number): void {
 }
 
 /**
+ * Double-click on a machine's name in the matrix: the song pauses on the slot on screen (it keeps
+ * looping, as picking a slot does), and the machine's panel unfolds and scrolls into view.
+ */
+function openInstrument(id: string): void {
+  const state = useRackStore.getState()
+  state.setFollowSong(false)
+  state.setFolded([id], false)
+  // The panel unfolds on the next render; scroll once it is there.
+  requestAnimationFrame(() => scrollToUnit(id))
+}
+
+/**
  * Who plays in which slot: one row per machine, one column per pattern, lit
  * where the part sounds. The same grid as the sequencers, so a click flips
  * cells, and the sounding slot's column lights up. A part with notes can be
@@ -43,6 +53,34 @@ function PartsMatrix({ header }: { header: (slot: number) => ReactNode }) {
   const instances = useRackStore((s) => s.instances)
   const patterns = useRackStore((s) => s.patterns)
   const { togglePartMute } = useRackStore.getState()
+  // A click on a machine's name selects it; Delete / Backspace then takes it out of the rack (with the
+  // Undo toast), Escape or a press anywhere else lets it go. A machine that left the rack is forgotten.
+  const [selected, setSelected] = useState<string | null>(null)
+  const selectedInstance = instances.find((i) => i.id === selected) ?? null
+  useEffect(() => {
+    if (!selectedInstance) return
+    const onKey = (e: KeyboardEvent) => {
+      if (inTextField(e.target)) return
+      if (e.key === "Delete" || e.key === "Backspace") {
+        e.preventDefault()
+        setSelected(null)
+        removeInstanceWithUndo(
+          selectedInstance.id,
+          instanceLabel(selectedInstance, useRackStore.getState().instances),
+        )
+      } else if (e.key === "Escape") setSelected(null)
+    }
+    const onPress = (e: PointerEvent) => {
+      if (!(e.target instanceof Element && e.target.closest("[data-row-label]")))
+        setSelected(null)
+    }
+    document.addEventListener("keydown", onKey)
+    document.addEventListener("pointerdown", onPress)
+    return () => {
+      document.removeEventListener("keydown", onKey)
+      document.removeEventListener("pointerdown", onPress)
+    }
+  }, [selectedInstance])
   const rows = useMemo(
     () =>
       instances.map((inst) => ({
@@ -84,6 +122,9 @@ function PartsMatrix({ header }: { header: (slot: number) => ReactNode }) {
         playheadOf={slotPlayhead}
         onToggle={(id, slot) => togglePartMute(id, slot)}
         drag={drag}
+        onRowOpen={openInstrument}
+        onRowSelect={(id) => setSelected((s) => (s === id ? null : id))}
+        selectedRow={selectedInstance?.id ?? null}
       />
     </VStack>
   )
@@ -111,6 +152,8 @@ export function PatternBank() {
 
   // Drag a slot onto another to swap them (⌥ copies instead); a part from the matrix lands in the slot.
   const [over, setOver] = useState<number | null>(null)
+  const clearOver = useCallback(() => setOver(null), [])
+  useClearOnDragEnd(over !== null, clearOver)
   const onDragStart = (slot: number) => (e: DragEvent<HTMLButtonElement>) => {
     e.dataTransfer.setData(PATTERN_DRAG, String(slot))
     e.dataTransfer.effectAllowed = "copyMove"

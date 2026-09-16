@@ -79,6 +79,9 @@ export function Transport() {
   return (
     <Flex
       direction={{ base: "column", md: "row" }}
+      // The row wraps when the rack is narrow beside a wide side panel (the breakpoint is the
+      // viewport's, not the rack's), so nothing is pushed past the panel's edge.
+      wrap={{ md: "wrap" }}
       justify={{ md: "space-between" }}
       align={{ base: "stretch", md: "flex-end" }}
       gap={{ base: "5", md: "6" }}

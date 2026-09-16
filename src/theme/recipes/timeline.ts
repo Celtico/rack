@@ -39,12 +39,57 @@ export const timelineRecipe = defineSlotRecipe({
     "ruler",
     "mini",
     "miniBlock",
+    "section",
+    "sectionHeader",
+    "sectionName",
+    "sectionMeta",
   ],
   base: {
     root: {
       py: "1",
       px: "1",
       mx: "-1",
+      display: "flex",
+      flexDirection: "column",
+      gap: "2",
+    },
+    // A named run of bars: its header line, then its bars wrapping under it. A hairline between two.
+    section: {
+      display: "flex",
+      flexDirection: "column",
+      gap: "1.5",
+      "& + &": { borderTopWidth: "1px", borderColor: "rack.panel.divider", pt: "2" },
+    },
+    sectionHeader: {
+      display: "flex",
+      alignItems: "center",
+      flexWrap: "wrap",
+      gap: "2",
+      minH: "8",
+    },
+    // The name: a plain word that turns into a field on click.
+    sectionName: {
+      textStyle: "silkscreen",
+      fontWeight: "semibold",
+      color: "rack.silkscreen",
+      letterSpacing: "wider",
+      textTransform: "uppercase",
+      cursor: "text",
+      rounded: "xs",
+      px: "1",
+      mx: "-1",
+      _hover: { bg: "blackAlpha.300" },
+      _focusVisible: { outline: "2px solid", outlineColor: "rack.led.on", outlineOffset: "1px" },
+      // A bank slot dragged over the name: dropping it fills the section.
+      "&[data-drop-target]": {
+        outline: "2px dashed",
+        outlineColor: "rack.led.on",
+        outlineOffset: "1px",
+      },
+    },
+    sectionMeta: {
+      textStyle: "silkscreen",
+      color: "rack.silkscreen.muted",
     },
     // Bars wrap into rows, so a long song (up to `MAX_CHAIN`) is all on screen at once.
     track: {
@@ -93,7 +138,8 @@ export const timelineRecipe = defineSlotRecipe({
       ...slotColours(true),
       // The bank's slot being edited.
       "&[data-active]": { borderColor: "rack.led.on", boxShadow: "0 0 0 1px {colors.rack.led.on}" },
-      // The bank's slots drag: onto another slot to swap (⌥ copies), and a part dropped on one lands there.
+      // The bank's slots drag: onto another slot to swap (⌥ copies), a part dropped on one lands there,
+      // and a slot dropped on a song bar becomes that bar's pattern.
       "&[draggable=true]": { cursor: "grab" },
       "&[data-drop-target]": {
         outline: "2px dashed",
@@ -164,6 +210,12 @@ export const timelineRecipe = defineSlotRecipe({
       cursor: "pointer",
       _hover: { borderColor: "rack.silkscreen", color: "rack.silkscreen" },
       _focusVisible: { outline: "2px solid", outlineColor: "rack.led.on", outlineOffset: "1px" },
+      // A bank slot dragged over the +: dropping it appends a bar of it.
+      "&[data-drop-target]": {
+        outline: "2px dashed",
+        outlineColor: "rack.led.on",
+        outlineOffset: "1px",
+      },
     },
   },
 })

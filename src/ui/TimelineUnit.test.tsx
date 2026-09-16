@@ -1,4 +1,4 @@
-import { screen, within } from "@testing-library/react"
+import { fireEvent, screen, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { beforeEach, describe, expect, it } from "vitest"
 
@@ -10,6 +10,7 @@ describe("<TimelineUnit />", () => {
   beforeEach(() => {
     useRackStore.setState({
       chain: [0, 2],
+      sections: [],
       activePattern: 1,
       playingBar: -1,
       currentStep: -1,
@@ -51,6 +52,56 @@ describe("<TimelineUnit />", () => {
     await user.click(screen.getByRole("button", { name: "Clear song" }))
     expect(useRackStore.getState().chain).toEqual([])
     expect(screen.getByText(/looping pattern 2/i)).toBeInTheDocument()
+  })
+
+  it("groups the bars under their sections, adds one from the row and renames it in place", async () => {
+    const user = userEvent.setup()
+    renderWithChakra(<TimelineUnit />)
+
+    await user.selectOptions(screen.getByRole("combobox", { name: "Length of the new section" }), "4")
+    // An input with a datalist is a combobox to ARIA.
+    await user.type(screen.getByRole("combobox", { name: "Name of the new section" }), "Chorus")
+    await user.click(screen.getByRole("button", { name: "Add a section of 4 bars of pattern 2" }))
+    expect(useRackStore.getState().chain).toEqual([0, 2, 1, 1, 1, 1])
+    expect(useRackStore.getState().sections).toEqual([
+      { name: "Part 1", bars: 2 },
+      { name: "Chorus", bars: 4 },
+    ])
+    expect(within(screen.getByRole("list", { name: "Part 1 bars" })).getAllByRole("listitem")).toHaveLength(2)
+    expect(within(screen.getByRole("list", { name: "Chorus bars" })).getAllByRole("listitem")).toHaveLength(4)
+
+    await user.click(screen.getByRole("button", { name: "Rename section Part 1" }))
+    const field = screen.getByRole("combobox", { name: "New name for section Part 1" })
+    await user.clear(field)
+    await user.type(field, "Intro{Enter}")
+    expect(useRackStore.getState().sections[0]).toEqual({ name: "Intro", bars: 2 })
+
+    await user.selectOptions(screen.getByRole("combobox", { name: "Length of Chorus" }), "8")
+    expect(useRackStore.getState().chain).toHaveLength(10)
+    expect(useRackStore.getState().sections[1]).toEqual({ name: "Chorus", bars: 8 })
+  })
+
+  it("takes a bank slot dropped on a bar, on the + and on a section's name", () => {
+    useRackStore.setState({ sections: [{ name: "Intro", bars: 2 }] })
+    renderWithChakra(<TimelineUnit />)
+    const drop = (el: HTMLElement, slot: number) => {
+      const dataTransfer = {
+        types: ["application/x-rack-pattern"],
+        getData: () => String(slot),
+        dropEffect: "none",
+      }
+      fireEvent.dragOver(el, { dataTransfer })
+      expect(el).toHaveAttribute("data-drop-target")
+      fireEvent.drop(el, { dataTransfer })
+      expect(el).not.toHaveAttribute("data-drop-target")
+    }
+
+    drop(screen.getByRole("listitem", { name: "Bar 2: pattern 3" }), 5)
+    expect(useRackStore.getState().chain).toEqual([0, 5])
+    drop(screen.getByRole("button", { name: "Add a bar of pattern 2" }), 7)
+    expect(useRackStore.getState().chain).toEqual([0, 5, 7])
+    drop(screen.getByRole("button", { name: "Rename section Intro" }), 9)
+    expect(useRackStore.getState().chain).toEqual([9, 9, 9])
   })
 
   it("sets a focused bar's pattern from the digits typed on it", async () => {

@@ -14,9 +14,10 @@ export const toolbarButton = {
   "& svg": { fontSize: { base: "xl", md: "md" } },
 } as const
 
-/** Same, but only as wide as its icon. */
+/** Same, but only as wide as its icon — and with no fill (undo, redo, fold all sit plain on the strip). */
 export const toolbarIconButton = {
   ...toolbarButton,
+  variant: "ghost",
   flex: "0 0 auto",
   minW: { base: "12", md: "auto" },
   px: { base: "0", md: "3" },

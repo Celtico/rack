@@ -40,6 +40,7 @@ import {
   type Track,
 } from "./pattern"
 import { MAX_CHAIN, padBank, PATTERN_COUNT } from "./patterns"
+import { fitSections, type Section } from "./sections"
 import { parseSongV1 } from "./songV1"
 
 export const SONG_VERSION = 2
@@ -57,6 +58,8 @@ export interface Song {
   patterns: Pattern[]
   activePattern: number
   chain: number[]
+  /** Named runs of bars over the chain (Intro 8, Verse 16…), covering it exactly; empty for none. */
+  sections: Section[]
   fx: FxParams
 }
 
@@ -349,6 +352,20 @@ function parseSongV2(s: Record<string, unknown>): Song {
       : list(s.chain, "song.chain")
           .slice(0, MAX_CHAIN)
           .map((c, i) => int(c, `song.chain[${i}]`, PATTERN_COUNT))
+  // Sections are optional and fitted to the chain: a hand-written file may count them loosely.
+  const sections =
+    s.sections === undefined
+      ? []
+      : fitSections(
+          list(s.sections, "song.sections").map((v, i) => {
+            const section = record(v, `song.sections[${i}]`)
+            return {
+              name: typeof section.name === "string" ? section.name : "",
+              bars: num(section.bars, `song.sections[${i}].bars`),
+            }
+          }),
+          chain.length,
+        )
 
   return {
     version: SONG_VERSION,
@@ -359,6 +376,7 @@ function parseSongV2(s: Record<string, unknown>): Song {
     patterns,
     activePattern: int(s.activePattern ?? filled[0] ?? 0, "song.activePattern", PATTERN_COUNT),
     chain,
+    sections,
     fx: {
       delayTime: oneOf(fx.delayTime ?? FX_DEFAULT.delayTime, "song.fx.delayTime", DELAY_TIMES),
       feedback: num(fx.feedback ?? FX_DEFAULT.feedback, "song.fx.feedback"),

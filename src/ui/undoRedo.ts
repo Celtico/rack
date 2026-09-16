@@ -15,7 +15,7 @@ export function redoEdit(): boolean {
 }
 
 /** True when the key press belongs to a field the user is typing in. */
-const inTextField = (target: EventTarget | null): boolean => {
+export const inTextField = (target: EventTarget | null): boolean => {
   if (!(target instanceof HTMLElement)) return false
   return (
     target.isContentEditable ||

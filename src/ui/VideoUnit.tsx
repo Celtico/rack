@@ -248,7 +248,7 @@ export function VideoUnit({ id }: { id: string }) {
       icon={kindIcon("video")}
       instance
     >
-      <Flex direction={{ base: "column", lg: "row" }} gap={{ base: "5", lg: "8" }} align="stretch">
+      <Flex wrap="wrap" gap={{ base: "5", lg: "8" }} align="stretch">
         {/* The gate row and, under it, the trimmer as wide as the row. */}
         <VStack gap="3" align="stretch" minW="0" flex="0 1 auto">
           <GateGrid id={id} />
@@ -260,7 +260,7 @@ export function VideoUnit({ id }: { id: string }) {
           gap={{ base: "5", lg: "8" }}
           align="flex-start"
           alignContent="flex-start"
-          flex="1"
+          flex="1 1 20rem"
           minW="0"
         >
           <VStack gap="2" align="flex-start">

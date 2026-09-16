@@ -24,6 +24,7 @@ const song = (bpm: number): Song => {
     patterns: createDefaultBank(instances),
     activePattern: 0,
     chain: [],
+    sections: [],
     fx: { delayTime: "8n", feedback: 0.3, reverbDecay: 2 },
   }
 }

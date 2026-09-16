@@ -34,6 +34,8 @@ export interface LayoutState {
   hidden: readonly HideableUnitId[]
   /** Order of the sticky panels under the transport. */
   pinnedOrder: readonly PinnedUnitId[]
+  /** Width in px of the side panel docked to the rack's right (Songs, Add) — dragged at its edge. */
+  panelWidth: number
 
   /** Put `id` where `target` is; `target` shifts to make room. */
   moveUnit: (id: string, target: string) => void
@@ -47,7 +49,18 @@ export interface LayoutState {
   syncUnits: (ids: readonly string[]) => void
   /** Put `id` right under `after` — where a duplicate belongs. Unknown `after`: appended. */
   placeAfter: (id: string, after: string) => void
+  /** The docked panel's width, kept within `PANEL_WIDTH_MIN`…`PANEL_WIDTH_MAX`. */
+  setPanelWidth: (px: number) => void
 }
+
+/** The docked side panel's width: Chakra's `md` (448px) by default, dragged between these. */
+export const PANEL_WIDTH_DEFAULT = 448
+export const PANEL_WIDTH_MIN = 280
+export const PANEL_WIDTH_MAX = 960
+export const clampPanelWidth = (px: number): number =>
+  Number.isFinite(px)
+    ? Math.round(Math.min(PANEL_WIDTH_MAX, Math.max(PANEL_WIDTH_MIN, px)))
+    : PANEL_WIDTH_DEFAULT
 
 /** Reorders `order` so that `id` lands at `target`'s index. Pure. */
 export function moveWithin<T>(order: readonly T[], id: T, target: T): T[] {
@@ -93,6 +106,7 @@ export const useLayoutStore = create<LayoutState>()(
       order: [...DEFAULT_ORDER],
       hidden: [],
       pinnedOrder: [...PINNED_UNITS],
+      panelWidth: PANEL_WIDTH_DEFAULT,
 
       moveUnit: (id, target) =>
         set((s) => {
@@ -134,6 +148,7 @@ export const useLayoutStore = create<LayoutState>()(
           order.splice(at < 0 ? order.length : at + 1, 0, id)
           return { order }
         }),
+      setPanelWidth: (px) => set({ panelWidth: clampPanelWidth(px) }),
     }),
     {
       name: "rack-layout",
@@ -149,7 +164,10 @@ export const useLayoutStore = create<LayoutState>()(
         const hidden = (saved.hidden ?? []).filter(isHideableUnit)
         const pinnedOrder = (saved.pinnedOrder ?? []).filter(isPinnedUnit)
         for (const id of PINNED_UNITS) if (!pinnedOrder.includes(id)) pinnedOrder.push(id)
-        return { ...current, order, hidden, pinnedOrder }
+        const panelWidth = clampPanelWidth(
+          typeof saved.panelWidth === "number" ? saved.panelWidth : PANEL_WIDTH_DEFAULT,
+        )
+        return { ...current, order, hidden, pinnedOrder, panelWidth }
       },
     },
   ),

@@ -339,6 +339,7 @@ export function importMidi(midi: Midi): MidiImport {
     activePattern: 0,
     // A single bar just loops; a chain of one would say "1 bar" and be the same thing.
     chain: chain.length > 1 ? chain : [],
+    sections: [],
     fx: { ...FX_DEFAULT },
   }
   return { song, report }

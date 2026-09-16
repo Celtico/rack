@@ -21,6 +21,7 @@ export function emptyRack(): Song {
     patterns: padBank([], instances),
     activePattern: 0,
     chain: [],
+    sections: [],
     fx: { ...FX_DEFAULT },
   }
 }

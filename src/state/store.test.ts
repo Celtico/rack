@@ -287,6 +287,69 @@ describe("rack store", () => {
     expect(useRackStore.getState().chain).toEqual([])
   })
 
+  it("builds a song from sections and keeps them in step with the bars", () => {
+    const store = useRackStore.getState()
+    store.appendToChain(0)
+    store.appendToChain(0)
+    // The first section names the bars the song already had.
+    store.addSection("Verse", 4, 1)
+    expect(useRackStore.getState().chain).toEqual([0, 0, 1, 1, 1, 1])
+    expect(useRackStore.getState().sections).toEqual([
+      { name: "Part 1", bars: 2 },
+      { name: "Verse", bars: 4 },
+    ])
+    // Bars appended one at a time join the last section; one removed leaves its own.
+    store.repeatLastBar()
+    store.removeChainSlot(0)
+    expect(useRackStore.getState().sections).toEqual([
+      { name: "Part 1", bars: 1 },
+      { name: "Verse", bars: 5 },
+    ])
+    store.setSectionBars(1, 3)
+    expect(useRackStore.getState().chain).toEqual([0, 1, 1, 1])
+    store.setSectionBars(0, 3)
+    expect(useRackStore.getState().chain).toEqual([0, 0, 0, 1, 1, 1])
+    store.fillSection(0, 5)
+    expect(useRackStore.getState().chain).toEqual([5, 5, 5, 1, 1, 1])
+    store.renameSection(0, "  Intro  ")
+    expect(useRackStore.getState().sections[0]).toEqual({ name: "Intro", bars: 3 })
+    store.duplicateSection(1)
+    expect(useRackStore.getState().chain).toEqual([5, 5, 5, 1, 1, 1, 1, 1, 1])
+    expect(useRackStore.getState().sections.map((s) => s.name)).toEqual(["Intro", "Verse", "Verse"])
+    store.fillSection(2, 2)
+    store.moveSection(2, -1)
+    expect(useRackStore.getState().chain).toEqual([5, 5, 5, 2, 2, 2, 1, 1, 1])
+    store.moveSection(0, -1)
+    expect(useRackStore.getState().chain).toEqual([5, 5, 5, 2, 2, 2, 1, 1, 1])
+    store.repeatChain()
+    expect(useRackStore.getState().sections).toHaveLength(6)
+    expect(useRackStore.getState().chain).toHaveLength(18)
+    store.removeSection(0)
+    expect(useRackStore.getState().chain).toEqual([2, 2, 2, 1, 1, 1, 5, 5, 5, 2, 2, 2, 1, 1, 1])
+    expect(useRackStore.getState().sections).toHaveLength(5)
+    // Undo works a whole section at a time.
+    store.undo()
+    expect(useRackStore.getState().chain).toHaveLength(18)
+    store.clearChain()
+    expect(useRackStore.getState().sections).toEqual([])
+  })
+
+  it("lays out a whole structure on the slot on screen", () => {
+    const store = useRackStore.getState()
+    store.setActivePattern(3)
+    store.applyStructure([
+      { name: "Intro", bars: 4 },
+      { name: "Chorus", bars: 8 },
+    ])
+    const s = useRackStore.getState()
+    expect(s.chain).toEqual(Array.from({ length: 12 }, () => 3))
+    expect(s.sections).toEqual([
+      { name: "Intro", bars: 4 },
+      { name: "Chorus", bars: 8 },
+    ])
+    expect(s.followSong).toBe(true)
+  })
+
   it("edits and removes single bars of the chain", () => {
     const store = useRackStore.getState()
     store.appendToChain(0)

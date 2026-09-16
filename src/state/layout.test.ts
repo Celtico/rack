@@ -1,6 +1,14 @@
 import { beforeEach, describe, expect, it } from "vitest"
 
-import { ensureOrder, HIDEABLE_UNITS, moveWithin, useLayoutStore } from "./layout"
+import {
+  ensureOrder,
+  HIDEABLE_UNITS,
+  moveWithin,
+  PANEL_WIDTH_DEFAULT,
+  PANEL_WIDTH_MAX,
+  PANEL_WIDTH_MIN,
+  useLayoutStore,
+} from "./layout"
 
 describe("moveWithin", () => {
   const order = ["a", "b", "c", "d"] as const
@@ -106,6 +114,18 @@ describe("layout store", () => {
     useLayoutStore.setState({ ...useLayoutStore.getInitialState(), hidden: ["FX-2"] })
     await useLayoutStore.persist.rehydrate()
     expect(useLayoutStore.getState().hidden).toEqual(["FX-2"])
+  })
+
+  it("keeps the docked panel's width within its bounds", () => {
+    const s = useLayoutStore.getState()
+    s.setPanelWidth(600.4)
+    expect(useLayoutStore.getState().panelWidth).toBe(600)
+    s.setPanelWidth(10)
+    expect(useLayoutStore.getState().panelWidth).toBe(PANEL_WIDTH_MIN)
+    s.setPanelWidth(5000)
+    expect(useLayoutStore.getState().panelWidth).toBe(PANEL_WIDTH_MAX)
+    s.setPanelWidth(Number.NaN)
+    expect(useLayoutStore.getState().panelWidth).toBe(PANEL_WIDTH_DEFAULT)
   })
 
   it("syncs the order with the units that exist, keeping the arrangement", () => {

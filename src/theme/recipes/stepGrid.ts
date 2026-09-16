@@ -84,6 +84,15 @@ export const stepGridRecipe = defineSlotRecipe({
       gap: "1.5",
       my: "-2.5",
       py: "2.5",
+      // A selectable label (the bank's machines): the selected one is lit and outlined, like a knob
+      // just turned; Delete then takes the machine out.
+      "&[data-row-label]": { cursor: "pointer", rounded: "xs", outlineOffset: "-2px" },
+      "&[data-row-label]:focus-visible": { outline: "1px dashed", outlineColor: "rack.led.on" },
+      "&[data-selected]": {
+        color: "rack.silkscreen",
+        outline: "2px solid",
+        outlineColor: "rack.led.on",
+      },
     },
     step: {
       w: "full",

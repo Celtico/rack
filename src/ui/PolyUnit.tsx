@@ -231,14 +231,14 @@ export function PolyUnit({ id }: { id: string }) {
       icon={kindIcon(inst.kind)}
       instance
     >
-      <Flex direction={{ base: "column", lg: "row" }} gap={{ base: "5", lg: "8" }} align="stretch">
+      <Flex wrap="wrap" gap={{ base: "5", lg: "8" }} align="stretch">
         <PolyGrid id={id} />
         <Flex
           wrap="wrap"
           gap={{ base: "5", lg: "8" }}
           align="flex-start"
           alignContent="flex-start"
-          flex="1"
+          flex="1 1 20rem"
           minW="0"
         >
           {inst.kind === "poly" && <PadControls id={id} inst={inst} />}

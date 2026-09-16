@@ -62,6 +62,34 @@ describe("song save/load", () => {
     expect(song.chain).toEqual([0, 1])
   })
 
+  it("keeps sections through a round-trip, fits loose ones to the chain and defaults to none", () => {
+    const store = useRackStore.getState()
+    store.applyStructure([
+      { name: "Intro", bars: 2 },
+      { name: "Verse", bars: 4 },
+    ])
+    const text = serializeSong(toSong(useRackStore.getState()))
+    expect(parseSong(text).sections).toEqual([
+      { name: "Intro", bars: 2 },
+      { name: "Verse", bars: 4 },
+    ])
+
+    const loose = JSON.parse(text) as Record<string, unknown>
+    loose.sections = [{ name: "Intro", bars: 2 }, { bars: 40 }]
+    expect(parseSong(JSON.stringify(loose)).sections).toEqual([
+      { name: "Intro", bars: 2 },
+      { name: "", bars: 4 },
+    ])
+    delete loose.sections
+    expect(parseSong(JSON.stringify(loose)).sections).toEqual([])
+
+    // A song object saved in the library before sections existed loads too.
+    const { sections: _gone, ...stored } = toSong(useRackStore.getState())
+    useRackStore.getState().loadSong(stored as Song)
+    expect(useRackStore.getState().sections).toEqual([])
+    expect(useRackStore.getState().chain).toHaveLength(6)
+  })
+
   it("applies a loaded song and clamps out-of-range numbers", () => {
     const base = toSong(useRackStore.getState())
     const song: Song = {

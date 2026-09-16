@@ -44,7 +44,7 @@ export function BassUnit({ id }: { id: string }) {
       icon={kindIcon("bass")}
       instance
     >
-      <Flex direction={{ base: "column", lg: "row" }} gap={{ base: "5", lg: "8" }} align="stretch">
+      <Flex wrap="wrap" gap={{ base: "5", lg: "8" }} align="stretch">
         <BassGrid id={id} />
 
         <Flex
@@ -52,7 +52,7 @@ export function BassUnit({ id }: { id: string }) {
           gap={{ base: "5", lg: "8" }}
           align="flex-start"
           alignContent="flex-start"
-          flex="1"
+          flex="1 1 20rem"
           minW="0"
         >
           <WavePicker

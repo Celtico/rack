@@ -56,6 +56,11 @@ export interface StepGridProps<Id extends string> {
    * would toggle the cell it is about to pick up. Clicks still toggle.
    */
   drag?: CellDrag<Id>
+  /** A row's label double-clicked — the bank's matrix opens the machine. */
+  onRowOpen?: (row: Id) => void
+  /** A row's label clicked — the bank's matrix selects the machine (the caller keeps `selectedRow`). */
+  onRowSelect?: (row: Id) => void
+  selectedRow?: Id | null
 }
 
 const STEPS = Array.from({ length: STEP_COUNT }, (_, i) => i)
@@ -165,6 +170,9 @@ export function StepGrid<Id extends string>({
   playheadOf = stepPlayhead,
   header,
   drag,
+  onRowOpen,
+  onRowSelect,
+  selectedRow,
 }: StepGridProps<Id>) {
   const recipe = useSlotRecipe({ key: "stepGrid" })
   const styles = useMemo(() => recipe(), [recipe])
@@ -316,7 +324,26 @@ export function StepGrid<Id extends string>({
             role="group"
             aria-label={row.label}
           >
-            <chakra.span css={styles.label}>
+            <chakra.span
+              css={styles.label}
+              data-row-label={onRowSelect ? "" : undefined}
+              data-selected={selectedRow === row.id ? "" : undefined}
+              role={onRowSelect ? "button" : undefined}
+              tabIndex={onRowSelect ? 0 : undefined}
+              onClick={onRowSelect ? () => onRowSelect(row.id) : undefined}
+              onKeyDown={
+                onRowSelect
+                  ? (e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault()
+                        onRowSelect(row.id)
+                      }
+                    }
+                  : undefined
+              }
+              onDoubleClick={onRowOpen ? () => onRowOpen(row.id) : undefined}
+              title={onRowOpen ? `Double-click to open ${row.label}` : undefined}
+            >
               {row.icon && (
                 <chakra.span display="inline-flex" color={TINT_ACCENT} aria-hidden="true">
                   {row.icon}
