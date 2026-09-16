@@ -157,7 +157,15 @@ strict build order:
      and `sips` scales down; the Apple and maskable icons are full-bleed with the panel shrunk inside; the app shell is precached, `songs/`,
      `samples/`, `midi/` and the factory song are cached stale-while-revalidate as `rack-content`). `index.html`
      carries the iOS home-screen metas and `viewport-fit=cover`. `sw.js` and the manifest must be served
-     without long caching. **Launch screens**: `scripts/render-splash.sh` renders `public/splash/<w>x<h>.png`
+     without long caching. **Updates**: `installUpdates()` (`src/ui/updates.ts`, from `main.tsx`; the
+     plugin's `injectRegister` is off) registers the worker through `virtual:pwa-register`
+     (`workbox-window`): `autoUpdate` already means `skipWaiting` + `clientsClaim` +
+     `cleanupOutdatedCaches` (a new build takes over and the old build's caches go), and on top it asks
+     the server for a newer build every `UPDATE_CHECK_MS` (an hour) and whenever the tab comes back into
+     view — a browser only checks by itself on a navigation, an installed app may stay open for days —
+     and reloads into the new build once it is in, **after the clock stops** if it is running
+     (`onNeedReload`). The manifest has no launch-screen field: iOS uses the `<link>` tags, Android
+     `background_color` + icon + name; `screenshots` would be for the install dialog, not the launch. **Launch screens**: `scripts/render-splash.sh` renders `public/splash/<w>x<h>.png`
      (the logo's art over the word RACK, black on white, sized in vmin) for every iPhone / iPad size in
      both orientations with headless Chrome and prints the `apple-touch-startup-image` `<link>` tags, which
      `index.html` carries (one per size and orientation — iOS wants an exact match); `splash/**` is out of
@@ -454,15 +462,30 @@ strict build order:
    - ✅ Extra — the BANK's **parts matrix shows who and what**: each row carries the machine's icon
      (`StepGridRow.icon`, printed in the label in the finish's accent — `TINT_ACCENT` in the `stepGrid`
      recipe is `finishAccent`'s formula over a CSS variable) and a `tint` (`{colors.finish.<name>.panel}`,
-     set as `--tint` on the row): a lit cell is painted like the machine's own panel (a touch of the finish
-     fading to graphite, `data-tinted`, the sounding column brightens) and a cell where the part has
-     notes (`marks`, from `isTrackEmpty`; `data-marked`) prints the icon inside in the same accent, dimmed
-     while the cell is off — an empty slot reads as empty. **Drag and drop in the BANK** (HTML5, mouse only — touch keeps Copy part / Paste to
+     set as `--tint` on the row): every cell keeps the plain grey of an unlit cell (`data-tinted`:
+     the matrix is not a sequencer — amber, a finish-coloured paint and a faded dashed cell were tried and
+     dropped); a cell where the part has notes (`marks`, from `isTrackEmpty`; `data-marked`) prints the
+     icon inside in the finish's accent, one where the part sits the slot out is the same at **30 % opacity**
+     (`StepGridRow.offIcon` exists for a mark in off cells but the bank no longer uses it — a crossed
+     speaker was tried), and the sounding column goes a shade lighter — an empty
+     slot reads as empty. **Drag and drop in the BANK** (HTML5, mouse only — touch keeps Copy part / Paste to
      pattern in the grip menu): a slot button dragged onto another **swaps** the two patterns
      (`swapPatterns(a, b)`: the chain is renumbered with `swapSlots` in `patterns.ts` and `activePattern`
      follows, so nothing sounds different) or, with ⌥/Alt held, **copies** it there (`copyPattern(from, to)`;
      the slot on screen stays); a marked matrix cell dragged onto another cell (any row of the same kind)
-     or onto a slot button copies that part there (`setTrack`). `StepGrid` takes an optional `drag`
+     or onto a slot button copies that part there (`setTrack`). Either dropped on the **bank's own
+     surface** (the group box, not a cell or slot — outlined red-dashed while over it; the whole body was
+     tried and the user preferred this; `RackUnit.onDragStart` ignores drags that began on something
+     inside, or every unit lit up for them) asks first
+     (`ConfirmDialog`, `src/ui/ConfirmDialog.tsx`: a Chakra `Dialog` as `alertdialog`, Cancel / Empty,
+     `closeOnInteractOutside` off and opened 100 ms after the drop; the surface's `dropEffect` is
+     "copy" for a part and "move" for a slot — a `dropEffect` the drag's `effectAllowed` does not
+     include makes the browser discard the drop silently, which is how parts fell through — the pointer's release that ends the
+     drag lands right after the drop and shut a dialog that mounted inside it before it was seen)
+     and then empties it: the whole pattern (`clearPattern(slot)`: every part to `emptyTrack`, who sits
+     out kept) or, for a part, the machine's **whole row** — its part in every slot (`clearParts(id)`;
+     the user asked for the row, not the one cell). Cancel, Escape or a click outside do
+     nothing; both are one undo step. `StepGrid` takes an optional `drag`
      (`CellDrag`: `type`, `dataOf`, `accepts`, `onDrop`), handled on the grid so the memoised cells stay
      handler-free; the cell under the drag is outlined on the DOM (`data-drop-target`); the grid's own
      `dragstart` ignores anything that is not a cell so the header buttons drag on their own. With `drag`

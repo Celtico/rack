@@ -29,6 +29,8 @@ export interface StepGridRow<Id extends string> {
   steps: readonly boolean[]
   /** Cells that print the pictogram — the bank's matrix marks the patterns where the part has notes. */
   marks?: readonly boolean[]
+  /** Printed in every cell that is off, in place of the pictogram — the bank's "sits out" mark. */
+  offIcon?: ReactNode
 }
 
 /** Drag and drop between cells: a marked cell can be picked up, any cell can take a drop. */
@@ -80,6 +82,8 @@ interface StepCellProps {
   on: boolean
   /** The row's pictogram, printed inside when `marked`. */
   icon: ReactNode
+  /** What an off cell prints instead, when the row has one. */
+  offIcon: ReactNode
   marked: boolean
   tinted: boolean
   draggable: boolean
@@ -99,6 +103,7 @@ const StepCell = memo(function StepCell({
   step,
   on,
   icon,
+  offIcon,
   marked,
   tinted,
   draggable,
@@ -120,7 +125,7 @@ const StepCell = memo(function StepCell({
       style={COLUMN_STYLE[step]}
       onClick={() => onToggle(rowId as never, step)}
     >
-      {marked && icon}
+      {!on && offIcon !== undefined ? offIcon : marked && icon}
     </chakra.button>
   )
 })
@@ -360,6 +365,7 @@ export function StepGrid<Id extends string>({
                 step={step}
                 on={row.steps[step] === true}
                 icon={row.icon}
+                offIcon={row.offIcon}
                 marked={row.marks?.[step] === true}
                 tinted={row.tint !== undefined}
                 draggable={drag !== undefined && row.marks?.[step] === true}

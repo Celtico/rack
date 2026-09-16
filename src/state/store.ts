@@ -141,6 +141,10 @@ export interface RackState {
   swapPatterns: (a: number, b: number) => void
   /** Slot `to` becomes a copy of slot `from` (its parts and who sits it out). */
   copyPattern: (from: number, to: number) => void
+  /** Every part of a slot emptied (who sits it out is kept) — a pattern dropped on the bank's surface. */
+  clearPattern: (index: number) => void
+  /** A machine's part emptied in every slot — its row dropped on the bank's surface. One undo step. */
+  clearParts: (id: string) => void
   appendToChain: (index: number) => void
   /** One more bar of whatever the last bar plays — "again". */
   repeatLastBar: () => void
@@ -465,6 +469,27 @@ export const useRackStore = create<RackState>()((set, get) => ({
         activePattern: follow(state.activePattern),
       }
     }),
+  clearPattern: (index) =>
+    set((state) => {
+      const at = slot(index)
+      return {
+        ...remember(state),
+        patterns: state.patterns.map((p, i) =>
+          i === at
+            ? state.instances.reduce((q, inst) => withTrack(q, inst.id, emptyTrack(inst.kind)), p)
+            : p,
+        ),
+      }
+    }),
+  clearParts: (id) =>
+    set((state) => {
+      const inst = state.instances.find((i) => i.id === id)
+      if (!inst) return state
+      return {
+        ...remember(state),
+        patterns: state.patterns.map((p) => withTrack(p, id, emptyTrack(inst.kind))),
+      }
+    }),
   copyPattern: (from, to) =>
     set((state) => {
       const [source, target] = [slot(from), slot(to)]
@@ -535,7 +560,10 @@ export const useRackStore = create<RackState>()((set, get) => ({
       return {
         ...remember(state),
         chain: [...state.chain, ...Array.from({ length: count }, () => at)],
-        sections: [...before, { name: sectionName(name) || `Part ${before.length + 1}`, bars: count }],
+        sections: [
+          ...before,
+          { name: sectionName(name) || `Part ${before.length + 1}`, bars: count },
+        ],
         followSong: true,
       }
     }),
@@ -571,7 +599,10 @@ export const useRackStore = create<RackState>()((set, get) => ({
       const last = state.chain[end - 1]!
       const middle =
         count > span.bars
-          ? [...state.chain.slice(span.start, end), ...Array.from({ length: count - span.bars }, () => last)]
+          ? [
+              ...state.chain.slice(span.start, end),
+              ...Array.from({ length: count - span.bars }, () => last),
+            ]
           : state.chain.slice(span.start, span.start + count)
       return {
         ...remember(state),

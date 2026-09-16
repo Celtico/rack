@@ -34,6 +34,9 @@ export default defineConfig({
     // cached as they are fetched, so a phone with no signal still has its rack.
     VitePWA({
       registerType: "autoUpdate",
+      // Registered from `src/ui/updates.ts` (hourly update checks, a reload that waits for the clock
+      // to stop), not by an injected script.
+      injectRegister: false,
       includeAssets: ["favicon.svg", "icons/apple-touch-icon.png"],
       manifest: {
         name: "RACK",

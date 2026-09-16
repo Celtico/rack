@@ -189,6 +189,9 @@ export function RackUnit({
   }
 
   const onDragStart = (e: DragEvent) => {
+    // A drag that began on something inside (a bank slot, a matrix cell) bubbles up here: not ours.
+    // Tagging it would make every unit light up as a drop target for it.
+    if (e.target !== e.currentTarget) return
     e.dataTransfer.setData(DRAG_TYPE, id)
     e.dataTransfer.effectAllowed = "move"
   }

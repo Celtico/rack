@@ -124,21 +124,16 @@ export const stepGridRecipe = defineSlotRecipe({
       "& > svg": { w: "52%", h: "52%", pointerEvents: "none" },
       "&[data-marked]": { color: "whiteAlpha.600" },
       "&[data-tinted][data-marked]": { color: TINT_ACCENT },
-      "&[data-tinted][data-marked]:not([aria-pressed=true]) > svg": { opacity: 0.55 },
       "&[aria-pressed=true]": { bg: "rack.step.on", shadow: "stepOn" },
       "&[data-playing]": { borderColor: "rack.step.playing", shadow: "stepPlaying" },
       "&[data-playing][aria-pressed=true]": { bg: "rack.step.playing" },
-      // A tinted row's lit cells are painted like the machine's own panel — its finish fading to the
-      // graphite — instead of amber; the sounding column brightens.
-      "&[data-tinted][aria-pressed=true]": {
-        bg: "var(--tint)",
-        // Just a touch of the finish in the top-left corner, the rest graphite.
-        bgImage:
-          "linear-gradient(135deg, color-mix(in oklab, var(--tint) 55%, {colors.finish.graphite.panel}) 0%, {colors.finish.graphite.panel} 65%)",
-        color: TINT_ACCENT,
-        shadow: "none",
-      },
-      "&[data-tinted][data-playing][aria-pressed=true]": { filter: "brightness(1.4)" },
+      // A tinted row (the bank's matrix) is not a sequencer: every cell keeps the plain grey of an
+      // unlit cell — the icon in its colour says which machine has notes there — and one where the
+      // machine sits the slot out is the same at 30 % opacity. (Amber, a finish-coloured paint, a
+      // faded dashed cell and a crossed speaker were tried and dropped.)
+      "&[data-tinted][aria-pressed=true]": { bg: "rack.step.off", shadow: "none" },
+      "&[data-tinted]:not([aria-pressed=true])": { opacity: 0.3 },
+      "&[data-tinted][data-playing]": { bg: "rack.step.accent" },
       // Drag and drop between cells: a marked cell can be picked up, the cell under it is outlined.
       "&[draggable=true]": { cursor: "grab" },
       "&[data-drop-target]": {

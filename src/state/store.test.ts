@@ -260,6 +260,23 @@ describe("rack store", () => {
     expect(useRackStore.getState().activePattern).toBe(0)
   })
 
+  it("empties every part of a slot, keeping who sits it out, as one undo step", () => {
+    const store = useRackStore.getState()
+    store.toggleStep("drums-1", "hat", 7)
+    store.toggleNote("synth-1", 2, 6)
+    store.togglePartMute("perc-1", 0)
+    store.clearPattern(0)
+    const s = useRackStore.getState()
+    expect(rowsOf(s.patterns[0]!.tracks["drums-1"] as KitTrack).hat![7]).toBe(false)
+    const synth = s.patterns[0]!.tracks["synth-1"]!
+    expect(synth.kind === "synth" && synth.notes.every((n) => n === null)).toBe(true)
+    expect(s.patterns[0]!.muted).toEqual(["perc-1"])
+    store.undo()
+    expect(rowsOf(useRackStore.getState().patterns[0]!.tracks["drums-1"] as KitTrack).hat![7]).toBe(
+      true,
+    )
+  })
+
   it("copies any slot onto another, leaving the slot on screen alone", () => {
     const store = useRackStore.getState()
     store.toggleStep("drums-1", "hat", 7)

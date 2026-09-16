@@ -32,6 +32,9 @@ importers:
       tone:
         specifier: ^15.1.22
         version: 15.1.22
+      workbox-window:
+        specifier: ^7.4.1
+        version: 7.4.1
       zustand:
         specifier: ^5.0.15
         version: 5.0.15(@types/react@19.3.0)(react@19.3.0)

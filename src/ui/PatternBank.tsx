@@ -5,6 +5,7 @@ import { LuPlay, LuRepeat } from "react-icons/lu"
 import { instanceLabel } from "../state/instances"
 import { isMutedIn, isPatternEmpty, isTrackEmpty } from "../state/pattern"
 import { useRackStore, type RackState } from "../state/store"
+import { ConfirmDialog } from "./ConfirmDialog"
 import { PART_DRAG, PATTERN_DRAG, useClearOnDragEnd } from "./dragTypes"
 import { removeInstanceWithUndo, scrollToUnit } from "./removeInstance"
 import { StepGrid, type CellDrag } from "./StepGrid"
@@ -13,6 +14,13 @@ import { inTextField } from "./undoRedo"
 import { KIND_FINISH, kindIcon } from "./unitMeta"
 
 const slotPlayhead = (s: RackState) => s.playingPattern
+
+/** "DR-4 #2" for an id, read off the store when a question is worded. */
+const instanceLabelOf = (id: string): string => {
+  const { instances } = useRackStore.getState()
+  const inst = instances.find((i) => i.id === id)
+  return inst ? instanceLabel(inst, instances) : id
+}
 
 const partData = (id: string, slot: number) => `${id}:${slot}`
 const parsePart = (data: string): { id: string; slot: number } | null => {
@@ -71,8 +79,7 @@ function PartsMatrix({ header }: { header: (slot: number) => ReactNode }) {
       } else if (e.key === "Escape") setSelected(null)
     }
     const onPress = (e: PointerEvent) => {
-      if (!(e.target instanceof Element && e.target.closest("[data-row-label]")))
-        setSelected(null)
+      if (!(e.target instanceof Element && e.target.closest("[data-row-label]"))) setSelected(null)
     }
     document.addEventListener("keydown", onKey)
     document.addEventListener("pointerdown", onPress)
@@ -147,6 +154,63 @@ export function PatternBank() {
   }
   // Slots with nothing in them show a faded number, so the used ones stand out.
   const empty = useMemo(() => patterns.map(isPatternEmpty), [patterns])
+
+  // A slot or a part dropped on the bank's own surface — not on a cell or a slot button — is asked
+  // about, then emptied: the pattern's every part, or that one part.
+  const [discard, setDiscard] = useState<
+    { kind: "pattern"; slot: number } | { kind: "part"; id: string; slot: number } | null
+  >(null)
+  const [overSurface, setOverSurface] = useState(false)
+  const clearSurface = useCallback(() => setOverSurface(false), [])
+  useClearOnDragEnd(overSurface, clearSurface)
+  const onSurfaceTarget = (target: EventTarget | null) =>
+    !(target instanceof Element && target.closest("[data-step], [data-pattern]"))
+  const onSurfaceDragOver = (e: DragEvent<HTMLDivElement>) => {
+    const { types } = e.dataTransfer
+    if (!types.includes(PATTERN_DRAG) && !types.includes(PART_DRAG)) return
+    const onSurface = onSurfaceTarget(e.target)
+    if (onSurface) {
+      e.preventDefault()
+      // The effect must be one the drag allows, or the browser drops the drop unheard: a part is
+      // dragged as "copy" (from the matrix), a slot as "copyMove".
+      e.dataTransfer.dropEffect = types.includes(PART_DRAG) ? "copy" : "move"
+    }
+    if (onSurface !== overSurface) setOverSurface(onSurface)
+  }
+  const onSurfaceDrop = (e: DragEvent<HTMLDivElement>) => {
+    setOverSurface(false)
+    if (!onSurfaceTarget(e.target)) return
+    const pattern = e.dataTransfer.getData(PATTERN_DRAG)
+    const part = e.dataTransfer.getData(PART_DRAG)
+    if (pattern) {
+      e.preventDefault()
+      ask({ kind: "pattern", slot: Number(pattern) })
+    } else if (part) {
+      const source = parsePart(part)
+      if (!source) return
+      e.preventDefault()
+      ask({ kind: "part", ...source })
+    }
+  }
+  // The question opens once the drag is over (its `dragend`, and the pointer's release, come right
+  // after the drop): a dialog that mounts inside the drop lands under that release.
+  const ask = (what: NonNullable<typeof discard>) => {
+    window.setTimeout(() => setDiscard(what), 100)
+  }
+  const answerDiscard = (yes: boolean) => {
+    const what = discard
+    setDiscard(null)
+    if (!yes || !what) return
+    const state = useRackStore.getState()
+    if (what.kind === "pattern") state.clearPattern(what.slot)
+    else state.clearParts(what.id)
+  }
+  const discardQuestion =
+    discard === null
+      ? null
+      : discard.kind === "pattern"
+        ? `Empty pattern ${discard.slot + 1}? Every machine's part in it goes. Undo brings it back.`
+        : `Empty ${instanceLabelOf(discard.id)}'s part in every pattern? Its whole row goes. Undo brings it back.`
   // Same blocks as the SONG bars: grey, lit in the pattern's colour while it sounds.
   const styles = useSlotRecipe({ key: "songTimeline" })()
 
@@ -184,13 +248,46 @@ export function PatternBank() {
 
   return (
     <VStack gap="3" align="stretch" minW="0">
-      {/* The sixteen slots head the parts matrix below, one over each column. */}
-      <chakra.div role="group" aria-label="Pattern bank">
+      {/* The sixteen slots head the parts matrix below, one over each column. A slot or a part
+          dropped on the box itself (not on a cell or a slot button) is asked about, then emptied. */}
+      <chakra.div
+        role="group"
+        aria-label="Pattern bank"
+        data-drop-target={overSurface ? "" : undefined}
+        css={{
+          "&[data-drop-target]": {
+            outline: "2px dashed",
+            outlineColor: "fg.error",
+            outlineOffset: "4px",
+            rounded: "sm",
+          },
+        }}
+        onDragOver={onSurfaceDragOver}
+        onDragLeave={(e) => {
+          if (!(e.currentTarget as HTMLElement).contains(e.relatedTarget as Node | null))
+            setOverSurface(false)
+        }}
+        onDrop={onSurfaceDrop}
+      >
         <PartsMatrix
           header={(slot) => (
             <chakra.button
               type="button"
-              css={[styles.block, { w: "full", minW: "0", aspectRatio: "1" }]}
+              // A square on the cell's track (the timeline's block is a 48 px-tall bar), the plain grey
+              // raised by a shadow, with a bold number — the slot being played still lights in its
+              // pattern's colour.
+              css={[
+                styles.block,
+                {
+                  w: "full",
+                  minW: "0",
+                  h: "auto",
+                  aspectRatio: "1",
+                  fontWeight: "bold",
+                  boxShadow:
+                    "0 2px 4px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.07)",
+                },
+              ]}
               data-pattern={slot + 1}
               data-playing={slot === playingPattern ? "" : undefined}
               data-active={slot === activePattern ? "" : undefined}
@@ -210,6 +307,12 @@ export function PatternBank() {
           )}
         />
       </chakra.div>
+      <ConfirmDialog
+        open={discardQuestion}
+        title="Drop to empty"
+        action="Empty"
+        onAnswer={answerDiscard}
+      />
       {/* Under the matrix: play the active slot while stopped, or hand the clock back to the song. */}
       <HStack justify="center" gap="3">
         {!playing && (
