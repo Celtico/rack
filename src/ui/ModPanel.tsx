@@ -5,8 +5,8 @@ import {
   HStack,
   IconButton,
   NativeSelect,
+  Grid,
   SegmentGroup,
-  SimpleGrid,
   Text,
   VStack,
 } from "@chakra-ui/react"
@@ -34,6 +34,7 @@ import {
   type ModTarget,
 } from "../state/mod"
 import { selectInstance, useRackStore } from "../state/store"
+import { ControlCard } from "./ControlCard"
 import { Knob } from "./Knob"
 import { WavePicker } from "./WavePicker"
 import {
@@ -63,6 +64,9 @@ const formatSemitones = (v: number) => `${v > 0 ? "+" : ""}${v} st`
 const formatHzShort = (v: number) => (v < 1 ? `${v.toFixed(2)} Hz` : `${v.toFixed(1)} Hz`)
 const isTarget = (v: string | null): v is ModTarget =>
   ["off", "cutoff", "pitch", "level"].includes(v as ModTarget)
+
+/** As many cards across as fit at 14rem, four at most. */
+const CARD_COLUMNS = "repeat(auto-fit, minmax(max(14rem, 22%), 1fr))"
 
 function Label({ children }: { children: string }) {
   return (
@@ -113,8 +117,7 @@ function LfoBlock({ id, inst, index }: { id: string; inst: Instance; index: 0 | 
   const lfo = inst.mod.lfo[index]
   const targets = modTargetsFor(inst.kind)
   return (
-    <VStack gap="2" align="flex-start">
-      <Label>{`LFO ${index + 1}`}</Label>
+    <ControlCard title={`LFO ${index + 1}`}>
       <HStack gap="4" wrap="wrap" align="flex-end">
         <WavePicker
           label="Shape"
@@ -152,7 +155,7 @@ function LfoBlock({ id, inst, index }: { id: string; inst: Instance; index: 0 | 
           onChange={(amount) => changeLfo(id, index, { amount })}
         />
       </HStack>
-    </VStack>
+    </ControlCard>
   )
 }
 
@@ -167,7 +170,7 @@ function MacroBlock({ id, inst, index }: { id: string; inst: Instance; index: nu
     setTargets(macro.targets.map((t, i) => (i === n ? { ...t, ...patch } : t)))
 
   return (
-    <VStack gap="2" align="flex-start" minW="0">
+    <ControlCard aria-label={`Macro ${index + 1}`} minW="0">
       <Knob
         label={`Macro ${index + 1}`}
         value={macro.value}
@@ -250,7 +253,7 @@ function MacroBlock({ id, inst, index }: { id: string; inst: Instance; index: nu
           <LuPlus /> Assign
         </Button>
       )}
-    </VStack>
+    </ControlCard>
   )
 }
 
@@ -258,18 +261,25 @@ function MacroBlock({ id, inst, index }: { id: string; inst: Instance; index: nu
  * The modulation of one machine, folded under its controls: tune and drive,
  * two LFOs, a per-step random source and four macros that move the knobs.
  */
-export function ModPanel({ id }: { id: string }) {
-  const inst = useRackStore((s) => selectInstance(s, id))
+/**
+ * A row at the bottom of a unit that folds a block open: a hairline, the
+ * title, a chevron. Closed by default; the content is mounted only while open.
+ */
+function PanelFold({
+  title,
+  first,
+  children,
+}: {
+  title: string
+  first?: boolean
+  children: ReactNode
+}) {
   const [open, setOpen] = useState(false)
-  if (!inst) return null
-  const { mod } = inst
-  const targets = modTargetsFor(inst.kind)
-
   return (
     <Collapsible.Root
       open={open}
       onOpenChange={(d) => setOpen(d.open)}
-      mt="4"
+      mt={first ? "4" : "0"}
       lazyMount
       unmountOnExit
     >
@@ -294,77 +304,92 @@ export function ModPanel({ id }: { id: string }) {
           }}
           aria-expanded={open}
         >
-          Modulation
+          {title}
           <chakra.span ml="auto">{open ? <LuChevronUp /> : <LuChevronDown />}</chakra.span>
         </chakra.button>
       </Collapsible.Trigger>
       <Collapsible.Content>
-        {/* 10 px of air inside the fold, and between the groups. */}
-        <VStack gap="6" align="stretch" p="2.5" pt="4">
-          {/* One group per row on a phone, two from `sm`, four on a wide rack: nothing wraps ragged. */}
-          <SimpleGrid columns={{ base: 1, sm: 2, xl: 4 }} gap={{ base: "5", md: "8" }}>
-            <VStack gap="2" align="flex-start">
-              <Label>Tone</Label>
-              <HStack gap="4" wrap="wrap">
-                {hasTune(inst.kind) && (
-                  <Knob
-                    label="Tune"
-                    value={mod.tune}
-                    min={MOD_RANGES.tune.min}
-                    max={MOD_RANGES.tune.max}
-                    step={1}
-                    defaultValue={0}
-                    format={formatSemitones}
-                    onChange={(tune) => changeMod(id, { tune })}
-                  />
-                )}
-                <Knob
-                  label="Drive"
-                  value={mod.drive}
-                  min={0}
-                  max={1}
-                  step={0.01}
-                  defaultValue={0}
-                  format={formatPercent}
-                  onChange={(drive) => changeMod(id, { drive })}
-                />
-              </HStack>
-            </VStack>
-            <LfoBlock id={id} inst={inst} index={0} />
-            <LfoBlock id={id} inst={inst} index={1} />
-            <VStack gap="2" align="flex-start">
-              <Label>Random</Label>
-              <HStack gap="4" wrap="wrap" align="flex-end">
-                <TargetPicker
-                  label="To"
-                  value={mod.random.target}
-                  options={targets}
-                  onChange={(target) => changeRandom(id, { target })}
-                />
-                <Knob
-                  size="sm"
-                  label="Amount"
-                  value={mod.random.amount}
-                  min={0}
-                  max={1}
-                  step={0.01}
-                  defaultValue={0.5}
-                  format={formatPercent}
-                  onChange={(amount) => changeRandom(id, { amount })}
-                />
-              </HStack>
-            </VStack>
-          </SimpleGrid>
-          <VStack gap="2" align="flex-start">
-            <Label>Macros</Label>
-            <SimpleGrid columns={{ base: 1, sm: 2, lg: 4 }} gap={{ base: "5", md: "8" }} w="full">
-              {Array.from({ length: MACRO_COUNT }, (_, i) => (
-                <MacroBlock key={i} id={id} inst={inst} index={i} />
-              ))}
-            </SimpleGrid>
-          </VStack>
+        {/* 10 px of air inside the fold. */}
+        <VStack gap="4" align="stretch" p="2.5" pt="4" pb="4">
+          {children}
         </VStack>
       </Collapsible.Content>
     </Collapsible.Root>
+  )
+}
+
+export function ModPanel({ id }: { id: string }) {
+  const inst = useRackStore((s) => selectInstance(s, id))
+  if (!inst) return null
+  const { mod } = inst
+  const targets = modTargetsFor(inst.kind)
+
+  // Two folds: what modulates the sound (tone, LFOs, random), and the macros that move the knobs —
+  // different things, each behind its own row.
+  return (
+    <>
+      <PanelFold title="Modulation" first>
+        {/* The groups as cards, as many across as fit at 14rem, four at most — by the room here,
+            not the viewport (a wide side panel narrows the rack). */}
+        <Grid templateColumns={CARD_COLUMNS} gap="2" alignItems="stretch">
+          <ControlCard title="Tone">
+            <HStack gap="4" wrap="wrap">
+              {hasTune(inst.kind) && (
+                <Knob
+                  label="Tune"
+                  value={mod.tune}
+                  min={MOD_RANGES.tune.min}
+                  max={MOD_RANGES.tune.max}
+                  step={1}
+                  defaultValue={0}
+                  format={formatSemitones}
+                  onChange={(tune) => changeMod(id, { tune })}
+                />
+              )}
+              <Knob
+                label="Drive"
+                value={mod.drive}
+                min={0}
+                max={1}
+                step={0.01}
+                defaultValue={0}
+                format={formatPercent}
+                onChange={(drive) => changeMod(id, { drive })}
+              />
+            </HStack>
+          </ControlCard>
+          <LfoBlock id={id} inst={inst} index={0} />
+          <LfoBlock id={id} inst={inst} index={1} />
+          <ControlCard title="Random">
+            <HStack gap="4" wrap="wrap" align="flex-end">
+              <TargetPicker
+                label="To"
+                value={mod.random.target}
+                options={targets}
+                onChange={(target) => changeRandom(id, { target })}
+              />
+              <Knob
+                size="sm"
+                label="Amount"
+                value={mod.random.amount}
+                min={0}
+                max={1}
+                step={0.01}
+                defaultValue={0.5}
+                format={formatPercent}
+                onChange={(amount) => changeRandom(id, { amount })}
+              />
+            </HStack>
+          </ControlCard>
+        </Grid>
+      </PanelFold>
+      <PanelFold title="Macros">
+        <Grid templateColumns={CARD_COLUMNS} gap="2" alignItems="stretch" w="full">
+          {Array.from({ length: MACRO_COUNT }, (_, i) => (
+            <MacroBlock key={i} id={id} inst={inst} index={i} />
+          ))}
+        </Grid>
+      </PanelFold>
+    </>
   )
 }

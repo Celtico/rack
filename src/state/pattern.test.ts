@@ -7,6 +7,7 @@ import {
   isMutedIn,
   hitsAt,
   isPatternEmpty,
+  isGateKind,
   isTrackEmpty,
   polyNotesAt,
   rowsOf,
@@ -197,5 +198,15 @@ describe("patterns", () => {
     expect(gate).toHaveLength(16)
     expect(gate.every(Boolean)).toBe(true)
     expect(isTrackEmpty(track)).toBe(true)
+  })
+
+  it("gives a microphone the same open gate, and counts it as a gate kind", () => {
+    const track = emptyTrack("mic")
+    expect(track.kind).toBe("mic")
+    const gate = "rows" in track ? (track.rows as Record<string, readonly boolean[]>).gate! : []
+    expect(gate.every(Boolean)).toBe(true)
+    expect(isTrackEmpty(track)).toBe(true)
+    expect(isGateKind("mic")).toBe(true)
+    expect(isGateKind("drums")).toBe(false)
   })
 })

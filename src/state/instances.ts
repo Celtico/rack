@@ -25,7 +25,10 @@ import {
   type PolyParams,
   type StringsParams,
   type SynthParams,
+  type MicParams,
   type VideoParams,
+  MIC_PARAMS_DEFAULT,
+  MIC_RANGES,
   VIDEO_BARS,
   VIDEO_PARAMS_DEFAULT,
   VIDEO_RANGES,
@@ -44,6 +47,7 @@ export interface KindParams {
   ep: EpParams
   strings: StringsParams
   video: VideoParams
+  mic: MicParams
 }
 
 /** One machine in the rack: its kind, its parameters and its mixer strip. */
@@ -87,6 +91,7 @@ export const KIND_MODEL: Readonly<Record<Kind, string>> = {
   ep: "EP-1",
   strings: "STR-6",
   video: "VID-1",
+  mic: "MIC-1",
 }
 
 export const KIND_TITLE: Readonly<Record<Kind, string>> = {
@@ -99,6 +104,7 @@ export const KIND_TITLE: Readonly<Record<Kind, string>> = {
   ep: "Piano",
   strings: "Guitar",
   video: "Video loop",
+  mic: "Microphone",
 }
 
 const MIX_DEFAULT: Readonly<Record<Kind, { level: number; send: number }>> = {
@@ -111,6 +117,7 @@ const MIX_DEFAULT: Readonly<Record<Kind, { level: number; send: number }>> = {
   ep: { level: 0.75, send: 0.35 },
   strings: { level: 0.7, send: 0.3 },
   video: { level: 0.8, send: 0.2 },
+  mic: { level: 0.8, send: 0.2 },
 }
 
 export function defaultParams<K extends Kind>(kind: K): KindParams[K] {
@@ -124,6 +131,7 @@ export function defaultParams<K extends Kind>(kind: K): KindParams[K] {
     ep: () => EP_PARAMS_DEFAULT,
     strings: () => STRINGS_PARAMS_DEFAULT,
     video: () => VIDEO_PARAMS_DEFAULT,
+    mic: () => MIC_PARAMS_DEFAULT,
   }
   return table[kind]()
 }
@@ -184,6 +192,14 @@ export function clampParams<K extends Kind>(kind: K, params: KindParams[K]): Kin
       return {
         ...v,
         bars: VIDEO_BARS.includes(v.bars) ? v.bars : VIDEO_PARAMS_DEFAULT.bars,
+      } as KindParams[K]
+    }
+    case "mic": {
+      const m = clampFields({ ...MIC_PARAMS_DEFAULT, ...(params as MicParams) }, MIC_RANGES)
+      return {
+        ...m,
+        bars: Number.isFinite(m.bars) ? Math.round(m.bars) : MIC_PARAMS_DEFAULT.bars,
+        live: m.live === true,
       } as KindParams[K]
     }
   }

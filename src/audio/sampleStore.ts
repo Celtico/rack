@@ -6,6 +6,47 @@ export interface StoredSample {
   data: ArrayBuffer
   /** The file's media type — a video needs it to play; samples never set it. */
   type?: string
+  /** A recording from the microphone: when it was taken, and for a loop, its bars and tempo. */
+  takenAt?: number
+  bars?: number
+  bpm?: number
+}
+
+/** Keys of the microphone's takes — every loop and clip recorded, listed in the MIC-1 panel. */
+const TAKE_PREFIX = "take:"
+export const takeKey = (takenAt: number) => `${TAKE_PREFIX}${takenAt}`
+export const isTakeKey = (key: string): boolean => key.startsWith(TAKE_PREFIX)
+
+/** One recording as the panel lists it: its key and what is known about it, no bytes. */
+export interface Take {
+  key: string
+  name: string
+  takenAt: number
+  bars?: number
+  bpm?: number
+}
+
+/** Every take, newest first. */
+export async function listTakes(): Promise<Take[]> {
+  const all = await getAllSamples()
+  return Object.entries(all)
+    .filter(([key]) => isTakeKey(key))
+    .map(([key, s]) => ({
+      key,
+      name: s.name,
+      takenAt: s.takenAt ?? 0,
+      ...(s.bars !== undefined ? { bars: s.bars } : {}),
+      ...(s.bpm !== undefined ? { bpm: s.bpm } : {}),
+    }))
+    .sort((a, b) => b.takenAt - a.takenAt)
+}
+
+/** Keep a recording in the list; returns its key. */
+export async function saveTake(sample: Omit<StoredSample, "takenAt">): Promise<string> {
+  const takenAt = Date.now()
+  const key = takeKey(takenAt)
+  await putSample(key, { ...sample, takenAt })
+  return key
 }
 
 /** Storage key of one pad of one sampler instance. */

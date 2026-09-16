@@ -6,6 +6,7 @@ import {
   LuDrum,
   LuGuitar,
   LuLayers,
+  LuMic,
   LuPiano,
   LuWaves,
   LuZap,
@@ -30,6 +31,7 @@ export const KIND_FINISH: Readonly<Record<Kind, Finish>> = {
   ep: "cream",
   strings: "wood",
   video: "cyan",
+  mic: "yellow",
 }
 
 /** Header pictogram per kind. */
@@ -53,6 +55,8 @@ export function kindIcon(kind: Kind): ReactNode {
       return <LuGuitar />
     case "video":
       return <LuClapperboard />
+    case "mic":
+      return <LuMic />
   }
 }
 

@@ -117,7 +117,9 @@ export function nearestRow(
   return { row: best, moved: bestScore >= 1000 }
 }
 
-const SCALES: Readonly<Record<Exclude<Kind, "drums" | "perc" | "sampler" | "video">, number[]>> = {
+const SCALES: Readonly<
+  Record<Exclude<Kind, "drums" | "perc" | "sampler" | "video" | "mic">, number[]>
+> = {
   synth: SYNTH_NOTES.map(midiOf),
   bass: BASS_NOTES.map(midiOf),
   poly: POLY_NOTES.poly.map(midiOf),

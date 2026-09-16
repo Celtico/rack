@@ -100,13 +100,15 @@ export function randomParams<K extends Kind>(kind: K, rng: Rng): KindParams[K] {
         ...randomSynthFilter("video", rng),
         toCutoff: uniform(rng, VIDEO_RANGES.toCutoff),
       } as KindParams[K]
+    case "mic":
+      return { ...defaultParams(kind), ...randomSynthFilter("mic", rng) } as KindParams[K]
   }
   return defaultParams(kind)
 }
 
 /** A random setting for a synth's own filter (MONO-1, BASS-2, POLY-4): type, cutoff and Q in its ranges. */
 export function randomSynthFilter(
-  kind: "synth" | "bass" | "poly" | "video",
+  kind: "synth" | "bass" | "poly" | "video" | "mic",
   rng: Rng,
 ): { filterType: FilterType; cutoff: number; resonance: number } {
   const ranges =
@@ -164,7 +166,16 @@ export function randomizeInstance(inst: Instance, rng: Rng): Instance {
               start: inst.params.start,
               end: inst.params.end,
             }
-          : randomParams(inst.kind, rng),
+          : inst.kind === "mic"
+            ? {
+                ...randomParams(inst.kind, rng),
+                loopKey: inst.params.loopKey,
+                loopName: inst.params.loopName,
+                loopBpm: inst.params.loopBpm,
+                bars: inst.params.bars,
+                live: inst.params.live,
+              }
+            : randomParams(inst.kind, rng),
     ...(inst.filter ? { filter: randomFilter(rng) } : {}),
     mod: randomMod(inst.kind, inst.mod, rng),
   } as Instance

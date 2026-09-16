@@ -13,14 +13,17 @@ import {
 } from "../state/store"
 import { BassVoice } from "./devices/bass"
 import { DrumKit } from "./devices/drums"
+import { MicInput } from "./devices/mic"
 import { MonoVoice } from "./devices/monoSynth"
 import { PercKit } from "./devices/perc"
 import { EPiano, PolyPad, Strings } from "./devices/polySynths"
 import { installTonePatches } from "./tonePatches"
 import { SamplerKit } from "./devices/sampler"
 import { VideoLoop } from "./devices/videoLoop"
-import { deleteSample, putSample, sampleKey } from "./sampleStore"
+import { micStream } from "./mic"
+import { deleteSample, getSample, putSample, sampleKey, saveTake } from "./sampleStore"
 import { Scheduler } from "./scheduler"
+import { encodeWav } from "./wav"
 import type { ModHooks } from "./types"
 
 /** The sound-making object behind one instance. */
@@ -34,6 +37,7 @@ type Device =
   | { kind: "ep"; poly: EPiano }
   | { kind: "strings"; poly: Strings }
   | { kind: "video"; kit: VideoLoop }
+  | { kind: "mic"; kit: MicInput }
 
 /** One instance in the graph: its mixer strip, analysers and device. */
 interface Strip {
@@ -100,7 +104,7 @@ const storeSource: EngineSource = {
 
 /** The melodic devices' modulation hooks; a kit has none. */
 const hooksOf = (device: Device): ModHooks | null =>
-  device.kind === "video"
+  device.kind === "video" || device.kind === "mic"
     ? device.kit
     : "kit" in device
       ? null
@@ -217,9 +221,13 @@ export class AudioEngine {
         const d = this.strips.get(id)?.device
         if (d && "poly" in d) d.poly.trigger(notes, time)
       },
-      triggerVideo: (id, open, time) => {
+      triggerGate: (id, open, time, bar, step) => {
         const d = this.strips.get(id)?.device
         if (d?.kind === "video") d.kit.gateStep(open, time)
+        else if (d?.kind === "mic") {
+          d.kit.gateStep(open, time)
+          if (step === 0) d.kit.barStart(bar, time, this.transport.bpm.value)
+        }
       },
       // Draw callbacks queued before a stop still land after it; a stopped transport publishes nothing,
       // so the readout stays at "--" instead of freezing on the last step.
@@ -242,7 +250,7 @@ export class AudioEngine {
     const pending: Promise<unknown>[] = []
     if (this.reverb) pending.push(this.reverb.ready)
     for (const { device } of this.strips.values()) {
-      if (device.kind === "sampler") pending.push(device.kit.ready)
+      if (device.kind === "sampler" || device.kind === "mic") pending.push(device.kit.ready)
     }
     await Promise.allSettled(pending)
   }
@@ -319,6 +327,13 @@ export class AudioEngine {
         return { kind: inst.kind, poly: new Strings(output, inst.params) }
       case "video":
         return { kind: inst.kind, kit: new VideoLoop(output, inst.params) }
+      case "mic": {
+        const kit = new MicInput(output, inst.params)
+        // The microphone, once granted, feeds every MIC-1 — the ones added later too.
+        const stream = micStream()
+        if (stream) kit.attach(stream)
+        return { kind: inst.kind, kit }
+      }
     }
   }
 
@@ -386,7 +401,7 @@ export class AudioEngine {
   release(time: number): void {
     for (const { device } of this.strips.values()) {
       if (device.kind === "bass") device.voice.reset(time)
-      if (device.kind === "video") device.kit.reset(time)
+      if (device.kind === "video" || device.kind === "mic") device.kit.reset(time)
     }
   }
 
@@ -603,7 +618,108 @@ export class AudioEngine {
       case "video":
         for (const [key, value] of entries) device.kit.set(key as never, value as never)
         break
+      case "mic":
+        for (const [key, value] of entries) device.kit.set(key as never, value as never)
+        break
     }
+  }
+
+  /** The microphone was granted: feed its stream into every MIC-1 in the graph. */
+  attachMic(stream: MediaStream): void {
+    for (const { device } of this.strips.values()) {
+      if (device.kind === "mic") device.kit.attach(stream)
+    }
+  }
+
+  /** Is the microphone feeding this MIC-1? */
+  micAttached(id: string): boolean {
+    const device = this.strips.get(id)?.device
+    return device?.kind === "mic" && device.kit.attached
+  }
+
+  /**
+   * Record a MIC-1's loop: `bars` bars of the input from the next bar where its cycle begins
+   * (bar numbers divisible by `bars`), while the clock runs. Resolves once the take is in the
+   * player and kept in the browser (as a WAV under the instance's loop key), with the name for
+   * the panel and the tempo it was taken at. Rejects when the clock is stopped or the microphone
+   * is not feeding the machine.
+   */
+  async recordLoop(
+    id: string,
+    bars: number,
+    onArmed?: (startBar: number) => void,
+  ): Promise<{ key: string; name: string; bpm: number; bars: number } | null> {
+    const device = this.strips.get(id)?.device
+    if (device?.kind !== "mic") throw new Error("not a MIC-1")
+    if (!device.kit.attached) throw new Error("the microphone is not on")
+    if (this.transport.state !== "started" || !this.scheduler)
+      throw new Error("the clock is stopped")
+    if (this.takes.has(id)) throw new Error("already recording")
+    const barSeconds = this.transport.toSeconds("1m")
+    // The next bar line, then on to the first bar of a cycle.
+    const nextBar = this.scheduler.currentBar + 1
+    const wait = (bars - (nextBar % bars)) % bars
+    const start = this.transport.nextSubdivision("1m") + wait * barSeconds
+    const bpm = this.transport.bpm.value
+    this.takes.set(id, { start, barSeconds, bars })
+    onArmed?.(nextBar + wait)
+    let buffer: AudioBuffer | null
+    try {
+      buffer = await device.kit.record(start, bars * barSeconds)
+    } finally {
+      this.takes.delete(id)
+    }
+    if (!buffer) return null
+    // Whole bars: a take stopped early ends on a bar line, so this is exact.
+    const taken = Math.max(1, Math.round(buffer.length / buffer.sampleRate / barSeconds))
+    const name = `Loop · ${taken} bar${taken === 1 ? "" : "s"}`
+    // Into the list of takes — the panel picks the loop from it — and onto the player.
+    const key = await saveTake({
+      name,
+      data: encodeWav(buffer),
+      type: "audio/wav",
+      bars: taken,
+      bpm,
+    })
+    device.kit.setLoop(buffer)
+    return { key, name, bpm, bars: taken }
+  }
+
+  /** The takes under way, by instance: when they start, how long a bar is, how many were asked for. */
+  private readonly takes = new Map<string, { start: number; barSeconds: number; bars: number }>()
+
+  /**
+   * Stop a MIC-1's take: still waiting for its bar, it is dropped; already
+   * recording, it ends on the next bar line and keeps the whole bars it got.
+   */
+  stopRecording(id: string): void {
+    const take = this.takes.get(id)
+    const device = this.strips.get(id)?.device
+    if (!take || device?.kind !== "mic") return
+    if (this.transport.now() < take.start) {
+      device.kit.cancelRecording()
+      return
+    }
+    const end = Math.min(
+      this.transport.nextSubdivision("1m"),
+      take.start + take.bars * take.barSeconds,
+    )
+    device.kit.stopRecording(end)
+  }
+
+  /** A take from the list as a MIC-1's loop. False when the take is gone. */
+  async useTake(id: string, key: string): Promise<boolean> {
+    const device = this.strips.get(id)?.device
+    const stored = await getSample(key)
+    if (!stored) return false
+    if (device?.kind === "mic") await device.kit.setLoopBytes(stored.data)
+    return true
+  }
+
+  /** The MIC-1's loop off the player; the take stays in the list. */
+  clearLoop(id: string): void {
+    const device = this.strips.get(id)?.device
+    if (device?.kind === "mic") device.kit.clearLoop()
   }
 
   /** Feed a VID-1's media element into its device — the UI owns the element, the graph owns the node. */

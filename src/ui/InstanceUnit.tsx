@@ -1,6 +1,7 @@
 import type { Kind } from "../state/pattern"
 import { BassUnit } from "./BassUnit"
 import { KitUnit } from "./KitUnit"
+import { MicUnit } from "./MicUnit"
 import { MonoSynth } from "./MonoSynth"
 import { PolyUnit } from "./PolyUnit"
 import { SamplerUnit } from "./SamplerUnit"
@@ -24,5 +25,7 @@ export function InstanceUnit({ id, kind }: { id: string; kind: Kind }) {
       return <PolyUnit id={id} />
     case "video":
       return <VideoUnit id={id} />
+    case "mic":
+      return <MicUnit id={id} />
   }
 }

@@ -323,6 +323,21 @@ describe("song save/load", () => {
     })
     expect(instOf<"synth">(parseSong(JSON.stringify(noFilter)), "synth-1").filter).toBeUndefined()
 
+    // A MIC-1: its loop's name and tempo, whether it is heard live and its loop length round-trip.
+    const mic = useRackStore.getState().addInstance("mic")
+    useRackStore
+      .getState()
+      .setInstanceParams(mic.id, { loopName: "Loop · 4 bars", loopBpm: 97, bars: 4, live: false })
+    const withMic = parseSong(serializeSong(toSong(useRackStore.getState())))
+    expect(instOf<"mic">(withMic, mic.id).params).toMatchObject({
+      loopName: "Loop · 4 bars",
+      loopBpm: 97,
+      bars: 4,
+      live: false,
+    })
+    expect(withMic.patterns[0]!.tracks[mic.id]).toMatchObject({ kind: "mic" })
+    useRackStore.getState().removeInstance(mic.id)
+
     // A VID-1: its file name (or null) and loop length round-trip; a bad length falls back.
     const vid = useRackStore.getState().addInstance("video")
     useRackStore.getState().setInstanceParams(vid.id, { videoName: "clip.mov", bars: 8 })

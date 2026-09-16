@@ -5,6 +5,7 @@ import {
   FILTER_RANGES,
   POLY_RANGES,
   STRINGS_RANGES,
+  MIC_RANGES,
   SYNTH_RANGES,
   VIDEO_RANGES,
 } from "./params"
@@ -237,6 +238,14 @@ export function macroTargetsFor(kind: Kind, stripFilter: boolean): MacroTargetIn
         range("param", "cutoff", "Cutoff", VIDEO_RANGES.cutoff),
         range("param", "resonance", "Res", VIDEO_RANGES.resonance),
         range("param", "toCutoff", "Video → cutoff", VIDEO_RANGES.toCutoff),
+      )
+      break
+    case "mic":
+      out.push(
+        range("param", "cutoff", "Cutoff", MIC_RANGES.cutoff),
+        range("param", "resonance", "Res", MIC_RANGES.resonance),
+        range("param", "liveLevel", "Live level", MIC_RANGES.liveLevel),
+        range("param", "loopLevel", "Loop level", MIC_RANGES.loopLevel),
       )
       break
   }

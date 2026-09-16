@@ -401,6 +401,50 @@ strict build order:
      `uploadFormat()` (MP4 if writable, else the first WebM) at `UPLOAD_HEIGHT` = 240p, with a loading
      toast counting %. There is no manual converter in the panel any more (the user asked for it to go;
      `videoFormats` / `VIDEO_HEIGHTS` / the `region` option remain in `videoLoops.ts` for a caller). This is what makes HEVC `.mov` from a phone usable everywhere and cheap to decode.
+   - ✅ Extra — **MIC-1 · Microphone** (kind `mic`, finish `yellow`, `LuMic`): the microphone through the
+     rack, and a looper. `src/audio/mic.ts` asks for one shared `MediaStream` (`getMicStream`, behind the
+     panel's "Enable mic"; no echo cancellation / noise suppression / AGC) and `engine.attachMic(stream)`
+     feeds every MIC-1 (`createDevice` attaches later ones itself). Device `MicInput`
+     (`src/audio/devices/mic.ts`): live → liveGain, loop `Tone.Player` → loopGain, both → gate → filter →
+     strip; the track is a one-row gate like VID-1's (`GATE_KINDS` / `isGateKind` in `pattern.ts`; the
+     scheduler dep is now `triggerGate(id, open, time, bar, step)` for both kinds, and `hitsForStep` skips
+     them). Params (`MicParams`): `loopName` / `loopBpm` (the take's tempo — playback is rate-shifted to
+     the clock's), `bars` (`MIC_BARS` 1/2/4/8: the loop's length, and it starts over every that many —
+     `barStart(bar, time, bpm)` at step 0 where `restartsAt`), `live` (monitor on/off, a boolean the
+     parser special-cases like `loopName`), `liveLevel` / `loopLevel`, own `filterType` / `cutoff` /
+     `resonance`. `bars` is any integer 1–8 (`MIC_RANGES.bars`): the segment picks 1/2/4/8 as the take's
+     **most**, and a take stopped early leaves the whole bars it got. **Recording**
+     (`engine.recordLoop(id, bars, onArmed?)` → `{ name, bpm, bars } | null`; `engine.stopRecording(id)`
+     drops a take still waiting for its bar or ends one under way on the next bar line — the worklet
+     takes `{ stopAt }` / `{ cancel }` messages; the panel shows ARMED, then "● REC n/bars" in red, and the
+     Rec button reads Cancel / Stop; the engine keeps the takes under way in `takes`): an AudioWorklet
+     (`src/audio/capture.worklet.js`, `rack-capture`, loaded on the first take via the Tone context's
+     `addAudioWorkletModule`; its silent output goes to the destination or the graph never runs it)
+     copies the input between two exact frames — from the next bar where the cycle begins
+     (`scheduler.currentBar`, `transport.nextSubdivision("1m")`) for `bars` bars — so the loop sits on
+     the bar, unlike a `MediaRecorder`; the take is kept as a WAV in the samples store as a **take**
+     (`saveTake` → key `take:<takenAt>`, `StoredSample` carries `takenAt` / `bars` / `bpm`; `listTakes`,
+     `isTakeKey`), then `setLoop`; the params get `loopKey` (the take in use — `MicInput.ready` decodes it
+     back via `loadTake`, `engine.ready()` waits for it, so an offline render plays the loop while the live
+     input is silent there). **Takes list** (`TakesList` in `src/ui/TakesList.tsx`, `useTakes` /
+     `takesChanged` / `takeMeta` in `src/ui/takes.ts`): every recording — MIC-1 loops and SMP-8 clips (the
+     sampler's Rec saves its clip as a take too) — newest first with bars · BPM · time; pressing one is
+     `engine.useTake(id, key)` (a clip becomes a one-bar loop at the clock's tempo), the trash deletes it
+     (and clears a MIC-1 using it); `clearLoop` only takes the loop off the player.
+     The build keeps the worklet a file (`assetsInlineLimit` in `vite.config.ts`). UI `MicUnit`: gate grid, then
+     the groups as **cards** (`ControlCard` in `src/ui/ControlCard.tsx`, the look of FX-2's strips: bordered
+     box on a darker ground with a silkscreen title, `role="group"`; the user asked for it here) —
+     on a `Grid` of `repeat(auto-fit, minmax(max(15rem, 30%), 1fr))` (as many across as fit, three at
+     most, decided by the unit's own width — a viewport breakpoint squeezed them beside a wide side
+     panel), the filter's Random / Reset in the Filter card's **footer** (`ControlCard.footer`: pinned to the
+     bottom under a hairline, so a row of cards lines them up — the card's own actions; `FilterTools`) and
+     the pattern's Plays / Random in the Level card's footer (`PatternTools`; `PartTools` composes both
+     for the other units) —
+     Input (OFF/LIVE/● REC display, Enable mic → Live toggle, a headphones warning: speakers feed back),
+     Loop (display, Rec — starts the clock if stopped, disabled until the mic is on —, clear, bars),
+     Live/Loop level knobs, filter, `PartTools`, `ModPanel`. **SMP-8 Rec**: a Rec/Stop button by Load
+     (`recordClip` in `src/ui/micRecord.ts`, a `MediaRecorder` clip of up to `CLIP_MAX_SECONDS` = 10 s in
+     whatever container the browser writes, then `importSample` as "Mic N.<ext>").
    - ✅ Extra — the BANK's **slot buttons head the parts matrix**: `StepGrid` gained an optional
      `header?: (step) => ReactNode` row (one element per column on the same tracks as the cells, an empty
      label cell in front), and `PartsMatrix` renders the sixteen slot blocks there — a pattern's number sits
@@ -489,6 +533,9 @@ strict build order:
      viewport stays `lg`, and with the breakpoint the controls were cut off at the panel's edge. The
      transport row wraps from `md` for the same reason. `StripFilterControls` is a wrapping row
      (type + curve, then Cutoff/Res).
+   - ✅ Extra — the **Modulation groups are cards** too (`ControlCard`: Tone, LFO 1, LFO 2, Random, and
+     each macro, on `CARD_COLUMNS` = `repeat(auto-fit, minmax(max(14rem, 22%), 1fr))` — up to four across,
+     by the unit's width). Cards have `p="4"` and a bold silkscreen title.
    - ✅ Extra — **modulation** on every machine (`Instance.mod: ModParams`, model in `src/state/mod.ts`, pure,
      saved in the song — `parseMod` fills any missing piece with `MOD_DEFAULT`, the v1 lifter adds it whole;
      `clampMod`): `tune` (semitones, melodic kinds — `hasTune`; the device transposes each note with
@@ -507,8 +554,9 @@ strict build order:
      `setInstanceRandom`, `setMacroTargets`, and `setMacro(id, n, value)` which moves the macro's targets
      (`macroPatches` → params / strip filter / tune+drive) in one history step and returns the patches for the
      engine (`changeMacro` in `unitMeta`). Macro target keys: `param:<key>` from `macroTargetsFor(kind)`,
-     `filter:cutoff|resonance`, `mod:drive|tune`. UI: `ModPanel` (`src/ui/ModPanel.tsx`, a `Collapsible`
-     "Modulation" row at the bottom of every instance panel, closed by default): Tune/Drive, LFO 1/2 (shape and
+     `filter:cutoff|resonance`, `mod:drive|tune`. UI: `ModPanel` (`src/ui/ModPanel.tsx`: **two** `Collapsible`
+     rows at the bottom of every instance panel, "Modulation" and "Macros" — different things, so each
+     behind its own fold (`PanelFold`), closed by default): Tune/Drive, LFO 1/2 (shape and
      target `NativeSelect`s, Rate/Amount `sm` knobs), Random, and four macro knobs each with its assignment
      rows (target select, Min/Max `sm` knobs, ×, "+ Assign"). The LFO shape is the synths' `WavePicker`
      (glyphs, `label="Shape"`) and the LFO / random target a `TargetPicker` `SegmentGroup` of icons (ban,
@@ -648,7 +696,9 @@ All UI goes through Chakra. No loose CSS files, no styled-components.
 ## Cross-cutting requirements
 
 - `Knob` is a hand-built accessible control: `role="slider"`, ARIA value props, arrow-key handling,
-  pointer events with capture, `touch-action: none`, visible focus via `_focus` (any focus, pointer included —
+  pointer events with capture (a turn also ends when a move arrives with no button down or the capture
+  is lost — a release outside the window used to leave the knob turning on the next pass over it; the
+  side panel's resize handle does the same), `touch-action: none`, visible focus via `_focus` (any focus, pointer included —
   the user wants a knob just turned to stay marked; the `Fader` thumb does the same) and `data-active` while
   it is being turned (the pointer line lights amber).
 - Responsive down to 360 px. The step grid may scroll horizontally; the controls may not.

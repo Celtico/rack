@@ -80,6 +80,9 @@ export default defineConfig({
     host: true,
   },
   build: {
+    // The capture worklet (`src/audio/capture.worklet.js`, reached through `new URL`) must stay a
+    // file of its own: `audioWorklet.addModule` wants a URL, and not every browser takes a data: one.
+    assetsInlineLimit: (file) => (file.endsWith(".worklet.js") ? false : undefined),
     rolldownOptions: {
       output: {
         // Split the big, rarely-changing vendors into their own chunks so a

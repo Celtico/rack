@@ -278,6 +278,11 @@ export const selectTrack = (s: RackState, id: string): Track | undefined =>
 
 const slot = (index: number) => clamp(Math.trunc(index), 0, PATTERN_COUNT - 1)
 
+/** Kinds whose filter lives in their params (the strip filter serves the rest). */
+const OWN_FILTER_KINDS: readonly Kind[] = ["synth", "bass", "poly", "video", "mic"]
+const hasOwnFilter = (kind: Kind): kind is "synth" | "bass" | "poly" | "video" | "mic" =>
+  OWN_FILTER_KINDS.includes(kind)
+
 const editActiveTrack = (state: RackState, id: string, fn: (t: Track) => Track) => ({
   patterns: state.patterns.map((p, i) => {
     if (i !== state.activePattern) return p
@@ -741,10 +746,14 @@ export const useRackStore = create<RackState>()((set, get) => ({
       ...remember(state),
       ...editInstance(state, id, (i) => {
         if (i.filter) return { ...i, filter: clampFilter(randomFilter(rng)) }
-        if (i.kind === "synth" || i.kind === "bass" || i.kind === "poly" || i.kind === "video") {
+        if (hasOwnFilter(i.kind)) {
           return {
             ...i,
-            params: clampParams(i.kind, { ...i.params, ...randomSynthFilter(i.kind, rng) }),
+            // The guard narrows the kind, not the instance: the params are the kind's, by construction.
+            params: clampParams(i.kind, {
+              ...i.params,
+              ...randomSynthFilter(i.kind, rng),
+            } as never),
           } as Instance
         }
         return i
@@ -755,7 +764,7 @@ export const useRackStore = create<RackState>()((set, get) => ({
       ...remember(state),
       ...editInstance(state, id, (i) => {
         if (i.filter) return { ...i, filter: { ...FILTER_DEFAULT } }
-        if (i.kind === "synth" || i.kind === "bass" || i.kind === "poly" || i.kind === "video") {
+        if (hasOwnFilter(i.kind)) {
           const d = defaultParams(i.kind)
           return {
             ...i,
@@ -948,6 +957,7 @@ export const copyTrack = (t: Track): Track => {
     case "perc":
     case "sampler":
     case "video":
+    case "mic":
       return { kind: t.kind, rows: structuredClone(t.rows) } as Track
     case "synth":
       return { kind: t.kind, notes: [...t.notes] }

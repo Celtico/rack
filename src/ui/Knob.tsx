@@ -93,7 +93,9 @@ export function Knob({
 
   const onPointerDown = (e: PointerEvent<HTMLDivElement>) => {
     e.preventDefault()
-    e.currentTarget.setPointerCapture(e.pointerId)
+    // jsdom has no pointer capture; a browser always does.
+    if (typeof e.currentTarget.setPointerCapture === "function")
+      e.currentTarget.setPointerCapture(e.pointerId)
     e.currentTarget.focus()
     drag.current = { y: e.clientY, pos: toPos(value) }
     setTurning(true)
@@ -101,18 +103,26 @@ export function Knob({
 
   const onPointerMove = (e: PointerEvent<HTMLDivElement>) => {
     if (!drag.current) return
+    // The button was let go where no pointerup reached us (outside the window, over a menu): the
+    // next move over the knob must not turn it.
+    if (e.pointerType !== "touch" && e.buttons === 0) {
+      endDrag(e)
+      return
+    }
     const fine = e.shiftKey ? 0.2 : 1
     const travel = e.pointerType === "touch" ? DRAG_PX_TOUCH : DRAG_PX
     const pos = drag.current.pos + ((drag.current.y - e.clientY) / travel) * fine
     commit(fromPos(clamp(pos, 0, 1)))
   }
 
-  const onPointerUp = (e: PointerEvent<HTMLDivElement>) => {
+  const endDrag = (e: PointerEvent<HTMLDivElement>) => {
     if (!drag.current) return
     drag.current = null
     setTurning(false)
-    e.currentTarget.releasePointerCapture(e.pointerId)
+    if (e.currentTarget.hasPointerCapture?.(e.pointerId))
+      e.currentTarget.releasePointerCapture(e.pointerId)
   }
+  const onPointerUp = endDrag
 
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
     switch (e.key) {
@@ -167,6 +177,8 @@ export function Knob({
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerUp}
+        // Capture taken away (a drag-and-drop, a system gesture): the turn ends there too.
+        onLostPointerCapture={onPointerUp}
         onKeyDown={onKeyDown}
         onDoubleClick={onDoubleClick}
       />

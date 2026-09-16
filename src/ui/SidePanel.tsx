@@ -7,12 +7,7 @@ import {
   type ReactNode,
 } from "react"
 
-import {
-  PANEL_WIDTH_MAX,
-  PANEL_WIDTH_MIN,
-  clampPanelWidth,
-  useLayoutStore,
-} from "../state/layout"
+import { PANEL_WIDTH_MAX, PANEL_WIDTH_MIN, clampPanelWidth, useLayoutStore } from "../state/layout"
 import { escapeIsForField } from "./escapeGuard"
 import { useDocked, usePanelStore, type PanelId } from "./panels"
 
@@ -47,6 +42,11 @@ function ResizeHandle({ width, title }: { width: number; title: string }) {
   const onPointerMove = (e: ReactPointerEvent<HTMLDivElement>) => {
     const d = drag.current
     if (!d) return
+    // Let go where no pointerup reached us: stop following the pointer.
+    if (e.pointerType !== "touch" && e.buttons === 0) {
+      onPointerUp(e)
+      return
+    }
     setPanelWidth(d.width + (d.x - e.clientX))
   }
   const onPointerUp = (e: ReactPointerEvent<HTMLDivElement>) => {
@@ -104,6 +104,7 @@ function ResizeHandle({ width, title }: { width: number; title: string }) {
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
       onPointerCancel={onPointerUp}
+      onLostPointerCapture={onPointerUp}
       onKeyDown={onKeyDown}
     />
   )

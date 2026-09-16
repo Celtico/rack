@@ -1,6 +1,6 @@
 import { Button, chakra, Flex, HStack, Text, VStack } from "@chakra-ui/react"
 import { useRef, useState, type ChangeEvent } from "react"
-import { LuEraser, LuPackage, LuUpload } from "react-icons/lu"
+import { LuCircle, LuEraser, LuPackage, LuSquare, LuUpload } from "react-icons/lu"
 
 import { getEngine } from "../audio/engine"
 import { toaster } from "../components/ui/toaster"
@@ -13,6 +13,9 @@ import { Knob } from "./Knob"
 import { ModPanel } from "./ModPanel"
 import { PartTools } from "./PartTools"
 import { RackUnit } from "./RackUnit"
+import { saveTake } from "../audio/sampleStore"
+import { recordClip, type ClipRecording } from "./micRecord"
+import { takesChanged } from "./takes"
 import { loadFactoryKit } from "./samplerKits"
 import { StepGrid } from "./StepGrid"
 import { changeParams, formatPercent, formatSeconds, KIND_FINISH, kindIcon } from "./unitMeta"
@@ -37,6 +40,8 @@ export function SamplerUnit({ id }: { id: string }) {
   const { toggleStep, selectPad, setInstanceParams } = useRackStore.getState()
   const fileInput = useRef<HTMLInputElement>(null)
   const [loadingKit, setLoadingKit] = useState(false)
+  // The clip being taken from the microphone for the selected pad, while Rec is lit.
+  const [taking, setTaking] = useState<ClipRecording | null>(null)
   if (!inst || !track || !("rows" in track)) return null
 
   const pads = inst.params
@@ -54,6 +59,39 @@ export function SamplerUnit({ id }: { id: string }) {
   const pick = (p: PadId) => {
     selectPad(id, p)
     getEngine().triggerHit(id, p)
+  }
+
+  // Rec: a clip from the microphone straight onto the selected pad (the browser asks for the
+  // microphone the first time); pressed again, or after ten seconds, it stops and the pad has it.
+  const record = async () => {
+    if (taking) {
+      taking.stop()
+      return
+    }
+    const target = selected
+    try {
+      const clip = await recordClip(`Mic ${padNumber(target)}`)
+      setTaking(clip)
+      const { name, type, data } = await clip.done
+      setTaking(null)
+      await getEngine().importSample(id, target, name, data)
+      // Onto the pad, and into the list of takes the MIC-1 panel shows.
+      await saveTake({ name, data, type })
+      takesChanged()
+      setInstanceParams(id, { [target]: { ...pads[target], name } })
+      toaster.create({
+        type: "success",
+        title: `Pad ${padNumber(target)} recorded`,
+        description: name,
+      })
+    } catch (err) {
+      setTaking(null)
+      toaster.create({
+        type: "error",
+        title: "Could not record",
+        description: err instanceof Error ? err.message : String(err),
+      })
+    }
   }
 
   const load = async (e: ChangeEvent<HTMLInputElement>) => {
@@ -172,9 +210,24 @@ export function SamplerUnit({ id }: { id: string }) {
               <Button
                 size="xs"
                 rounded="sm"
+                variant={taking ? "solid" : "subtle"}
+                colorPalette={taking ? "red" : "gray"}
+                aria-pressed={taking !== null}
+                aria-label={
+                  taking
+                    ? "Stop recording"
+                    : `Record pad ${padNumber(selected)} from the microphone`
+                }
+                onClick={() => void record()}
+              >
+                {taking ? <LuSquare /> : <LuCircle />} {taking ? "Stop" : "Rec"}
+              </Button>
+              <Button
+                size="xs"
+                rounded="sm"
                 variant="outline"
                 onClick={clear}
-                disabled={pad.name === null}
+                disabled={pad.name === null || taking !== null}
                 aria-label={`Clear pad ${padNumber(selected)}`}
               >
                 <LuEraser />

@@ -84,7 +84,7 @@ function makeScheduler(initial: Pattern, chain: number[] = []) {
   const triggerNote = vi.fn()
   const triggerBass = vi.fn()
   const triggerPoly = vi.fn()
-  const triggerVideo = vi.fn()
+  const triggerGate = vi.fn()
   const onStep = vi.fn()
   const onTick = vi.fn()
   const getPattern = vi.fn((bar: number) => resolvePlayingPattern(patterns, active, chain, bar))
@@ -97,7 +97,7 @@ function makeScheduler(initial: Pattern, chain: number[] = []) {
     triggerNote,
     triggerBass,
     triggerPoly,
-    triggerVideo,
+    triggerGate,
     onStep,
   })
   return {
@@ -106,7 +106,7 @@ function makeScheduler(initial: Pattern, chain: number[] = []) {
     triggerNote,
     triggerBass,
     triggerPoly,
-    triggerVideo,
+    triggerGate,
     onStep,
     onTick,
     getPattern,
@@ -221,14 +221,17 @@ describe("Scheduler", () => {
     let pattern = empty()
     // The gate starts fully open; shut steps 4–7.
     for (const step of [4, 5, 6, 7]) pattern = hit(pattern, "video-1", "gate", step)
-    const { scheduler, triggerVideo, trigger } = makeScheduler(pattern)
+    const { scheduler, triggerGate, trigger } = makeScheduler(pattern)
     scheduler.start()
     playBar(fake.sequences[0]!, 0)
-    expect(triggerVideo).toHaveBeenCalledTimes(16)
-    expect(triggerVideo.mock.calls.map((c) => c[1])).toEqual(
+    expect(triggerGate).toHaveBeenCalledTimes(16)
+    expect(triggerGate.mock.calls.map((c) => c[1])).toEqual(
       Array.from({ length: 16 }, (_, i) => !(i >= 4 && i <= 7)),
     )
-    expect(triggerVideo.mock.calls[4]?.[2]).toBe(0.5)
+    expect(triggerGate.mock.calls[4]?.[2]).toBe(0.5)
+    // The bar and step ride along, so a MIC-1 loop can start over on its bar.
+    expect(triggerGate.mock.calls[0]?.slice(3)).toEqual([0, 0])
+    expect(triggerGate.mock.calls[4]?.slice(3)).toEqual([0, 4])
     // Not as a kit hit.
     expect(trigger.mock.calls.filter((c) => c[0] === "video-1")).toHaveLength(0)
   })

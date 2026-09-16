@@ -1,4 +1,4 @@
-import { screen } from "@testing-library/react"
+import { fireEvent, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { describe, expect, it, vi } from "vitest"
 
@@ -19,6 +19,21 @@ describe("<Knob />", () => {
     expect(onChange).toHaveBeenLastCalledWith(0.6)
     await user.keyboard("{Home}")
     expect(onChange).toHaveBeenLastCalledWith(0)
+  })
+
+  it("stops turning once the button is found released, even without a pointerup", () => {
+    const onChange = vi.fn()
+    renderWithChakra(
+      <Knob label="Level" value={0.5} min={0} max={1} step={0.01} onChange={onChange} />,
+    )
+    const knob = screen.getByRole("slider", { name: "Level" })
+    fireEvent.pointerDown(knob, { pointerId: 1, clientY: 100, buttons: 1 })
+    fireEvent.pointerMove(knob, { pointerId: 1, clientY: 90, buttons: 1 })
+    expect(onChange).toHaveBeenCalledTimes(1)
+    // The pointerup went elsewhere; the pointer comes back over the knob with no button down.
+    fireEvent.pointerMove(knob, { pointerId: 1, clientY: 40, buttons: 0 })
+    fireEvent.pointerMove(knob, { pointerId: 1, clientY: 20, buttons: 0 })
+    expect(onChange).toHaveBeenCalledTimes(1)
   })
 
   it("moves a log knob by a slice of travel, so steps grow with the value", async () => {

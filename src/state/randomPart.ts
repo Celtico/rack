@@ -127,6 +127,7 @@ export function randomTrack(kind: Kind, rng: Rng): Track {
     case "sampler":
       return { kind, rows: randomPads(rng) } as Track
     case "video":
+    case "mic":
       return { kind, rows: randomGate(rng) } as Track
     case "synth":
       return { kind, notes: randomLine(SYNTH_NOTES.length, rng) }

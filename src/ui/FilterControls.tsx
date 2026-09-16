@@ -94,17 +94,22 @@ export function FilterControls({
   cutoff,
   q,
   onTypeChange,
+  heading = true,
 }: {
   type: FilterType
   cutoff: number
   q: number
   onTypeChange: (type: FilterType) => void
+  /** Print the "Filter" label above; off when a card around it already carries the title. */
+  heading?: boolean
 }) {
   return (
     <VStack gap="2" align="flex-start">
-      <Text textStyle="silkscreen" color="rack.silkscreen.muted">
-        Filter
-      </Text>
+      {heading && (
+        <Text textStyle="silkscreen" color="rack.silkscreen.muted">
+          Filter
+        </Text>
+      )}
       <NativeSelect.Root size="sm" w="40">
         <NativeSelect.Field
           aria-label="Filter type"

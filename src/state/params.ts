@@ -258,6 +258,53 @@ export const VIDEO_PARAMS_DEFAULT: VideoParams = {
   toCutoff: 0,
 }
 
+/** MIC-1: the microphone, heard live through the rack, with a loop of it that can be recorded. */
+export const MIC_BARS = [1, 2, 4, 8] as const
+export type MicBars = (typeof MIC_BARS)[number]
+
+export interface MicParams {
+  /** The take used as the loop: its key in the browser's list of recordings. Null: no loop. */
+  loopKey: string | null
+  /** The loop's name, for the panel. */
+  loopName: string | null
+  /** The tempo the loop was recorded at: it plays faster or slower to keep up with the clock. */
+  loopBpm: number
+  /**
+   * The loop is this many bars long, and starts over every that many: one of `MIC_BARS` when
+   * chosen, any 1–8 after a take stopped early.
+   */
+  bars: number
+  /** The input is heard (monitored) — off to hear only the loop, or to keep a laptop from howling. */
+  live: boolean
+  liveLevel: number
+  loopLevel: number
+  filterType: FilterType
+  cutoff: number
+  resonance: number
+}
+
+export const MIC_RANGES = {
+  bars: { min: 1, max: 8 },
+  loopBpm: { min: 30, max: 300 },
+  liveLevel: { min: 0, max: 1 },
+  loopLevel: { min: 0, max: 1 },
+  cutoff: { min: 40, max: 20000 },
+  resonance: { min: 0.1, max: 20 },
+} as const
+
+export const MIC_PARAMS_DEFAULT: MicParams = {
+  loopKey: null,
+  loopName: null,
+  loopBpm: 120,
+  bars: 2,
+  live: true,
+  liveLevel: 0.8,
+  loopLevel: 0.8,
+  filterType: "lowpass",
+  cutoff: 20000,
+  resonance: 0.1,
+}
+
 /** Echo time in transport notation, so it follows the tempo. */
 export const DELAY_TIMES = ["16n", "8n", "8n.", "4n"] as const
 export type DelayTime = (typeof DELAY_TIMES)[number]

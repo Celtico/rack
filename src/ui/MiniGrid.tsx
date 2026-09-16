@@ -19,7 +19,8 @@ function rowsFor(track: Track): boolean[][] {
     case "drums":
     case "perc":
     case "sampler":
-    case "video": {
+    case "video":
+    case "mic": {
       const rows = rowsOf(track)
       return KIT_VOICES[track.kind].map((voice) => [...(rows[voice] ?? [])])
     }

@@ -3,6 +3,7 @@ import * as Tone from "tone"
 import {
   bassEventAt,
   hitsAt,
+  isGateKind,
   isMutedIn,
   polyNotesAt,
   STEP_COUNT,
@@ -17,8 +18,8 @@ import type { PlayingPattern } from "../state/patterns"
 export function hitsForStep(pattern: Pattern, step: number): [id: string, voice: string][] {
   const out: [string, string][] = []
   for (const [id, track] of Object.entries(pattern.tracks)) {
-    // A video loop's gate is not a hit: it is sent its own state every step.
-    if (!("rows" in track) || track.kind === "video" || isMutedIn(pattern, id)) continue
+    // A gate (VID-1, MIC-1) is not a hit: it is sent its own state every step.
+    if (!("rows" in track) || isGateKind(track.kind) || isMutedIn(pattern, id)) continue
     for (const voice of hitsAt(track, step)) out.push([id, voice])
   }
   return out
@@ -56,8 +57,11 @@ export interface SchedulerDeps {
   triggerBass: (id: string, event: BassStepEvent, time: number, stepSeconds: number) => void
   /** Sound a chord on a polyphonic instance. Only called when there are notes. */
   triggerPoly: (id: string, notes: string[], time: number) => void
-  /** A VID-1's gate at this step — every step, so it can shut on the first dark one. */
-  triggerVideo: (id: string, open: boolean, time: number) => void
+  /**
+   * A gate (VID-1, MIC-1) at this step — every step, so it can shut on the first dark one; with
+   * the bar and step, so a loop can start over on its bar.
+   */
+  triggerGate: (id: string, open: boolean, time: number, bar: number, step: number) => void
   /** Before the step's triggers, at the step's (swung) time — the per-step random modulation is rolled here. */
   onTick?: (time: number) => void
   /** UI-side playhead; invoked through Draw so it lands on the matching frame. Absent when nothing watches (offline render). */
@@ -86,6 +90,11 @@ export class Scheduler {
     this.sequence = new Tone.Sequence<number>(this.tick, steps, "16n").start(0)
   }
 
+  /** The bar being played (0 before the first tick) — where a loop recording lines itself up from. */
+  get currentBar(): number {
+    return Math.max(this.bar, 0)
+  }
+
   /** Rewind the bar counter. Call when the transport stops (it rewinds to step 0 itself). */
   reset(): void {
     this.bar = -1
@@ -110,7 +119,7 @@ export class Scheduler {
       // A part sitting this slot out: nothing fires — a bass gets a rest, so a held slide lets go.
       if (isMutedIn(pattern, id)) {
         if (track.kind === "bass") this.deps.triggerBass(id, REST, at, sixteenth)
-        if (track.kind === "video") this.deps.triggerVideo(id, false, at)
+        if (isGateKind(track.kind)) this.deps.triggerGate(id, false, at, bar, step)
         continue
       }
       switch (track.kind) {
@@ -120,7 +129,8 @@ export class Scheduler {
           for (const voice of hitsAt(track, step)) this.deps.trigger(id, voice, at)
           break
         case "video":
-          this.deps.triggerVideo(id, hitsAt(track, step).length > 0, at)
+        case "mic":
+          this.deps.triggerGate(id, hitsAt(track, step).length > 0, at, bar, step)
           break
         case "synth": {
           const note = synthNoteAt(track.notes, step)
