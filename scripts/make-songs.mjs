@@ -1470,7 +1470,7 @@ function ferralla() {
 }
 
 // ======================================================================
-// 6 · Carrer Mullat — hip hop, 88 BPM, Re menor, boom bap with swing
+// 6 · Carrer Mullat — hip hop, 85 BPM, Re menor, boom bap with swing
 // ======================================================================
 function carrerMullat() {
   // Rows (D minor, octave 3): D3 E3 F3 G3 A3 Bb3 C4 D4
@@ -1607,7 +1607,7 @@ function carrerMullat() {
   ]
 
   return song({
-    bpm: 88,
+    bpm: 85,
     swing: 0.28,
     fx: { delayTime: "8n.", feedback: 0.3, reverbDecay: 2.2, pingPong: true },
     // Piano left, hats right, shaker further left, the pad behind the listener.
