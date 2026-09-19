@@ -1747,7 +1747,7 @@ function carrerMullat() {
 }
 
 // ======================================================================
-// 7 · Cavalls de Ferro — speed rock, 156 BPM, Mi blues: the bass is a rhythm guitar
+// 7 · Cavalls de Ferro — speed rock, 140 BPM, Mi blues: the bass is a rhythm guitar
 // ======================================================================
 function cavallsDeFerro() {
   // Rows (E blues, octave 2): E2 G2 A2 Bb2 B2 D3 E3 G3 — riffs on the blues scale, power chords on E/A/D.
@@ -1916,7 +1916,7 @@ function cavallsDeFerro() {
     )
 
   return song({
-    bpm: 156,
+    bpm: 140,
     swing: 0,
     fx: { delayTime: "8n", feedback: 0.15, reverbDecay: 1.2 },
     places: {
