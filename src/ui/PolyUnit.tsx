@@ -1,6 +1,6 @@
 import { Flex, HStack } from "@chakra-ui/react"
 
-import { instanceLabel, KIND_TITLE, type InstanceOf } from "../state/instances"
+import { KIND_TITLE, type InstanceOf } from "../state/instances"
 import {
   EP_PARAMS_DEFAULT,
   EP_RANGES,
@@ -12,6 +12,7 @@ import {
   useRackStore,
   WAVEFORMS,
 } from "../state/store"
+import { formatHz, formatMs, formatPercent, formatQ, formatRatio, formatSeconds } from "./format"
 import { FilterControls, StripFilterControls } from "./FilterControls"
 import { Knob } from "./Knob"
 import { ModPanel } from "./ModPanel"
@@ -20,20 +21,11 @@ import { PolyGrid } from "./PolyGrid"
 import { PartTools } from "./PartTools"
 import { RackUnit } from "./RackUnit"
 import { WavePicker } from "./WavePicker"
-import {
-  changeParams,
-  formatHz,
-  formatMs,
-  formatPercent,
-  formatQ,
-  formatSeconds,
-  KIND_FINISH,
-  kindIcon,
-} from "./unitMeta"
+import { changeParams, KIND_FINISH, kindIcon, useInstanceLabel } from "./unitMeta"
 
-const formatRatio = (v: number) => `${v.toFixed(2)}×`
 const formatIndex = (v: number) => v.toFixed(1)
 const formatSustain = (v: number) => v.toFixed(3)
+const formatStrum = (v: number) => (v === 0 ? "Together" : `${v} ms`)
 
 type PolyInstance = InstanceOf<"poly"> | InstanceOf<"ep"> | InstanceOf<"strings">
 
@@ -211,6 +203,16 @@ function GuitarControls({ id, inst }: { id: string; inst: InstanceOf<"strings"> 
         format={formatSeconds}
         onChange={(release) => changeParams(id, { release })}
       />
+      <Knob
+        label="Strum"
+        value={p.strum}
+        min={STRINGS_RANGES.strum.min}
+        max={STRINGS_RANGES.strum.max}
+        step={1}
+        defaultValue={STRINGS_PARAMS_DEFAULT.strum}
+        format={formatStrum}
+        onChange={(strum) => changeParams(id, { strum })}
+      />
     </HStack>
   )
 }
@@ -218,8 +220,7 @@ function GuitarControls({ id, inst }: { id: string; inst: InstanceOf<"strings"> 
 /** POLY-4, EP-1 or STR-6: a chord grid plus the controls of the kind. */
 export function PolyUnit({ id }: { id: string }) {
   const inst = useRackStore((s) => selectInstance(s, id)) as PolyInstance | undefined
-  // A string, so another machine's knob does not re-render this one; it changes only when a sibling comes or goes.
-  const label = useRackStore((s) => (inst ? instanceLabel(inst, s.instances) : ""))
+  const label = useInstanceLabel(inst)
   if (!inst) return null
 
   return (

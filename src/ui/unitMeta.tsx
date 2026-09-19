@@ -13,11 +13,11 @@ import {
 } from "react-icons/lu"
 
 import { getEngine } from "../audio/engine"
-import type { KindParams } from "../state/instances"
+import { instanceLabel, type Instance, type KindParams } from "../state/instances"
 import type { Kind } from "../state/pattern"
 import type { LfoParams, MacroTarget, ModParams, RandomParams } from "../state/mod"
 import type { FilterParams, Waveform } from "../state/params"
-import { useRackStore } from "../state/store"
+import { selectInstance, useRackStore } from "../state/store"
 import type { Finish } from "../theme/recipes/rackUnit"
 
 /** Panel finish per kind. */
@@ -72,9 +72,22 @@ export function changeFilter(id: string, patch: Partial<FilterParams>): void {
   getEngine().setInstanceFilter(id, patch)
 }
 
+/**
+ * The name on a machine's nameplate ("DR-4", "DR-4 #2"): a string, so another machine's knob does
+ * not re-render this one — it changes only when a sibling of the kind comes or goes.
+ */
+export const useInstanceLabel = (inst: Instance | undefined): string =>
+  useRackStore((s) => (inst ? instanceLabel(inst, s.instances) : ""))
+
+/** A `SegmentGroup` value (a string) back to one of a list of numbers, or nothing. */
+export const isNumberOption =
+  <T extends number>(options: readonly T[]) =>
+  (v: string | null): v is `${T}` =>
+    options.some((o) => String(o) === v)
+
 /** After a reset or a random sound: the engine gets the instance's params, strip filter and modulation. */
 export function pushSound(id: string): void {
-  const inst = useRackStore.getState().instances.find((i) => i.id === id)
+  const inst = selectInstance(useRackStore.getState(), id)
   if (!inst) return
   const engine = getEngine()
   engine.setInstanceParams(id, inst.params)
@@ -84,7 +97,7 @@ export function pushSound(id: string): void {
 
 /** The engine takes the whole modulation block; after any change it gets the fresh one. */
 const pushMod = (id: string) => {
-  const mod = useRackStore.getState().instances.find((i) => i.id === id)?.mod
+  const mod = selectInstance(useRackStore.getState(), id)?.mod
   if (mod) getEngine().setInstanceMod(id, mod)
 }
 
@@ -116,12 +129,6 @@ export function changeMacro(id: string, index: number, value: number): void {
 export function changeMacroTargets(id: string, index: number, targets: MacroTarget[]): void {
   useRackStore.getState().setMacroTargets(id, index, targets)
 }
-
-export const formatPercent = (v: number) => `${Math.round(v * 100)}%`
-export const formatHz = (v: number) => `${Math.round(v)} Hz`
-export const formatQ = (v: number) => `Q ${v.toFixed(1)}`
-export const formatMs = (v: number) => (v >= 1 ? `${v.toFixed(2)} s` : `${Math.round(v * 1000)} ms`)
-export const formatSeconds = (v: number) => `${v.toFixed(2)} s`
 
 export const WAVE_LABELS: Readonly<Record<Waveform, string>> = {
   sawtooth: "Saw",

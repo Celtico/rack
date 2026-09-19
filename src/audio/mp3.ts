@@ -1,7 +1,7 @@
 import { floatTo16, type PcmSource } from "./wav"
 
 /** Bitrate of an exported MP3 — plenty for a rack mix. */
-export const MP3_KBPS = 192
+const MP3_KBPS = 192
 /** Samples per encoder call: a multiple of the MP3 frame (1152), a few tenths of a second. */
 const BLOCK = 1152 * 16
 /** Encoder calls between yields to the event loop, so a long song does not freeze the page. */

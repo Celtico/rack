@@ -4,6 +4,9 @@ export const PATTERN_COUNT = 16
 /** Bars a song can hold. Room for a full arrangement (a pop structure is 120) and then some; the timeline wraps into rows. */
 export const MAX_CHAIN = 256
 
+/** Does a loop of `bars` bars start over at this bar? Every `bars` bars, from the first. Pure. */
+export const restartsAt = (bar: number, bars: number): boolean => bar % Math.max(1, bars) === 0
+
 /** Slot 1 carries the starter groove; the rest are empty. */
 export function createDefaultBank(instances: readonly TrackOwner[]): Pattern[] {
   return [

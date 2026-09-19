@@ -5,6 +5,7 @@ import { modSwing, type ModParams, type ModTarget } from "../state/mod"
 import { isMelodicKind, PAD_IDS, rowNotes, type Kind, type PadId } from "../state/pattern"
 import { resolvePlayingPattern } from "../state/patterns"
 import {
+  selectInstance,
   useRackStore,
   type FilterParams,
   type FxParams,
@@ -25,7 +26,7 @@ import { micStream } from "./mic"
 import { deleteSample, getSample, putSample, sampleKey, saveTake } from "./sampleStore"
 import { Scheduler } from "./scheduler"
 import { encodeWav } from "./wav"
-import type { ModHooks } from "./types"
+import { RAMP, type ModHooks } from "./types"
 
 /** The sound-making object behind one instance. */
 type Device =
@@ -85,7 +86,7 @@ interface Strip {
 export type LevelSource = string
 
 /** What the graph is built from and what the scheduler resolves against, read fresh each time. */
-export type EngineState = Pick<
+type EngineState = Pick<
   RackState,
   | "swing"
   | "masterVolume"
@@ -105,7 +106,22 @@ export type EngineState = Pick<
 export interface EngineSource {
   getState: () => EngineState
   onStep?: (step: number, patternIndex: number, bar: number) => void
+  /**
+   * Song seconds at the context's time 0 — an offline render of a later stretch of a song. The
+   * LFOs start at the phase they would have reached, so the stretches join without a jump.
+   */
+  timeOffset?: number
 }
+
+/** The master bus glue: a gentle bus compressor for punch, then a brickwall so nothing clips. */
+export const MASTER_COMPRESSOR = {
+  threshold: -14,
+  ratio: 3,
+  attack: 0.008,
+  release: 0.15,
+  knee: 6,
+} as const
+export const LIMITER_DB = -1
 
 const storeSource: EngineSource = {
   getState: () => useRackStore.getState(),
@@ -122,8 +138,6 @@ const hooksOf = (device: Device): ModHooks | null =>
         ? device.voice
         : device.poly
 
-/** Ramp length for parameter changes — long enough to avoid clicks, short enough to feel direct. */
-const RAMP = 0.03
 /** Changing the reverb tail re-renders its impulse response; coalesce knob drags. */
 const REVERB_DEBOUNCE_MS = 150
 /** Meter ballistics: enough smoothing to read, little enough to bounce. */
@@ -184,14 +198,8 @@ export class AudioEngine {
 
     // Master glue: a gentle bus compressor for punch and a brickwall so nothing clips —
     // the difference between a pile of synths and a mix.
-    const limiter = new Tone.Limiter(-1).toDestination()
-    const compressor = new Tone.Compressor({
-      threshold: -14,
-      ratio: 3,
-      attack: 0.008,
-      release: 0.15,
-      knee: 6,
-    }).connect(limiter)
+    const limiter = new Tone.Limiter(LIMITER_DB).toDestination()
+    const compressor = new Tone.Compressor(MASTER_COMPRESSOR).connect(limiter)
     const master = new Tone.Gain(state.masterVolume).connect(compressor)
     this.masterMeter = new Tone.Meter({ normalRange: true, smoothing: METER_SMOOTHING })
     limiter.connect(this.masterMeter)
@@ -228,20 +236,15 @@ export class AudioEngine {
       },
       getSwing: () => this.source.getState().swing,
       rowsOf: (id) => {
-        const inst = this.source.getState().instances.find((i) => i.id === id)
+        const inst = selectInstance(this.source.getState(), id)
         return inst && isMelodicKind(inst.kind) ? rowNotes(inst.kind, inst.key) : undefined
       },
       sixteenthSeconds: () => this.transport.toSeconds("16n"),
       onTick: (time) => this.stepMod(time),
       trigger: (id, voice, time) => this.hit(id, voice, time),
-      triggerNote: (id, note, time) => {
-        const d = this.strips.get(id)?.device
-        if (d?.kind === "synth") d.voice.trigger(note, time)
-      },
-      triggerBass: (id, event, time, stepSeconds) => {
-        const d = this.strips.get(id)?.device
-        if (d?.kind === "bass") d.voice.play(event, time, stepSeconds)
-      },
+      triggerNote: (id, note, time) => this.deviceOf(id, "synth")?.voice.trigger(note, time),
+      triggerBass: (id, event, time, stepSeconds) =>
+        this.deviceOf(id, "bass")?.voice.play(event, time, stepSeconds),
       triggerPoly: (id, notes, time) => {
         const d = this.strips.get(id)?.device
         if (d && "poly" in d) d.poly.trigger(notes, time)
@@ -410,9 +413,21 @@ export class AudioEngine {
   }
 
   /** Arm the sequence and start the graph's transport — now, or at a context time. Requires build(). */
-  run(at?: number): void {
+  run(at?: number, fromBar = 0): void {
     this.scheduler?.start()
+    if (fromBar) this.scheduler?.seek(fromBar)
     this.transport.start(at)
+  }
+
+  /**
+   * The master gain straight to the destination, past the compressor and limiter: an offline
+   * render of one stretch of a song leaves the glue for a last pass over the whole mix, so the
+   * stretches can be summed where their tails overlap without compressing twice.
+   */
+  bypassMaster(): void {
+    if (!this.master) return
+    this.master.disconnect()
+    this.master.connect(this.master.context.destination)
   }
 
   /** True while the audio context is actually producing sound. */
@@ -572,7 +587,9 @@ export class AudioEngine {
   }
 
   private makeLfo(p: ModParams["lfo"][number]): Tone.LFO {
-    const lfo = new Tone.LFO({ type: p.shape, frequency: p.rate, min: -1, max: 1 })
+    // Started at the phase it would have reached by now in the song (see `EngineSource.timeOffset`).
+    const phase = (((this.source.timeOffset ?? 0) * p.rate) % 1) * 360
+    const lfo = new Tone.LFO({ type: p.shape, frequency: p.rate, min: -1, max: 1, phase })
     lfo.start()
     return lfo
   }
@@ -652,7 +669,16 @@ export class AudioEngine {
   }
 
   private modOf(strip: Strip): ModParams | undefined {
-    return this.source.getState().instances.find((i) => i.id === strip.id)?.mod
+    return selectInstance(this.source.getState(), strip.id)?.mod
+  }
+
+  /** The device behind an instance, if it is of `kind`. */
+  private deviceOf<K extends Device["kind"]>(
+    id: string,
+    kind: K,
+  ): Extract<Device, { kind: K }> | undefined {
+    const device = this.strips.get(id)?.device
+    return device?.kind === kind ? (device as Extract<Device, { kind: K }>) : undefined
   }
 
   /** One sixteenth begins: every strip with a random source rolls a new offset for it. */
@@ -723,8 +749,7 @@ export class AudioEngine {
 
   /** Is the microphone feeding this MIC-1? */
   micAttached(id: string): boolean {
-    const device = this.strips.get(id)?.device
-    return device?.kind === "mic" && device.kit.attached
+    return this.deviceOf(id, "mic")?.kit.attached === true
   }
 
   /**
@@ -739,8 +764,8 @@ export class AudioEngine {
     bars: number,
     onArmed?: (startBar: number) => void,
   ): Promise<{ key: string; name: string; bpm: number; bars: number } | null> {
-    const device = this.strips.get(id)?.device
-    if (device?.kind !== "mic") throw new Error("not a MIC-1")
+    const device = this.deviceOf(id, "mic")
+    if (!device) throw new Error("not a MIC-1")
     if (!device.kit.attached) throw new Error("the microphone is not on")
     if (this.transport.state !== "started" || !this.scheduler)
       throw new Error("the clock is stopped")
@@ -784,8 +809,8 @@ export class AudioEngine {
    */
   stopRecording(id: string): void {
     const take = this.takes.get(id)
-    const device = this.strips.get(id)?.device
-    if (!take || device?.kind !== "mic") return
+    const device = this.deviceOf(id, "mic")
+    if (!take || !device) return
     if (this.transport.now() < take.start) {
       device.kit.cancelRecording()
       return
@@ -799,29 +824,25 @@ export class AudioEngine {
 
   /** A take from the list as a MIC-1's loop. False when the take is gone. */
   async useTake(id: string, key: string): Promise<boolean> {
-    const device = this.strips.get(id)?.device
     const stored = await getSample(key)
     if (!stored) return false
-    if (device?.kind === "mic") await device.kit.setLoopBytes(stored.data)
+    await this.deviceOf(id, "mic")?.kit.setLoopBytes(stored.data)
     return true
   }
 
   /** The MIC-1's loop off the player; the take stays in the list. */
   clearLoop(id: string): void {
-    const device = this.strips.get(id)?.device
-    if (device?.kind === "mic") device.kit.clearLoop()
+    this.deviceOf(id, "mic")?.kit.clearLoop()
   }
 
   /** Feed a VID-1's media element into its device — the UI owns the element, the graph owns the node. */
   attachVideoAudio(id: string, element: HTMLMediaElement): void {
-    const device = this.strips.get(id)?.device
-    if (device?.kind === "video") device.kit.attach(element)
+    this.deviceOf(id, "video")?.kit.attach(element)
   }
 
   /** The lit fraction of a VID-1's current frame, from the UI's sampler. */
   setVideoBrightness(id: string, value: number): void {
-    const device = this.strips.get(id)?.device
-    if (device?.kind === "video") device.kit.setBrightness(value)
+    this.deviceOf(id, "video")?.kit.setBrightness(value)
   }
 
   /**
@@ -831,14 +852,12 @@ export class AudioEngine {
    */
   async importSample(id: string, pad: PadId, name: string, data: ArrayBuffer): Promise<void> {
     await putSample(sampleKey(id, pad), { name, data })
-    const device = this.strips.get(id)?.device
-    if (device?.kind === "sampler") await device.kit.setSample(pad, data)
+    await this.deviceOf(id, "sampler")?.kit.setSample(pad, data)
   }
 
   async clearSample(id: string, pad: PadId): Promise<void> {
     await deleteSample(sampleKey(id, pad))
-    const device = this.strips.get(id)?.device
-    if (device?.kind === "sampler") device.kit.clearSample(pad)
+    this.deviceOf(id, "sampler")?.kit.clearSample(pad)
   }
 
   private hit(id: string, voice: string, time: number): void {

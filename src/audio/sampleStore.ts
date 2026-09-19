@@ -14,8 +14,8 @@ export interface StoredSample {
 
 /** Keys of the microphone's takes — every loop and clip recorded, listed in the MIC-1 panel. */
 const TAKE_PREFIX = "take:"
-export const takeKey = (takenAt: number) => `${TAKE_PREFIX}${takenAt}`
-export const isTakeKey = (key: string): boolean => key.startsWith(TAKE_PREFIX)
+const takeKey = (takenAt: number) => `${TAKE_PREFIX}${takenAt}`
+const isTakeKey = (key: string): boolean => key.startsWith(TAKE_PREFIX)
 
 /** One recording as the panel lists it: its key and what is known about it, no bytes. */
 export interface Take {

@@ -2,10 +2,7 @@ import * as Tone from "tone"
 
 import type { PercLevels } from "../../state/params"
 import { PERC_VOICES, type PercVoiceId } from "../../state/pattern"
-import type { Kit, Voice } from "../types"
-
-/** Ramp length for level changes. */
-const RAMP = 0.03
+import { RAMP, type Kit, type Voice } from "../types"
 
 /** 808-style cowbell: two square waves a rough fifth apart. */
 const COWBELL_HZ = [587, 845] as const

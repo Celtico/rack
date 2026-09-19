@@ -9,7 +9,7 @@ export const HISTORY_LIMIT = 100
 /** Edits with the same key this close together are one step (a knob turn, a fader drag). */
 export const COALESCE_MS = 300
 
-export interface Entry<S> {
+interface Entry<S> {
   /** The state before the edit. */
   snap: S
   /** What kind of edit followed, for coalescing; null never coalesces. */

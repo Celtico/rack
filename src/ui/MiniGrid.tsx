@@ -11,7 +11,7 @@ import {
   SYNTH_NOTES,
   type Track,
 } from "../state/pattern"
-import { silencedBySolo, useRackStore, type RackState } from "../state/store"
+import { selectInstance, silencedBySolo, useRackStore, type RackState } from "../state/store"
 
 /** One boolean row per line of the thumbnail, top row first. */
 function rowsFor(track: Track): boolean[][] {
@@ -109,7 +109,7 @@ const selectSilent = (s: RackState, id: string): boolean => {
   const pattern = selectSoundingPattern(s)
   return (
     (pattern !== undefined && isMutedIn(pattern, id)) ||
-    s.instances.find((i) => i.id === id)?.mute === true ||
+    selectInstance(s, id)?.mute === true ||
     silencedBySolo(s.solo, id)
   )
 }

@@ -7,7 +7,6 @@ import {
   NativeSelect,
   Grid,
   SegmentGroup,
-  Text,
   VStack,
 } from "@chakra-ui/react"
 import { useState, type ReactNode } from "react"
@@ -35,17 +34,12 @@ import {
   type ModTarget,
 } from "../state/mod"
 import { selectInstance, useRackStore } from "../state/store"
+import { formatHzShort, formatPercent, formatSemitones } from "./format"
 import { ControlCard } from "./ControlCard"
+import { ControlGroup } from "./ControlGroup"
 import { Knob } from "./Knob"
 import { WavePicker } from "./WavePicker"
-import {
-  changeLfo,
-  changeMacro,
-  changeMacroTargets,
-  changeMod,
-  changeRandom,
-  formatPercent,
-} from "./unitMeta"
+import { changeLfo, changeMacro, changeMacroTargets, changeMod, changeRandom } from "./unitMeta"
 
 const TARGET_LABELS: Readonly<Record<ModTarget, string>> = {
   off: "Off",
@@ -63,21 +57,11 @@ const TARGET_ICONS: Readonly<Record<ModTarget, ReactNode>> = {
   pan: <LuMoveHorizontal />,
 }
 
-const formatSemitones = (v: number) => `${v > 0 ? "+" : ""}${v} st`
-const formatHzShort = (v: number) => (v < 1 ? `${v.toFixed(2)} Hz` : `${v.toFixed(1)} Hz`)
 const isTarget = (v: string | null): v is ModTarget =>
   ["off", "cutoff", "pitch", "level"].includes(v as ModTarget)
 
 /** As many cards across as fit at 14rem, four at most. */
 const CARD_COLUMNS = "repeat(auto-fit, minmax(max(14rem, 22%), 1fr))"
-
-function Label({ children }: { children: string }) {
-  return (
-    <Text textStyle="silkscreen" color="rack.silkscreen.muted">
-      {children}
-    </Text>
-  )
-}
 
 /** Where a modulator goes, as a row of icons; the name is the tooltip and the accessible label. */
 function TargetPicker({
@@ -92,8 +76,7 @@ function TargetPicker({
   onChange: (target: ModTarget) => void
 }) {
   return (
-    <VStack gap="2" align="flex-start">
-      <Label>{label}</Label>
+    <ControlGroup title={label}>
       <SegmentGroup.Root
         size="sm"
         value={value}
@@ -111,7 +94,7 @@ function TargetPicker({
           </SegmentGroup.Item>
         ))}
       </SegmentGroup.Root>
-    </VStack>
+    </ControlGroup>
   )
 }
 

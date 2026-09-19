@@ -87,7 +87,7 @@ export function RackUnit({
   const recipe = useSlotRecipe({ key: "rackUnit" })
   const styles = recipe({ units, finish })
   const folded = useRackStore((s) => !fixed && s.folded[id] === true)
-  const muted = useRackStore((s) => s.instances.find((i) => i.id === id)?.mute ?? false)
+  const muted = useRackStore((s) => selectInstance(s, id)?.mute ?? false)
   const soloed = useRackStore((s) => s.solo[id] === true)
   // Another machine is soloed and this one is not: it plays on but is not heard.
   const silenced = useRackStore((s) => instance && silencedBySolo(s.solo, id))
@@ -161,7 +161,7 @@ export function RackUnit({
       return
     }
     if (!copyInstance(id, target)) return
-    const to = useRackStore.getState().instances.find((i) => i.id === target)
+    const to = selectInstance(useRackStore.getState(), target)
     if (to) getEngine().setInstanceParams(target, to.params)
     const label = to ? instanceLabel(to, useRackStore.getState().instances) : target
     toaster.create({

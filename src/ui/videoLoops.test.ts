@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 
-import { brightnessOf, regionEnd, restartsAt } from "./videoLoops"
+import { restartsAt } from "../state/patterns"
+import { brightnessOf, regionEnd } from "./videoLoops"
 
 describe("video loop maths", () => {
   it("reads a frame's brightness as its mean luma", () => {

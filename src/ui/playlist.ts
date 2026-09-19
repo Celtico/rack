@@ -6,7 +6,7 @@ import { useRackStore } from "../state/store"
 import { startTransport, stopTransport } from "./transportControl"
 
 /** A song with a short chain (or none) still gets this many bars before the next one. */
-export const MIN_BARS = 8
+const MIN_BARS = 8
 
 interface PlaylistState {
   /** The folder being played through, or null. */
@@ -20,7 +20,7 @@ let active: { folder: string; entries: LibraryEntry[]; index: number; stop: () =
   null
 
 /** Bars a song plays before the playlist moves on: its whole chain, at least `MIN_BARS`. */
-export function barsFor(chainLength: number): number {
+function barsFor(chainLength: number): number {
   return Math.max(chainLength, MIN_BARS)
 }
 

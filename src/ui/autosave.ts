@@ -6,7 +6,7 @@ import { toSong, useRackStore, type RackState } from "../state/store"
 export const AUTOSAVE_MS = 1500
 
 /** Did anything a song holds change between two states? Cheap: reference checks. */
-export const songChanged = (s: RackState, prev: RackState): boolean =>
+const songChanged = (s: RackState, prev: RackState): boolean =>
   s.patterns !== prev.patterns ||
   s.instances !== prev.instances ||
   s.fx !== prev.fx ||

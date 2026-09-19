@@ -2,10 +2,7 @@ import * as Tone from "tone"
 
 import { DRUM_VOICES, type DrumVoiceId } from "../../state/pattern"
 import type { DrumLevels } from "../../state/store"
-import type { Kit, Voice } from "../types"
-
-/** Ramp length for level changes. */
-const RAMP = 0.03
+import { RAMP, type Kit, type Voice } from "../types"
 
 /** Clap flam: three noise bursts a few ms apart, the last one carrying the tail. */
 const CLAP_BURSTS = [0, 0.012, 0.024]

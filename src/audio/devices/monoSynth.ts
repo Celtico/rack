@@ -1,11 +1,9 @@
 import * as Tone from "tone"
 
 import type { SynthParams } from "../../state/store"
-import { transposeNote, type ModHooks } from "../types"
+import { RAMP, transposeNote, type ModHooks } from "../types"
 import { fatOscillator } from "./oscillators"
 
-/** Ramp length for automatable parameter changes. */
-const RAMP = 0.03
 /** Three oscillators spread wide: a lead with some air around it. */
 const UNISON = { count: 3, spread: 18 }
 

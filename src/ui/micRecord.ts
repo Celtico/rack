@@ -1,7 +1,7 @@
 import { getMicStream } from "../audio/mic"
 
 /** The longest clip the sampler's Rec button takes, seconds. */
-export const CLIP_MAX_SECONDS = 10
+const CLIP_MAX_SECONDS = 10
 
 /** The audio container the browser writes, and the file extension that goes with it. */
 function clipFormat(): { mime: string; ext: string } {

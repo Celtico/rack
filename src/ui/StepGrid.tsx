@@ -16,7 +16,7 @@ import { STEP_COUNT } from "../state/pattern"
 import { useRackStore, type RackState } from "../state/store"
 import { TINT_ACCENT } from "../theme/recipes/stepGrid"
 
-export interface StepGridRow<Id extends string> {
+interface StepGridRow<Id extends string> {
   id: Id
   label: string
   /** A pictogram before the label, and inside every marked cell — the bank's matrix shows each machine's mark. */

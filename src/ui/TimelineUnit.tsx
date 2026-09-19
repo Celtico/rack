@@ -114,8 +114,14 @@ function SectionHeader({
   setOver: (spot: DropSpot | null) => void
 }) {
   const activePattern = useRackStore((s) => s.activePattern)
-  const { renameSection, setSectionBars, fillSection, duplicateSection, moveSection, removeSection } =
-    useRackStore.getState()
+  const {
+    renameSection,
+    setSectionBars,
+    fillSection,
+    duplicateSection,
+    moveSection,
+    removeSection,
+  } = useRackStore.getState()
   const [draft, setDraft] = useState<string | null>(null)
   const full = useRackStore((s) => s.chain.length >= MAX_CHAIN)
   const label = span.name || `Section ${index + 1}`
@@ -145,9 +151,7 @@ function SectionHeader({
           aria-label={`Rename section ${label}`}
           title="Click to rename · drop a bank slot here to fill the section with it"
           onClick={() => setDraft(span.name)}
-          {...dropHandlers({ kind: "section", index }, over, setOver, (p) =>
-            fillSection(index, p),
-          )}
+          {...dropHandlers({ kind: "section", index }, over, setOver, (p) => fillSection(index, p))}
         >
           {label}
         </chakra.button>
@@ -423,7 +427,9 @@ export function TimelineUnit() {
             <chakra.div
               css={styles.track}
               role="list"
-              aria-label={spans.length > 0 ? `${span.name || `Section ${i + 1}`} bars` : "Song bars"}
+              aria-label={
+                spans.length > 0 ? `${span.name || `Section ${i + 1}`} bars` : "Song bars"
+              }
             >
               {Array.from({ length: span.bars }, (_, b) => bar(span.start + b))}
               {/* The + after the last bar: one more bar of the pattern on screen, joining the last section. */}

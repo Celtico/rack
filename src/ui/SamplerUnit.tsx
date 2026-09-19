@@ -4,9 +4,11 @@ import { LuCircle, LuEraser, LuPackage, LuSquare, LuUpload } from "react-icons/l
 
 import { getEngine } from "../audio/engine"
 import { toaster } from "../components/ui/toaster"
-import { instanceLabel, KIND_TITLE, type InstanceOf } from "../state/instances"
+import { errorToast } from "./errors"
+import { KIND_TITLE, type InstanceOf } from "../state/instances"
 import { PAD_IDS, type KitRows, type PadId } from "../state/pattern"
 import { PAD_DEFAULT, PAD_RANGES, selectInstance, selectTrack, useRackStore } from "../state/store"
+import { formatPercent, formatSeconds, formatSemitones } from "./format"
 import { Display } from "./Display"
 import { StripFilterControls } from "./FilterControls"
 import { Knob } from "./Knob"
@@ -18,13 +20,11 @@ import { recordClip, type ClipRecording } from "./micRecord"
 import { takesChanged } from "./takes"
 import { loadFactoryKit } from "./samplerKits"
 import { StepGrid } from "./StepGrid"
-import { changeParams, formatPercent, formatSeconds, KIND_FINISH, kindIcon } from "./unitMeta"
+import { changeParams, KIND_FINISH, kindIcon, useInstanceLabel } from "./unitMeta"
 
 const padNumber = (pad: PadId) => pad.replace("pad", "")
 const shortName = (name: string | null, pad: PadId) =>
   name ? name.replace(/\.[^.]+$/, "").slice(0, 10) : `Pad ${padNumber(pad)}`
-
-const formatSemitones = (v: number) => `${v > 0 ? "+" : ""}${v} st`
 
 /**
  * SMP-8: eight pads with the user's own samples. Audio lives in the browser
@@ -34,8 +34,7 @@ const formatSemitones = (v: number) => `${v > 0 ? "+" : ""}${v} st`
 export function SamplerUnit({ id }: { id: string }) {
   const inst = useRackStore((s) => selectInstance(s, id)) as InstanceOf<"sampler"> | undefined
   const track = useRackStore((s) => selectTrack(s, id))
-  // A string, so another machine's knob does not re-render this one; it changes only when a sibling comes or goes.
-  const label = useRackStore((s) => (inst ? instanceLabel(inst, s.instances) : ""))
+  const label = useInstanceLabel(inst)
   const selected = useRackStore((s) => s.selectedPad[id] ?? "pad1")
   const { toggleStep, selectPad, setInstanceParams } = useRackStore.getState()
   const fileInput = useRef<HTMLInputElement>(null)
@@ -86,11 +85,7 @@ export function SamplerUnit({ id }: { id: string }) {
       })
     } catch (err) {
       setTaking(null)
-      toaster.create({
-        type: "error",
-        title: "Could not record",
-        description: err instanceof Error ? err.message : String(err),
-      })
+      errorToast("Could not record", err)
     }
   }
 
@@ -107,11 +102,7 @@ export function SamplerUnit({ id }: { id: string }) {
         description: file.name,
       })
     } catch (err) {
-      toaster.create({
-        type: "error",
-        title: "Could not load sample",
-        description: err instanceof Error ? err.message : String(err),
-      })
+      errorToast("Could not load sample", err)
     }
   }
 
@@ -130,11 +121,7 @@ export function SamplerUnit({ id }: { id: string }) {
         description: "Eight pads, CC0 one-shots",
       })
     } catch (err) {
-      toaster.create({
-        type: "error",
-        title: "Could not load the kit",
-        description: err instanceof Error ? err.message : String(err),
-      })
+      errorToast("Could not load the kit", err)
     } finally {
       setLoadingKit(false)
     }

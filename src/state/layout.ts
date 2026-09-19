@@ -1,6 +1,8 @@
 import { create } from "zustand"
 import { persist } from "zustand/middleware"
 
+import { clamp } from "./params"
+
 /**
  * Units that are not machines and take part in the reorderable stack. The top
  * panel (transport, bank, song) is not one of them: it sits above the stack.
@@ -59,7 +61,7 @@ export const PANEL_WIDTH_MIN = 280
 export const PANEL_WIDTH_MAX = 960
 export const clampPanelWidth = (px: number): number =>
   Number.isFinite(px)
-    ? Math.round(Math.min(PANEL_WIDTH_MAX, Math.max(PANEL_WIDTH_MIN, px)))
+    ? Math.round(clamp(px, PANEL_WIDTH_MIN, PANEL_WIDTH_MAX))
     : PANEL_WIDTH_DEFAULT
 
 /** Reorders `order` so that `id` lands at `target`'s index. Pure. */

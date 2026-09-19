@@ -6,17 +6,16 @@ import { getEngine } from "../audio/engine"
 import { getMicStream, micStream } from "../audio/mic"
 import type { Take } from "../audio/sampleStore"
 import { toaster } from "../components/ui/toaster"
-import { instanceLabel, KIND_TITLE, type InstanceOf } from "../state/instances"
-import { VIDEO_VOICES, type VideoVoiceId } from "../state/pattern"
+import { errorToast } from "./errors"
+import { KIND_TITLE, type InstanceOf } from "../state/instances"
 import {
   MIC_BARS,
   MIC_PARAMS_DEFAULT,
   MIC_RANGES,
   selectInstance,
-  selectTrack,
   useRackStore,
-  type MicBars,
 } from "../state/store"
+import { formatHz, formatPercent, formatQ } from "./format"
 import { ControlCard } from "./ControlCard"
 import { Display } from "./Display"
 import { FilterControls } from "./FilterControls"
@@ -24,36 +23,13 @@ import { Knob } from "./Knob"
 import { ModPanel } from "./ModPanel"
 import { FilterTools, PatternTools } from "./PartTools"
 import { RackUnit } from "./RackUnit"
-import { StepGrid } from "./StepGrid"
+import { GateGrid } from "./TrackGrids"
 import { takesChanged } from "./takes"
 import { TakesList } from "./TakesList"
 import { startTransport } from "./transportControl"
-import {
-  changeParams,
-  formatHz,
-  formatPercent,
-  formatQ,
-  KIND_FINISH,
-  kindIcon,
-  VOICE_LABELS,
-} from "./unitMeta"
+import { changeParams, KIND_FINISH, kindIcon, isNumberOption, useInstanceLabel } from "./unitMeta"
 
-const isBars = (v: string | null): v is `${MicBars}` => MIC_BARS.some((b) => String(b) === v)
-
-/** The gate row: sixteen steps that let the microphone through or cut it. */
-function GateGrid({ id }: { id: string }) {
-  const track = useRackStore((s) => selectTrack(s, id))
-  const { toggleStep } = useRackStore.getState()
-  if (!track || !("rows" in track)) return null
-  const rows = VIDEO_VOICES.map((voice) => ({
-    id: voice,
-    label: VOICE_LABELS[voice] ?? voice,
-    steps: (track.rows as Record<string, readonly boolean[]>)[voice] ?? [],
-  }))
-  return (
-    <StepGrid rows={rows} onToggle={(voice: VideoVoiceId, step) => toggleStep(id, voice, step)} />
-  )
-}
+const isBars = isNumberOption(MIC_BARS)
 
 /**
  * MIC-1: the microphone through the rack. Once the browser has granted it,
@@ -65,7 +41,7 @@ function GateGrid({ id }: { id: string }) {
  */
 export function MicUnit({ id }: { id: string }) {
   const inst = useRackStore((s) => selectInstance(s, id)) as InstanceOf<"mic"> | undefined
-  const label = useRackStore((s) => (inst ? instanceLabel(inst, s.instances) : ""))
+  const label = useInstanceLabel(inst)
   const playing = useRackStore((s) => s.playing)
   const playingBar = useRackStore((s) => s.playingBar)
   // Whether the microphone feeds this machine, and the take under way (armed for a bar, then
@@ -84,11 +60,7 @@ export function MicUnit({ id }: { id: string }) {
       getEngine().build().attachMic(stream)
       setOn(true)
     } catch (err) {
-      toaster.create({
-        type: "error",
-        title: "No microphone",
-        description: err instanceof Error ? err.message : String(err),
-      })
+      errorToast("No microphone", err)
     }
   }
 
@@ -114,11 +86,7 @@ export function MicUnit({ id }: { id: string }) {
         toaster.create({ type: "success", title: "Loop recorded", description: took.name })
       }
     } catch (err) {
-      toaster.create({
-        type: "error",
-        title: "Could not record",
-        description: err instanceof Error ? err.message : String(err),
-      })
+      errorToast("Could not record", err)
     } finally {
       setTake(null)
     }

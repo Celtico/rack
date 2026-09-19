@@ -21,10 +21,9 @@ export type Kind = (typeof KINDS)[number]
  * Kinds whose track is on/off rows per voice — VID-1 and MIC-1 are ones too: a single "gate" row
  * that chops their sound.
  */
-export const KIT_KINDS = ["drums", "perc", "sampler", "video", "mic"] as const
-export type KitKind = (typeof KIT_KINDS)[number]
+export type KitKind = "drums" | "perc" | "sampler" | "video" | "mic"
 /** The kit kinds whose one row is a gate sent its state every step, not hits. */
-export const GATE_KINDS = ["video", "mic"] as const
+const GATE_KINDS = ["video", "mic"] as const
 export type GateKind = (typeof GATE_KINDS)[number]
 export const isGateKind = (kind: Kind): kind is GateKind =>
   (GATE_KINDS as readonly string[]).includes(kind)
@@ -54,11 +53,9 @@ export const KIT_VOICES: Readonly<Record<KitKind, readonly string[]>> = {
 
 /** MONO-1 rows, low to high. Row index in the pattern is an index into this list. */
 export const SYNTH_NOTES = ["C2", "D2", "Eb2", "F2", "G2", "Ab2", "Bb2", "C3"] as const
-export type SynthNote = (typeof SYNTH_NOTES)[number]
 
 /** BASS-2 rows, low to high — an E minor pentatonic, the acid register. */
 export const BASS_NOTES = ["E1", "G1", "A1", "B1", "D2", "E2", "G2", "A2"] as const
-export type BassNote = (typeof BASS_NOTES)[number]
 
 /** Rows of each polyphonic kind, low to high. */
 export const POLY_NOTES: Readonly<Record<PolyKind, readonly string[]>> = {
@@ -68,7 +65,7 @@ export const POLY_NOTES: Readonly<Record<PolyKind, readonly string[]>> = {
 }
 
 /** The kinds whose rows are notes — the ones a key can re-pitch. */
-export const MELODIC_KINDS = ["synth", "bass", "poly", "ep", "strings"] as const
+const MELODIC_KINDS = ["synth", "bass", "poly", "ep", "strings"] as const
 export type MelodicKind = (typeof MELODIC_KINDS)[number]
 export const isMelodicKind = (kind: Kind): kind is MelodicKind =>
   (MELODIC_KINDS as readonly string[]).includes(kind)
@@ -94,7 +91,7 @@ export function rowNotes(kind: MelodicKind, key: KeyParams | undefined): readonl
   return key ? keyRows(key) : LEGACY_ROWS[kind]
 }
 
-export type StepRow = readonly boolean[]
+type StepRow = readonly boolean[]
 /** One on/off row per voice of a kit. */
 export type KitRows<Id extends string = string> = Readonly<Record<Id, StepRow>>
 /** One row index per column, or null for a rest. Monophonic by construction. */
@@ -163,7 +160,7 @@ export function kitRows<Id extends string>(
 }
 
 /** A monophonic note row from (step, row) pairs. */
-export function noteRow(...pairs: [step: number, row: number][]): SynthRow {
+function noteRow(...pairs: [step: number, row: number][]): SynthRow {
   const out: (number | null)[] = Array.from({ length: STEP_COUNT }, () => null)
   for (const [step, r] of pairs) out[step] = r
   return out
@@ -204,7 +201,7 @@ export function emptyTrack(kind: Kind): Track {
 }
 
 /** The starter groove for a kind — what the first instance of each plays on a fresh rack. */
-export function starterTrack(kind: Kind): Track {
+function starterTrack(kind: Kind): Track {
   switch (kind) {
     case "drums":
       return {

@@ -282,7 +282,18 @@ strict build order:
      (`SamplerKit.ready`, decoded through the player's own context); `run(0)` starts the offline clock, which
      stops a millisecond before the last bar line, and a transport `"stop"` releases a held BASS-2 slide
      (`engine.release(time)`). The chain plays once (a chainless song loops `LOOP_BARS` = 4), plus a tail of
-     `reverbDecay + 1` s capped at 8 (`renderPlan`, pure). **Both encoders run in a Web Worker**: `encodeAudio(buffer, format)`
+     `reverbDecay + 1` s capped at 8 (`renderPlan`, pure). **Rendered in stretches** of `CHUNK_BARS` = 16
+     (`renderChunks`, pure): an offline context builds every node a stretch will ever need before it renders
+     (a hat is sixteen native nodes a hit) and processes all of them on every quantum until they finish, so
+     one long render cost the square of its length — measured 16 bars in 20 s, 32 in 138 s, 48+ never
+     within 15 min (profiled: the clock phase is small, the native render is the quadratic part). Each
+     stretch is its own engine + `OfflineContext` (`renderStretch`), started at its bar (`engine.run(0,
+     fromBar)` → `scheduler.seek`), with `EngineSource.timeOffset` so every LFO starts at the phase it had
+     reached, rendered with the plan's tail and summed onto the mix (`mixInto`) where the tail runs under
+     the next stretch; the stretches carry the master gain but bypass the glue (`engine.bypassMaster()`),
+     and `applyMaster` runs the compressor + limiter (`MASTER_COMPRESSOR` / `LIMITER_DB`, shared with
+     `build()`) once over the summed mix. A note held across a stretch line is released and struck again
+     there. **Both encoders run in a Web Worker**: `encodeAudio(buffer, format)`
      (`src/audio/encode.ts`) copies the channels, transfers them to `src/audio/encodeWorker.ts` (a module
      worker, `new Worker(new URL(…), { type: "module" })`; `worker.format: "es"` in `vite.config.ts` since it
      loads lamejs on demand) and gets the `Blob` back; without `Worker` (tests) it encodes in place. The
@@ -393,12 +404,12 @@ strict build order:
      there. UI (`src/ui/videoLoops.ts`, `installVideoLoops()` from `App`): one hidden `<video>` per VID-1
      (`playsInline`, `loop`), fed from storage as a blob URL; plays while the transport runs, rewinds on
      stop, and on step 0 of a bar where `restartsAt(bar, bars)` jumps to 0; while playing a 20×20 canvas
-     samples a frame at `VIDEO_FPS` = 15 (`willReadFrequently`), fans it to `subscribeFrames` listeners and
+     samples a frame at `VIDEO_FPS` = 15 (`willReadFrequently`) and
      sends `brightnessOf` (mean luma) to the engine — the 20×20 read is the whole per-frame cost; the
      browser's decoder does the rest, so a small clip (240 px, H.264) is what a phone wants. `VideoUnit`
      (`src/ui/VideoUnit.tsx`): the gate `StepGrid`, name display + Load/Clear (the 20×20 `VideoScreen` canvas was
      dropped at the user's request — the filmstrip is the picture; the 20×20 read still feeds the
-     brightness, `subscribeFrames` stays for anything that wants frames), the Loop bars `SegmentGroup`, filter block,
+     brightness; the frame listeners it used to fan out to were unused and are gone), the Loop bars `SegmentGroup`, filter block,
      Cutoff/Res/"Video→cut" knobs, `PartTools`, `ModPanel` (no tune; LFO targets cutoff/level). Random
      sound keeps the file and the loop length. **Converter** (`convertVideo`): the file plays once on a scratch element (audio through an
      `AudioContext` of its own into a `MediaStreamAudioDestinationNode`, picture drawn per frame into a
@@ -657,7 +668,8 @@ strict build order:
      `KEY_DEFAULT[kind]` is the key each kind's fixed rows are closest to (exact for synth, bass and
      poly; ep/strings differ) and where the selector starts. `rowNotes(kind, key)` is the one place rows
      come from: the grids (`SynthGrid` / `BassGrid` / `PolyGrid`, labels in solfège, row ids the note
-     names) and the scheduler, whose `rowsOf?(id)` dep the engine answers from the store per tick
+     names, spelled with the sharps or flats of the key's signature — `spelledWithSharps`: G major reads
+     F#, F minor reads Ab; chord names in the chart importer keep their own accidental) and the scheduler, whose `rowsOf?(id)` dep the engine answers from the store per tick
      (`synthNoteAt` / `bassEventAt` / `polyNotesAt` take the rows as a third argument). Store
      `setInstanceKey(id, patch)` (history key `key:<id>:<keys>`, no-op on a kit), saved in the song
      (`clampInstanceKey` in `instances.ts`: nonsense → no key, a key on a kit is dropped), copied by
@@ -668,6 +680,78 @@ strict build order:
    - ✅ Extra — the toolbar's add button is labelled **"Modules"** (rack icon + "Modules", beside "Songs";
      it was "Add" and before that "Add unit"); the panel it opens is titled "Modules" too. Ids, files and
      store names keep `add` / `AddUnit`.
+
+   - ✅ Extra — **tidy-up** (one pass over the whole tree, no behaviour change): shared homes for what
+     was written more than once — `src/ui/format.ts` (every knob/fader readout: `formatPercent`,
+     `formatHz`, `formatSeconds(v, decimals)`…), `src/ui/ControlGroup.tsx` (the "silkscreen title over
+     controls" column every unit's groups are made of; `heading` props pass `title={heading ? … : undefined}`),
+     `src/ui/errors.ts` (`errorText` / `errorToast`), `src/state/parse.ts` (the song parsers' primitives and
+     `SongParseError`, shared by `song.ts` and `songV1.ts`), `src/audio/devices/gate.ts` (`StepGate`, the
+     one-row gate VID-1 and MIC-1 share, and `setFilterParam` for a device's own filter type/cutoff/Q),
+     `RAMP` once in `src/audio/types.ts`, `restartsAt` in `patterns.ts`, `GateGrid` in `TrackGrids.tsx`,
+     `useInstanceLabel` / `isNumberOption` in `unitMeta`, `clamp` from `params.ts` everywhere, and
+     `selectInstance` (now `Pick<RackState, "instances">`, so the engine's source state fits) for every
+     look-up by id, including a private `engine.deviceOf(id, kind)`. Dead exports went (`LFO_COUNT`,
+     `isPolyKind`, `resetBuiltinSongs`, `subscribeFrames`, `SynthNote` / `BassNote`), and symbols used only
+     in their own file lost their `export`, so `pnpm dlx knip` now reports only `scripts/render-check.mjs`
+     (a documented tool it cannot see).
+
+   - ✅ Extra — **composed demos** (`scripts/make-songs.mjs`, `node scripts/make-songs.mjs` writes them
+     into `public/songs/` and they are listed first in `public/songs/index.json`): four songs that use
+     the whole rack — keys on every melodic machine (rows read as the score), named sections over
+     64–80-bar chains, parts that sit a slot out (`muted`) for breaks, two instances of a kind (a second
+     DR-4 as "tops", two BASS-2s in call and response, two STR-6s as strummed and picked guitars, the
+     second tuned an octave up), strip filters (highpass on the tops and perc), pan and 3D placement
+     with `space` on, ping-pong echo, LFOs on cutoff and pan, per-step random on level / cutoff / pitch,
+     macros on the acid bass, drive, swing. Parts are written as strings (`"x...x..."` for a kit row,
+     `"0.2.4..."` for a note row of key-row indices, `"a...a."` + a chord table for a poly grid) so a
+     part reads like a drum sheet. Nit de Festa (house, 124, La menor), Camí de Sorra (downtempo, 92, Re
+     dòric), Torre de Ferro (acid techno, 138, Fa menor), Marea (broken beat, 100, Mi mixolidi), and,
+     asked for later, Ferralla (heavy, 140, Mi menor: two driven STR-6s on power-chord riffs, chugs and
+     gallops, double-kick chorus, a breakdown) and Carrer Mullat (hip hop, 88, Re menor, swing 0.28: boom
+     bap, Dm7 / Gm7 / Bbmaj7 / Am7 on EP-1, a square sub, a MONO-1 hook), Cavalls de Ferro (speed rock, 156,
+     Mi blues: the BASS-2 is the rhythm guitar — sawtooth, filter open, drive 0.8, eighths — under two
+     driven STR-6s, a double-kick chorus, a solo, a stop) and Cambra 36 (boom bap, 93, Do# menor, swing
+     0.16: a chopped EP-1 loop through a dusty 3.2 kHz lowpass with drive, a sine MONO-1 motif as the
+     "sample", a sub, a cracking dry snare) — all four in 3D (`song({ places })`
+     in the generator puts machines at `[angle, distance]` and switches `fx.space` on). The song
+     test parses every file in `public/songs/` and checks sections fit the chain and every part names a
+     machine of the song.
+
+   - ✅ Extra — **chord chart import** ("From a chord chart" in the Songs panel, `ChordChartButton` in
+     `src/ui/ChordChartButton.tsx`; the model in `src/state/chordChart.ts`, pure). Paste the text of a
+     Cifra Club / Ultimate Guitar page: `parseChart` reads section names (`[Intro]`, `Refrão:`, `Verse 2`,
+     any `[bracketed]` line), lines that are chord names (a line whose first token is a chord and at least
+     three fifths of whose tokens are; `2x` repeats it), `Tom:` (root and mode) and `Capotraste n`, and
+     skips lyrics and tablature. `parseChord` knows international and Brazilian spellings (`D7+` = maj7,
+     `A4` = sus4, `m7(b5)`, `°`, `add9`, `(9)`, slash basses). `chordRows(chord, key)` is the
+     equivalence: every chord tone on the lowest row of its pitch class at or above the root's row;
+     tones the key has no row for are `dropped` and shown. The dialog shows the table (chord · notes ·
+     rows · bass row · left out) live for the chosen key, with the page's own key and capo filled in, then
+     `chartToSong` builds the song: a pattern per distinct bar (1 or 2 chords a bar), STR-6 strumming
+     the rows (`STRUMS`, at octave 2, where a guitar sits), EP-1 on 1 and 3, POLY-4 held, BASS-2 on the root (or the slash bass) on the
+     beats with an accent on 1, DR-4 with a `BEATS` preset, the chart's sections on SONG; every melodic
+     machine gets the key and the capo as its `mod.tune`. Loaded like a MIDI file (`loadSong` +
+     `syncFromStore`, the library link cleared, the chart's first line as the unsaved name).
+
+   - ✅ Extra — **STR-6 plays like a guitar**: `Strings` (`polySynths.ts`) strums a chord one string at a
+     time, `strum` ms apart (new `StringsParams.strum`, 0–40, default 12, "Strum" knob, a macro target;
+     `clampParams` lays the defaults under a strings params object so older songs get it), low to high on
+     one stroke and high to low on the next (`down` flips per trigger), each strike a hair off in pitch
+     (±4 cents, passed as Hz) and force (velocity 0.8–1), held a quarter note; the six plucks go through a
+     body (peaking +3 dB at 240 Hz, a highpass at 80 Hz under it — the low strings and the wood voice
+     piled up into mud below that, which is why octave 3 sounded cleaner) and a lowpass at 5 kHz that takes the plastic top off a plain
+     Karplus-Strong (`attackNoise` stays 1: it is the *duration* of the pluck burst, and shortened to
+     0.35 the string was a click and sounded like a drum); under them a `wood` voice (six `Synth`
+     triangles, one per string and taken over with it — a `PolySynth` of twelve ran dry on chugs —
+     through a 900 Hz lowpass, −20 dB, a 1.2 s decay) plays the same
+     strikes: a plucked-string model is all attack and no fundamental, and this is the weight it lacks.
+     Each string is held a whole bar (`"1m"`): held a quarter, the release ramp (the loop's resonance to
+     nothing) cut every chord dead at half a second, a gated thud — measured with a probe render: −90 dB
+     at 1 s before, −12 dB at 1 s now, a ringing string. Defaults: damp 4500, sustain 0.99, release 1.4,
+     strum 14. The chart importer gives its guitar a dry send (0.12) and the folk strum by default. The whole strum
+     is kept inside a sixteenth at any tempo (spacing capped at 60 ms over the strings). All six strings
+     struck at once was what made it sound like a toy.
 
 **All extras above are done.** Other ideas: LCD readouts per synth, drag-reorder on the timeline, per-step
 velocity on the kits.

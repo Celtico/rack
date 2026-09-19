@@ -58,7 +58,10 @@ describe("<TimelineUnit />", () => {
     const user = userEvent.setup()
     renderWithChakra(<TimelineUnit />)
 
-    await user.selectOptions(screen.getByRole("combobox", { name: "Length of the new section" }), "4")
+    await user.selectOptions(
+      screen.getByRole("combobox", { name: "Length of the new section" }),
+      "4",
+    )
     // An input with a datalist is a combobox to ARIA.
     await user.type(screen.getByRole("combobox", { name: "Name of the new section" }), "Chorus")
     await user.click(screen.getByRole("button", { name: "Add a section of 4 bars of pattern 2" }))
@@ -67,8 +70,12 @@ describe("<TimelineUnit />", () => {
       { name: "Part 1", bars: 2 },
       { name: "Chorus", bars: 4 },
     ])
-    expect(within(screen.getByRole("list", { name: "Part 1 bars" })).getAllByRole("listitem")).toHaveLength(2)
-    expect(within(screen.getByRole("list", { name: "Chorus bars" })).getAllByRole("listitem")).toHaveLength(4)
+    expect(
+      within(screen.getByRole("list", { name: "Part 1 bars" })).getAllByRole("listitem"),
+    ).toHaveLength(2)
+    expect(
+      within(screen.getByRole("list", { name: "Chorus bars" })).getAllByRole("listitem"),
+    ).toHaveLength(4)
 
     await user.click(screen.getByRole("button", { name: "Rename section Part 1" }))
     const field = screen.getByRole("combobox", { name: "New name for section Part 1" })

@@ -1,6 +1,7 @@
 import { encodeAudio, type AudioFormat } from "../audio/encode"
 import { renderSong } from "../audio/render"
 import { toaster } from "../components/ui/toaster"
+import { errorText } from "./errors"
 import type { Song } from "../state/song"
 import { songFileName } from "../state/songLibrary"
 import { downloadBlob } from "./download"
@@ -23,7 +24,7 @@ export function exportSongAudio(song: Song, name: string, format: AudioFormat): 
     success: { title: `${label} exported`, description: name },
     error: (err: unknown) => ({
       title: `Could not export ${label}`,
-      description: err instanceof Error ? err.message : String(err),
+      description: errorText(err),
     }),
   })
   // The toast already reports a failure; nobody upstream needs the rejection too.

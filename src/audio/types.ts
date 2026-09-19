@@ -1,3 +1,6 @@
+/** Ramp length for parameter changes — long enough to avoid clicks, short enough to feel direct. */
+export const RAMP = 0.03
+
 import * as Tone from "tone"
 
 /** Anything the scheduler can fire. `time` is the transport's audio-clock time. */

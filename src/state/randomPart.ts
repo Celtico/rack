@@ -94,7 +94,7 @@ export function randomDrums(rng: Rng): KitRows {
 }
 
 /** PERC-6: sparse hits, a shaker on the off-beats, a crash on the one now and then. */
-export function randomPerc(rng: Rng): KitRows {
+function randomPerc(rng: Rng): KitRows {
   return {
     tomLo: row((s) => (s % 4 === 2 ? 0.2 : 0.06), rng),
     tomHi: row((s) => (s % 4 === 3 ? 0.2 : 0.06), rng),
@@ -106,14 +106,14 @@ export function randomPerc(rng: Rng): KitRows {
 }
 
 /** SMP-8: the first pads a little busier, the rest scattered. */
-export function randomPads(rng: Rng): KitRows {
+function randomPads(rng: Rng): KitRows {
   return Object.fromEntries(
     PAD_IDS.map((pad, i) => [pad, row((s) => (i < 2 ? onBeat(s, 0.5, 0.25, 0.1) : 0.08), rng)]),
   )
 }
 
 /** VID-1: the gate mostly open, a few chops on the off-beats. */
-export function randomGate(rng: Rng): KitRows {
+function randomGate(rng: Rng): KitRows {
   return { gate: row((s) => (s % 4 === 0 ? 0.95 : s % 2 === 0 ? 0.8 : 0.55), rng) }
 }
 

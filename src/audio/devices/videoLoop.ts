@@ -1,12 +1,9 @@
 import * as Tone from "tone"
 
 import type { VideoParams } from "../../state/params"
+import { StepGate, setFilterParam } from "./gate"
 import type { Kit, ModHooks, Voice } from "../types"
 
-/** Ramp length for automatable parameter changes. */
-const RAMP = 0.03
-/** The gate opens and closes with a short fade, so a chopped loop never clicks. */
-const GATE_FADE = 0.004
 /** How much of the cutoff a fully lit frame adds, and a dark one takes, at full amount. */
 const BRIGHTNESS_SWING = 0.9
 
@@ -22,7 +19,7 @@ const BRIGHTNESS_SWING = 0.9
  * pad with nothing loaded) it is silent.
  */
 export class VideoLoop implements Kit<"gate">, ModHooks {
-  private readonly gate: Tone.Gain
+  private readonly gate = new StepGate()
   private readonly filter: Tone.Filter
   /** The cutoff as a signal into the filter, so the brightness can sum with it. */
   private readonly cutoff: Tone.Signal<"frequency">
@@ -30,8 +27,6 @@ export class VideoLoop implements Kit<"gate">, ModHooks {
   private source: MediaElementAudioSourceNode | null = null
   private params: VideoParams
   private brightness = 0.5
-  /** Where the gate was last sent, so only a change moves it — no dip between two lit steps. */
-  private open = false
 
   constructor(output: Tone.ToneAudioNode, p: VideoParams) {
     this.params = p
@@ -42,7 +37,7 @@ export class VideoLoop implements Kit<"gate">, ModHooks {
     this.cutoff.connect(this.filter.frequency)
     this.brightnessMod = new Tone.Signal({ value: 0, units: "frequency" })
     this.brightnessMod.connect(this.filter.frequency)
-    this.gate = new Tone.Gain(0).connect(this.filter)
+    this.gate.node.connect(this.filter)
   }
 
   /**
@@ -52,10 +47,10 @@ export class VideoLoop implements Kit<"gate">, ModHooks {
    */
   attach(element: HTMLMediaElement): void {
     if (this.source) return
-    const raw = this.gate.context.rawContext
+    const raw = this.gate.node.context.rawContext
     if (!("createMediaElementSource" in raw)) return
     this.source = (raw as AudioContext).createMediaElementSource(element)
-    Tone.connect(this.source, this.gate)
+    Tone.connect(this.source, this.gate.node)
   }
 
   /**
@@ -64,12 +59,7 @@ export class VideoLoop implements Kit<"gate">, ModHooks {
    * swing cannot leave a gap between them.
    */
   gateStep(open: boolean, time: number): void {
-    if (open === this.open) return
-    this.open = open
-    const gain = this.gate.gain
-    gain.cancelScheduledValues(time)
-    gain.setValueAtTime(gain.getValueAtTime(time), time)
-    gain.linearRampToValueAtTime(open ? 1 : 0, time + GATE_FADE)
+    this.gate.step(open, time)
   }
 
   /** The clock stopped at `time`: shut the gate. */
@@ -79,13 +69,7 @@ export class VideoLoop implements Kit<"gate">, ModHooks {
 
   /** An audition outside the sequence: the gate opens for one sixteenth. */
   voice(_id: "gate"): Voice {
-    return {
-      trigger: (time) => {
-        const step = this.gate.toSeconds("16n")
-        this.gateStep(true, time)
-        this.gateStep(false, time + step)
-      },
-    }
+    return this.gate.voice()
   }
 
   /** The gate has no level of its own; the strip's fader is the level. */
@@ -104,21 +88,9 @@ export class VideoLoop implements Kit<"gate">, ModHooks {
 
   set<K extends keyof VideoParams>(key: K, value: VideoParams[K]): void {
     this.params = { ...this.params, [key]: value }
-    switch (key) {
-      case "filterType":
-        this.filter.type = value as VideoParams["filterType"]
-        break
-      case "cutoff":
-        this.cutoff.rampTo(value as number, RAMP)
-        this.applyBrightness()
-        break
-      case "resonance":
-        this.filter.Q.rampTo(value as number, RAMP)
-        break
-      case "toCutoff":
-        this.applyBrightness()
-        break
-    }
+    setFilterParam(this.filter, this.cutoff, key, value)
+    // The brightness swing is a fraction of the cutoff: both move it.
+    if (key === "cutoff" || key === "toCutoff") this.applyBrightness()
   }
 
   /** No notes to tune. */

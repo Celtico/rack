@@ -10,7 +10,7 @@ import { stopTransport } from "./transportControl"
 let pending: Promise<boolean> | null = null
 
 /** No machines at all, nothing chained: a rack ready to be built with "Add unit". */
-export function emptyRack(): Song {
+function emptyRack(): Song {
   const instances: Song["instances"] = []
   return {
     version: SONG_VERSION,

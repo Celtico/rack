@@ -1,13 +1,13 @@
 import { getEngine } from "../audio/engine"
 import type { InstanceOf } from "../state/instances"
 import { PAD_IDS } from "../state/pattern"
-import { useRackStore } from "../state/store"
+import { selectInstance, useRackStore } from "../state/store"
 
 /**
  * The factory kit for SMP-8: eight CC0 one-shots served from `public/samples/`
  * (see the LICENSE.txt there), one per pad in this order.
  */
-export const FACTORY_KIT = [
+const FACTORY_KIT = [
   { name: "Kick", file: "kick.wav" },
   { name: "Snare", file: "snare.wav" },
   { name: "Clap", file: "clap.wav" },
@@ -33,15 +33,13 @@ export async function loadFactoryKit(id: string, onlyEmpty = false): Promise<voi
   for (let i = 0; i < PAD_IDS.length; i++) {
     const pad = PAD_IDS[i]!
     const { name, file } = FACTORY_KIT[i]!
-    const current = useRackStore.getState().instances.find((x) => x.id === id) as
-      InstanceOf<"sampler"> | undefined
+    const current = selectInstance(useRackStore.getState(), id) as InstanceOf<"sampler"> | undefined
     if (!current) return
     if (onlyEmpty && current.params[pad].name !== null) continue
     const res = await fetch(`${KIT_URL}${file}`)
     if (!res.ok) throw new Error(`${file}: ${res.status}`)
     await engine.importSample(id, pad, name, await res.arrayBuffer())
-    const inst = useRackStore.getState().instances.find((x) => x.id === id) as
-      InstanceOf<"sampler"> | undefined
+    const inst = selectInstance(useRackStore.getState(), id) as InstanceOf<"sampler"> | undefined
     if (!inst) return
     setInstanceParams(id, { [pad]: { ...inst.params[pad], name } })
   }

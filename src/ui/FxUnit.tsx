@@ -1,9 +1,7 @@
 import { Box, Button, Flex, HStack, SegmentGroup, Separator, Text, VStack } from "@chakra-ui/react"
-import type { ReactNode } from "react"
 import { LuHeadphones, LuRepeat, LuSlidersHorizontal } from "react-icons/lu"
 
 import { getEngine } from "../audio/engine"
-import { instanceLabel } from "../state/instances"
 import {
   DELAY_TIMES,
   FX_DEFAULT,
@@ -11,16 +9,20 @@ import {
   PAN_RANGE,
   SPACE_DEFAULT,
   SPACE_RANGES,
+  selectInstance,
   useRackStore,
   type DelayTime,
   type FxParams,
 } from "../state/store"
+import { instanceLabel } from "../state/instances"
+import { formatAngle, formatPan, formatPercent, formatSeconds } from "./format"
+import { ControlGroup } from "./ControlGroup"
 import { Fader } from "./Fader"
 import { Knob } from "./Knob"
 import { LevelMeter } from "./LevelMeter"
 import { finishAccent } from "../theme/recipes/rackUnit"
 import { RackUnit } from "./RackUnit"
-import { formatPercent, KIND_FINISH, kindIcon } from "./unitMeta"
+import { KIND_FINISH, kindIcon, useInstanceLabel } from "./unitMeta"
 
 const DELAY_LABELS: Record<DelayTime, string> = {
   "16n": "1/16",
@@ -30,27 +32,11 @@ const DELAY_LABELS: Record<DelayTime, string> = {
 }
 
 const isDelayTime = (v: string | null): v is DelayTime => DELAY_TIMES.includes(v as DelayTime)
-const formatSeconds = (v: number) => `${v.toFixed(1)} s`
-/** "L 40", "C", "R 100". */
-const formatPan = (v: number) =>
-  Math.abs(v) < 0.005 ? "C" : `${v < 0 ? "L" : "R"} ${Math.round(Math.abs(v) * 100)}`
-const formatAngle = (v: number) => `${Math.round(v)}°`
-
-function Section({ title, children }: { title: string; children: ReactNode }) {
-  return (
-    <VStack gap="2" align="flex-start">
-      <Text textStyle="silkscreen" color="rack.silkscreen.muted">
-        {title}
-      </Text>
-      {children}
-    </VStack>
-  )
-}
 
 /** One mixer strip, on a card of its own: the machine's icon and name, then meter, fader and FX send. */
 function Strip({ id }: { id: string }) {
-  const inst = useRackStore((s) => s.instances.find((i) => i.id === id))
-  const label = useRackStore((s) => (inst ? instanceLabel(inst, s.instances) : ""))
+  const inst = useRackStore((s) => selectInstance(s, id))
+  const label = useInstanceLabel(inst)
   const { setInstanceLevel, setInstanceSend, setInstancePan, setInstanceSpace } =
     useRackStore.getState()
   const space = useRackStore((s) => s.fx.space)
@@ -202,7 +188,7 @@ export function FxUnit() {
         </Flex>
 
         <Flex wrap="wrap" gap={{ base: "5", md: "8" }} align="stretch">
-          <Section title="Echo">
+          <ControlGroup title="Echo">
             <HStack gap="4" align="flex-start" wrap="wrap">
               <SegmentGroup.Root
                 size="sm"
@@ -231,7 +217,7 @@ export function FxUnit() {
                 onChange={changeFx("feedback")}
               />
             </HStack>
-          </Section>
+          </ControlGroup>
 
           <Separator
             orientation="vertical"
@@ -241,7 +227,7 @@ export function FxUnit() {
             hideBelow="md"
           />
 
-          <Section title="Reverb">
+          <ControlGroup title="Reverb">
             <Knob
               size="sm"
               label="Decay"
@@ -251,10 +237,10 @@ export function FxUnit() {
               max={FX_RANGES.reverbDecay.max}
               step={0.1}
               defaultValue={FX_DEFAULT.reverbDecay}
-              format={formatSeconds}
+              format={(v) => formatSeconds(v, 1)}
               onChange={changeFx("reverbDecay")}
             />
-          </Section>
+          </ControlGroup>
 
           <Separator
             orientation="vertical"
@@ -264,7 +250,7 @@ export function FxUnit() {
           />
 
           {/* Both off by default: a song made before them sounds as it did. */}
-          <Section title="Stereo">
+          <ControlGroup title="Stereo">
             <HStack gap="2" wrap="wrap">
               <Button
                 size="xs"
@@ -289,7 +275,7 @@ export function FxUnit() {
                 <LuHeadphones /> 3D
               </Button>
             </HStack>
-          </Section>
+          </ControlGroup>
         </Flex>
       </VStack>
     </RackUnit>

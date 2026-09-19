@@ -1,18 +1,18 @@
 import { getEngine } from "../audio/engine"
 import { deleteSample, getSample, putSample } from "../audio/sampleStore"
-import { useRackStore, type RackState } from "../state/store"
+import { restartsAt } from "../state/patterns"
+import { selectInstance, useRackStore, type RackState } from "../state/store"
 
 /** The screen's grid: the video is read at this size and no larger. */
-export const VIDEO_SIZE = 20
+const VIDEO_SIZE = 20
 /** Frames per second the screen and the brightness are fed at. */
-export const VIDEO_FPS = 15
+const VIDEO_FPS = 15
 /** The filmstrip under the screen: this many thumbnails across the file, each this many pixels square. */
 export const STRIP_FRAMES = 16
 export const STRIP_SIZE = 24
 /** Storage key of an instance's video, in the samples store. */
-export const videoKey = (instanceId: string) => `${instanceId}:video`
+const videoKey = (instanceId: string) => `${instanceId}:video`
 
-type FrameListener = (frame: ImageData) => void
 /** The filmstrip (one canvas, `STRIP_FRAMES` thumbnails side by side) and the file's length. */
 export interface Strip {
   canvas: HTMLCanvasElement
@@ -26,7 +26,6 @@ interface Loop {
   canvas: HTMLCanvasElement
   ctx: CanvasRenderingContext2D
   url: string | null
-  listeners: Set<FrameListener>
   stripListeners: Set<StripListener>
   strip: Strip | null
   timer: ReturnType<typeof setInterval> | null
@@ -47,9 +46,6 @@ export function brightnessOf(data: Uint8ClampedArray): number {
   }
   return n ? sum / n / 255 : 0
 }
-
-/** Does the loop start over at this bar? Every `bars` bars, from the first. */
-export const restartsAt = (bar: number, bars: number): boolean => bar % Math.max(1, bars) === 0
 
 /** Where the loop's region ends: `end` when set, else the file's length. Pure. */
 export const regionEnd = (end: number, duration: number): number =>
@@ -90,7 +86,6 @@ function makeLoop(id: string): Loop {
     canvas,
     ctx,
     url: null,
-    listeners: new Set(),
     stripListeners: new Set(),
     strip: null,
     timer: null,
@@ -107,12 +102,11 @@ function makeLoop(id: string): Loop {
   return loop
 }
 
-/** Draw one frame at 20×20, hand it to the screen and its brightness to the engine. */
+/** Draw one frame at 20×20 and hand its brightness to the engine. */
 function sample(loop: Loop): void {
   if (loop.video.readyState < 2 || loop.video.videoWidth === 0) return
   drawCover(loop.ctx, loop.video, 0, VIDEO_SIZE)
   const frame = loop.ctx.getImageData(0, 0, VIDEO_SIZE, VIDEO_SIZE)
-  for (const cb of loop.listeners) cb(frame)
   getEngine().setVideoBrightness(loop.id, brightnessOf(frame.data))
 }
 
@@ -224,7 +218,6 @@ function setSource(loop: Loop, blob: Blob | null): void {
     void buildStrip(loop, loop.url).catch(() => {})
   } else {
     stopSampling(loop)
-    for (const cb of loop.listeners) cb(loop.ctx.createImageData(VIDEO_SIZE, VIDEO_SIZE))
   }
 }
 
@@ -237,7 +230,7 @@ async function ensure(id: string): Promise<Loop> {
   if (stored && loops.get(id) === loop) {
     setSource(loop, new Blob([stored.data], { type: mimeOf(stored.name, stored.type ?? "") }))
     // The panel prints the song's `videoName`; a file kept from before it was saved gets it now.
-    const inst = useRackStore.getState().instances.find((i) => i.id === id)
+    const inst = selectInstance(useRackStore.getState(), id)
     if (inst?.kind === "video" && inst.params.videoName === null) {
       useRackStore.getState().setInstanceParams(id, { videoName: stored.name })
     }
@@ -270,17 +263,6 @@ export async function clearVideo(id: string): Promise<void> {
   await deleteSample(videoKey(id))
   const loop = loops.get(id)
   if (loop) setSource(loop, null)
-}
-
-/** Frames of an instance's video, as they are read. The screen draws them. */
-export function subscribeFrames(id: string, cb: FrameListener): () => void {
-  void ensure(id).then((loop) => {
-    loop.listeners.add(cb)
-    if (loop.video.readyState >= 2) sample(loop)
-  })
-  return () => {
-    loops.get(id)?.listeners.delete(cb)
-  }
 }
 
 /** The filmstrip of an instance's video: now if built, again when a file arrives, null when it goes. */
@@ -319,7 +301,7 @@ const FORMATS: readonly VideoFormat[] = [
 ]
 
 /** The formats this browser can record — each a separate entry only when it is distinct. */
-export function videoFormats(): VideoFormat[] {
+function videoFormats(): VideoFormat[] {
   if (typeof MediaRecorder === "undefined") return []
   const out: VideoFormat[] = []
   for (const f of FORMATS) {
@@ -437,14 +419,14 @@ export async function convertVideo(id: string, options: ConvertOptions): Promise
 
 const videoIds = (s: RackState) => s.instances.filter((i) => i.kind === "video").map((i) => i.id)
 const barsOf = (s: RackState, id: string) => {
-  const inst = s.instances.find((i) => i.id === id)
+  const inst = selectInstance(s, id)
   return inst?.kind === "video" ? inst.params.bars : 1
 }
 
 /** Each loop learns its region from the store; a moved start shows its new first frame while stopped. */
 function syncRegions(s: RackState): void {
   for (const loop of loops.values()) {
-    const inst = s.instances.find((i) => i.id === loop.id)
+    const inst = selectInstance(s, loop.id)
     if (inst?.kind !== "video") continue
     const { start, end } = inst.params
     const moved = start !== loop.start

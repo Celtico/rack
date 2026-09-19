@@ -7,7 +7,7 @@ export interface PcmSource {
 }
 
 /** One float sample in −1…1 to signed 16-bit, clipped. */
-export const to16 = (s: number): number => {
+const to16 = (s: number): number => {
   const c = s < -1 ? -1 : s > 1 ? 1 : s
   return c < 0 ? c * 0x8000 : c * 0x7fff
 }

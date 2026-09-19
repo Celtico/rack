@@ -4,7 +4,7 @@ import { LuFolder, LuFolderInput, LuFolderPlus } from "react-icons/lu"
 
 import { markEscape } from "./escapeGuard"
 
-export const NO_FOLDER = "\u0000none"
+const NO_FOLDER = "\u0000none"
 export const NEW_FOLDER = "\u0000new"
 
 /** The choices of a folder menu: none, each folder in use, and "New folder…" (`NEW_FOLDER`). */

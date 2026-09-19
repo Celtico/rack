@@ -4,11 +4,18 @@ import { defaultInstances, type Instance, type InstanceOf } from "./instances"
 import { isPatternEmpty, rowsOf, type Kind, type KitTrack, type PolyTrack } from "./pattern"
 import { createDefaultBank, PATTERN_COUNT } from "./patterns"
 import { parseSong, serializeSong, SongParseError, type Song } from "./song"
-import { FX_DEFAULT, toSong, useRackStore } from "./store"
+import { FX_DEFAULT, STRINGS_PARAMS_DEFAULT, toSong, useRackStore } from "./store"
 import rackSongText from "../../docs/rack-song.json?raw"
 
 /** Every song file shipped in docs/, as text. */
 const SAMPLE_SONGS = import.meta.glob<string>("../../docs/*.json", {
+  query: "?raw",
+  import: "default",
+  eager: true,
+})
+
+/** The songs shipped in the app, as text. */
+const BUILTIN_SONGS = import.meta.glob<string>("../../public/songs/*.json", {
   query: "?raw",
   import: "default",
   eager: true,
@@ -228,7 +235,7 @@ describe("song save/load", () => {
     ).toBe(true)
     expect(instOf<"poly">(song, "poly-1").params.cutoff).toBe(2200)
     expect(instOf<"ep">(song, "ep-1").params.tone).toBe(2)
-    expect(instOf<"strings">(song, "strings-1").params.damp).toBe(3200)
+    expect(instOf<"strings">(song, "strings-1").params.damp).toBe(STRINGS_PARAMS_DEFAULT.damp)
     expect(instOf<"sampler">(song, "sampler-1").params.pad3).toEqual({
       name: null,
       pitch: 0,
@@ -250,6 +257,40 @@ describe("song save/load", () => {
       // Round-trips through the new format unchanged.
       expect(parseSong(serializeSong(song))).toEqual(song)
     }
+  })
+
+  it("parses every built-in song: sections fit the chain, parts name real machines, keys are kept", () => {
+    const files = Object.entries(BUILTIN_SONGS).filter(([file]) => !file.endsWith("/index.json"))
+    expect(files.length).toBeGreaterThan(0)
+    for (const [file, text] of files) {
+      const song = parseSong(text)
+      const ids = new Set(song.instances.map((i) => i.id))
+      const sectionBars = song.sections.reduce((n, s) => n + s.bars, 0)
+      expect(sectionBars === 0 || sectionBars === song.chain.length, file).toBe(true)
+      for (const slot of song.chain) expect(slot, file).toBeLessThan(PATTERN_COUNT)
+      for (const p of song.patterns) {
+        for (const id of Object.keys(p.tracks)) expect(ids.has(id), `${file}: ${id}`).toBe(true)
+        for (const id of p.muted ?? []) expect(ids.has(id), `${file}: muted ${id}`).toBe(true)
+      }
+      expect(parseSong(serializeSong(song))).toEqual(song)
+    }
+    // The composed demos carry a key on every melodic machine.
+    const composed = parseSong(BUILTIN_SONGS["../../public/songs/nit-de-festa.json"]!)
+    expect(composed.instances.filter((i) => i.key).map((i) => i.id)).toEqual([
+      "bass-1",
+      "synth-1",
+      "poly-1",
+      "ep-1",
+    ])
+    expect(composed.sections.map((s) => s.name)).toEqual([
+      "Intro",
+      "Verse",
+      "Build",
+      "Drop",
+      "Break",
+      "Drop",
+      "Outro",
+    ])
   })
 
   it("pads a shorter bank with silent slots and refuses a longer one", () => {

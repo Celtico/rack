@@ -1,9 +1,10 @@
-import { Button, HStack, Text, VStack } from "@chakra-ui/react"
+import { Button, HStack } from "@chakra-ui/react"
 import { LuDices, LuRotateCcw, LuVolume2, LuVolumeX } from "react-icons/lu"
 
 import { isMutedIn, type Kind } from "../state/pattern"
 import { selectPattern, useRackStore } from "../state/store"
 import { pushSound } from "./unitMeta"
+import { ControlGroup } from "./ControlGroup"
 
 const MELODIC: readonly Kind[] = ["synth", "bass", "poly", "ep", "strings"]
 
@@ -25,12 +26,7 @@ export function PatternTools({
   const { randomizePart, togglePartMute } = useRackStore.getState()
   const notes = MELODIC.includes(kind)
   return (
-    <VStack gap="2" align="flex-start">
-      {heading && (
-        <Text textStyle="silkscreen" color="rack.silkscreen.muted">
-          Pattern {activePattern + 1}
-        </Text>
-      )}
+    <ControlGroup title={heading ? `Pattern ${activePattern + 1}` : undefined}>
       <HStack gap="2" wrap="wrap">
         {/* Sit this slot out, keeping the part: the pattern's own mute for this machine. */}
         <Button
@@ -54,7 +50,7 @@ export function PatternTools({
           <LuDices /> Random
         </Button>
       </HStack>
-    </VStack>
+    </ControlGroup>
   )
 }
 
@@ -62,12 +58,7 @@ export function PatternTools({
 export function FilterTools({ id, heading = true }: { id: string; heading?: boolean }) {
   const { randomizeFilter, resetFilter } = useRackStore.getState()
   return (
-    <VStack gap="2" align="flex-start">
-      {heading && (
-        <Text textStyle="silkscreen" color="rack.silkscreen.muted">
-          Filter
-        </Text>
-      )}
+    <ControlGroup title={heading ? "Filter" : undefined}>
       <HStack gap="2" wrap="wrap">
         <Button
           size="xs"
@@ -94,7 +85,7 @@ export function FilterTools({ id, heading = true }: { id: string; heading?: bool
           <LuRotateCcw /> Reset
         </Button>
       </HStack>
-    </VStack>
+    </ControlGroup>
   )
 }
 

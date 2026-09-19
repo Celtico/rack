@@ -1,6 +1,6 @@
-import { Flex, HStack, Text, VStack } from "@chakra-ui/react"
+import { Flex, HStack } from "@chakra-ui/react"
 
-import { instanceLabel, KIND_TITLE, type InstanceOf } from "../state/instances"
+import { KIND_TITLE, type InstanceOf } from "../state/instances"
 import {
   BASS_PARAMS_DEFAULT,
   BASS_RANGES,
@@ -8,6 +8,8 @@ import {
   selectInstance,
   useRackStore,
 } from "../state/store"
+import { formatHz, formatMs, formatPercent, formatQ } from "./format"
+import { ControlGroup } from "./ControlGroup"
 import { FilterControls } from "./FilterControls"
 import { Knob } from "./Knob"
 import { ModPanel } from "./ModPanel"
@@ -16,21 +18,12 @@ import { RackUnit } from "./RackUnit"
 import { KeyControls } from "./KeyControls"
 import { BassGrid } from "./TrackGrids"
 import { WavePicker } from "./WavePicker"
-import {
-  changeParams,
-  formatHz,
-  formatMs,
-  formatPercent,
-  formatQ,
-  KIND_FINISH,
-  kindIcon,
-} from "./unitMeta"
+import { changeParams, KIND_FINISH, kindIcon, useInstanceLabel } from "./unitMeta"
 
 /** BASS-2: acid mono line — one note per column, plus accent and slide per step. */
 export function BassUnit({ id }: { id: string }) {
   const inst = useRackStore((s) => selectInstance(s, id)) as InstanceOf<"bass"> | undefined
-  // A string, so another machine's knob does not re-render this one; it changes only when a sibling comes or goes.
-  const label = useRackStore((s) => (inst ? instanceLabel(inst, s.instances) : ""))
+  const label = useInstanceLabel(inst)
   if (!inst) return null
 
   const params = inst.params
@@ -104,10 +97,7 @@ export function BassUnit({ id }: { id: string }) {
             />
           </HStack>
 
-          <VStack gap="2" align="flex-start">
-            <Text textStyle="silkscreen" color="rack.silkscreen.muted">
-              Envelope
-            </Text>
+          <ControlGroup title="Envelope">
             <HStack gap="4" wrap="wrap" align="flex-start">
               <Knob
                 label="Attack"
@@ -152,7 +142,7 @@ export function BassUnit({ id }: { id: string }) {
                 onChange={(release) => changeParams(id, { release })}
               />
             </HStack>
-          </VStack>
+          </ControlGroup>
           <PartTools id={id} kind="bass" />
         </Flex>
       </Flex>

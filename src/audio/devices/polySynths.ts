@@ -2,10 +2,9 @@ import * as Tone from "tone"
 
 import type { EpParams, PolyParams, StringsParams } from "../../state/params"
 import { transposeNote, type ModHooks } from "../types"
+import { setFilterParam } from "./gate"
 import { fatOscillator } from "./oscillators"
 
-/** Ramp length for automatable parameter changes. */
-const RAMP = 0.03
 /** Pad unison: three oscillators well spread, then a slow chorus. */
 const UNISON = { count: 3, spread: 24 }
 /**
@@ -70,7 +69,7 @@ class VoicePool<V extends PoolVoice> {
 }
 
 /** Something that plays chords from the grid. */
-export interface PolyInstrument extends ModHooks {
+interface PolyInstrument extends ModHooks {
   trigger: (notes: string[], time: number) => void
   dispose: () => void
 }
@@ -138,17 +137,9 @@ export class PolyPad implements PolyInstrument {
           oscillator: fatOscillator(value as PolyParams["waveform"], UNISON.count, UNISON.spread),
         })
         break
-      case "filterType":
-        this.filter.type = value as PolyParams["filterType"]
-        break
-      case "cutoff":
-        this.cutoff.rampTo(value as number, RAMP)
-        break
-      case "resonance":
-        this.filter.Q.rampTo(value as number, RAMP)
-        break
       default:
-        this.synth.set({ envelope: { [key]: value as number } })
+        if (!setFilterParam(this.filter, this.cutoff, key, value))
+          this.synth.set({ envelope: { [key]: value as number } })
     }
   }
 
@@ -238,30 +229,89 @@ const STRING_COUNT = 6
  */
 export class Strings implements PolyInstrument {
   private readonly strings: Tone.PluckSynth[]
+  /**
+   * Under the plucks, the same notes on a soft triangle with a short decay: a plucked string
+   * model is all attack and no fundamental, and this is the weight of the wood it lacks.
+   */
+  private readonly wood: Tone.Synth[]
+  private readonly woodFilter: Tone.Filter
+  /**
+   * The guitar's body: a little warmth around 240 Hz, the rumble under 80 Hz taken out (on the low
+   * strings the plucks and the wood voice piled up into mud there), and the plastic top of a plain
+   * pluck taken off.
+   */
+  private readonly body: Tone.Filter
+  private readonly floor: Tone.Filter
+  private readonly top: Tone.Filter
   private next = 0
   private tune = 0
+  private strum: number
+  /** Down-strokes and up-strokes alternate: low string first, then high string first. */
+  private down = true
 
   constructor(output: Tone.ToneAudioNode, p: StringsParams) {
+    this.strum = p.strum
+    this.top = new Tone.Filter({ type: "lowpass", frequency: 5000, rolloff: -12 }).connect(output)
+    this.floor = new Tone.Filter({ type: "highpass", frequency: 80, rolloff: -12 }).connect(
+      this.top,
+    )
+    this.body = new Tone.Filter({ type: "peaking", frequency: 240, Q: 0.9, gain: 3 }).connect(
+      this.floor,
+    )
     this.strings = Array.from({ length: STRING_COUNT }, () =>
       new Tone.PluckSynth({
-        volume: -6,
+        volume: -4,
+        // How long the burst that plucks the string lasts (Tone's `attackNoise` is a duration, not an
+        // amount): shortened, the pluck is a click and the string a drum.
         attackNoise: 1,
         dampening: p.damp,
         resonance: p.sustain,
         release: p.release,
-      }).connect(output),
+      }).connect(this.body),
+    )
+    this.woodFilter = new Tone.Filter({ type: "lowpass", frequency: 900, rolloff: -12 }).connect(
+      this.body,
+    )
+    // One voice per string, taken over by the next strike like the string itself: a chug on every
+    // sixteenth never runs out of voices (a `PolySynth` of twelve dropped notes).
+    this.wood = Array.from({ length: STRING_COUNT }, () =>
+      new Tone.Synth({
+        volume: -20,
+        oscillator: { type: "triangle" },
+        envelope: { attack: 0.004, decay: 1.2, sustain: 0.1, release: 0.6 },
+      }).connect(this.woodFilter),
     )
   }
 
+  /**
+   * A chord as a hand strums it: the strings one after another, `strum` ms apart, low to
+   * high on one stroke and high to low on the next, each a hair off in pitch and force so no
+   * two strikes are the same. A column lit past six notes keeps its first six: the seventh
+   * would land on a string already struck at this very time, which Tone refuses ("start time
+   * must be strictly greater") — live it lost the rest of the step, in an export it failed the render.
+   */
   trigger(notes: string[], time: number): void {
-    // A column lit past six notes keeps its first six: the seventh would land on a string
-    // already struck at this very time, which Tone refuses ("start time must be strictly
-    // greater") — live it lost the rest of the step, in an export it failed the render.
-    for (const note of notes.slice(0, STRING_COUNT)) {
+    const sorted = notes
+      .slice(0, STRING_COUNT)
+      .map((note) => transposeNote(note, this.tune))
+      .sort((a, b) => Tone.Frequency(a).toMidi() - Tone.Frequency(b).toMidi())
+    const order = this.down ? sorted : sorted.reverse()
+    this.down = !this.down
+    // The whole strum stays inside a sixteenth at any tempo the rack allows.
+    const spacing = Math.min(this.strum, 60 / Math.max(1, order.length - 1)) / 1000
+    order.forEach((note, i) => {
       const string = this.strings[this.next % STRING_COUNT]
+      const wood = this.wood[this.next % STRING_COUNT]
       this.next = (this.next + 1) % STRING_COUNT
-      string?.triggerAttackRelease(transposeNote(note, this.tune), "8n", time)
-    }
+      const cents = (Math.random() * 2 - 1) * 4
+      const hz = Tone.Frequency(note).toFrequency() * 2 ** (cents / 1200)
+      const at = time + i * spacing
+      const velocity = 0.8 + Math.random() * 0.2
+      // Held a whole bar: a strummed string rings until the next strike takes it, and the release
+      // (a ramp of the loop's resonance to nothing) only ends what nothing struck again.
+      string?.triggerAttackRelease(hz, "1m", at, velocity)
+      wood?.triggerAttackRelease(hz, "8n", at, velocity)
+    })
   }
 
   setTune(semitones: number): void {
@@ -278,6 +328,10 @@ export class Strings implements PolyInstrument {
   }
 
   set<K extends keyof StringsParams>(key: K, value: StringsParams[K]): void {
+    if (key === "strum") {
+      this.strum = value
+      return
+    }
     for (const s of this.strings) {
       switch (key) {
         case "damp":
@@ -295,5 +349,10 @@ export class Strings implements PolyInstrument {
 
   dispose(): void {
     for (const s of this.strings) s.dispose()
+    for (const w of this.wood) w.dispose()
+    this.woodFilter.dispose()
+    this.body.dispose()
+    this.floor.dispose()
+    this.top.dispose()
   }
 }

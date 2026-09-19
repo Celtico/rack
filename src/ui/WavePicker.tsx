@@ -1,7 +1,8 @@
-import { chakra, SegmentGroup, Text, VStack } from "@chakra-ui/react"
+import { chakra, SegmentGroup } from "@chakra-ui/react"
 
 import type { Waveform } from "../state/params"
 import { WAVE_LABELS } from "./unitMeta"
+import { ControlGroup } from "./ControlGroup"
 
 /** One cycle of each waveform, drawn in a 24×12 box with the current colour. */
 const WAVE_PATHS: Readonly<Record<Waveform, string>> = {
@@ -12,7 +13,7 @@ const WAVE_PATHS: Readonly<Record<Waveform, string>> = {
 }
 
 /** The shape of a waveform, as a small line drawing. */
-export function WaveGlyph({ wave }: { wave: Waveform }) {
+function WaveGlyph({ wave }: { wave: Waveform }) {
   return (
     <chakra.svg viewBox="0 0 24 12" w="6" h="3" aria-hidden="true" display="block">
       <path
@@ -44,10 +45,7 @@ export function WavePicker<W extends Waveform>({
   label?: string
 }) {
   return (
-    <VStack gap="2" align="flex-start">
-      <Text textStyle="silkscreen" color="rack.silkscreen.muted">
-        {label}
-      </Text>
+    <ControlGroup title={label}>
       <SegmentGroup.Root
         size="sm"
         value={value}
@@ -65,6 +63,6 @@ export function WavePicker<W extends Waveform>({
           </SegmentGroup.Item>
         ))}
       </SegmentGroup.Root>
-    </VStack>
+    </ControlGroup>
   )
 }

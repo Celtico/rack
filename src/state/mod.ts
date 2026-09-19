@@ -18,7 +18,7 @@ import { DRUM_VOICES, PERC_VOICES, type Kind } from "./pattern"
  */
 
 export const LFO_SHAPES = ["sine", "triangle", "square", "sawtooth"] as const
-export type LfoShape = (typeof LFO_SHAPES)[number]
+type LfoShape = (typeof LFO_SHAPES)[number]
 
 /** What an LFO or the random source can move. */
 export const MOD_TARGETS = ["off", "cutoff", "pitch", "level", "pan"] as const
@@ -62,7 +62,6 @@ export interface ModParams {
 }
 
 export const MACRO_COUNT = 4
-export const LFO_COUNT = 2
 
 export const MOD_RANGES = {
   tune: { min: -12, max: 12 },
@@ -74,7 +73,7 @@ export const MOD_RANGES = {
 const LFO_DEFAULT: LfoParams = { shape: "sine", rate: 1, target: "off", amount: 0.5 }
 const MACRO_DEFAULT: Macro = { value: 0, targets: [] }
 
-export const MOD_DEFAULT: ModParams = {
+const MOD_DEFAULT: ModParams = {
   tune: 0,
   drive: 0,
   lfo: [LFO_DEFAULT, { ...LFO_DEFAULT, rate: 0.25, shape: "triangle" }],
@@ -129,11 +128,11 @@ export function clampMod(mod: ModParams): ModParams {
 /** A full pitch swing: an octave either way. */
 export const PITCH_MOD_CENTS = 1200
 /** A full cutoff swing, as a fraction of the cutoff itself either way. */
-export const CUTOFF_MOD_FRACTION = 0.9
+const CUTOFF_MOD_FRACTION = 0.9
 /** A full level swing, as a fraction of the strip's gain either way. */
-export const LEVEL_MOD_FRACTION = 0.9
+const LEVEL_MOD_FRACTION = 0.9
 /** At full amount the pan swings the whole way, left to right. */
-export const PAN_MOD_FRACTION = 1
+const PAN_MOD_FRACTION = 1
 
 /**
  * How far a modulator at `amount` swings a target, in the target's own unit
@@ -227,6 +226,7 @@ export function macroTargetsFor(kind: Kind, stripFilter: boolean): MacroTargetIn
         range("param", "damp", "Damp", STRINGS_RANGES.damp),
         range("param", "sustain", "Sustain", STRINGS_RANGES.sustain),
         range("param", "release", "Release", STRINGS_RANGES.release),
+        range("param", "strum", "Strum", STRINGS_RANGES.strum),
       )
       break
     case "drums":

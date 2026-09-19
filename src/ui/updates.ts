@@ -3,7 +3,7 @@ import { registerSW } from "virtual:pwa-register"
 import { useRackStore } from "../state/store"
 
 /** How often an open rack asks the server whether there is a newer build. */
-export const UPDATE_CHECK_MS = 60 * 60 * 1000
+const UPDATE_CHECK_MS = 60 * 60 * 1000
 
 /**
  * Keep the installed app current. The service worker (Workbox, `autoUpdate`)

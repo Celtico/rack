@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { clampKey, keyRows, noteName, solfege } from "./key"
+import { clampKey, keyRows, noteName, solfege, spelledWithSharps } from "./key"
 import { KEY_DEFAULT, LEGACY_ROWS, rowNotes } from "./pattern"
 
 describe("keys", () => {
@@ -38,12 +38,33 @@ describe("keys", () => {
     expect(rowNotes("ep", { root: 0, scale: "major", octave: 3 })[3]).toBe("F3")
   })
 
-  it("names notes with flats across octave lines and reads them in solfège", () => {
+  it("names notes across octave lines and reads them in solfège, sharps included", () => {
     expect(noteName(11, 2)).toBe("B2")
     expect(noteName(13, 2)).toBe("Db3")
+    expect(noteName(13, 2, true)).toBe("C#3")
     expect(solfege("Eb2")).toBe("Mib2")
+    expect(solfege("F#3")).toBe("Fa#3")
     expect(solfege("C4")).toBe("Do4")
+    expect(solfege("Bb")).toBe("Sib")
     expect(solfege("Accent")).toBe("Accent")
+  })
+
+  it("spells a key's rows with the sharps or flats of its signature", () => {
+    // G major has one sharp: F#, never Gb. E minor shares it. F minor is all flats.
+    expect(keyRows({ root: 7, scale: "major", octave: 2 })).toEqual([
+      "G2",
+      "A2",
+      "B2",
+      "C3",
+      "D3",
+      "E3",
+      "F#3",
+      "G3",
+    ])
+    expect(spelledWithSharps({ root: 4, scale: "minor" })).toBe(true)
+    expect(spelledWithSharps({ root: 5, scale: "minor" })).toBe(false)
+    expect(spelledWithSharps({ root: 2, scale: "dorian" })).toBe(false)
+    expect(spelledWithSharps({ root: 9, scale: "mixolydian" })).toBe(true)
   })
 
   it("pulls a key into range and falls back on a nonsense scale", () => {

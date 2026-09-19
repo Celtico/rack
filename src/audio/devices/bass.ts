@@ -2,11 +2,9 @@ import * as Tone from "tone"
 
 import type { BassParams } from "../../state/params"
 import type { BassStepEvent } from "../../state/pattern"
-import { transposeNote, type ModHooks } from "../types"
+import { RAMP, transposeNote, type ModHooks } from "../types"
 import { fatOscillator } from "./oscillators"
 
-/** Ramp length for automatable parameter changes. */
-const RAMP = 0.03
 /** Filter sweep at full env depth, in octaves above the cutoff. */
 const ENV_OCTAVES = 4
 /** Accents sweep further and hit harder. */

@@ -93,6 +93,7 @@ export function randomParams<K extends Kind>(kind: K, rng: Rng): KindParams[K] {
         damp: logUniform(rng, STRINGS_RANGES.damp),
         sustain: uniform(rng, STRINGS_RANGES.sustain),
         release: logUniform(rng, STRINGS_RANGES.release),
+        strum: Math.round(uniform(rng, { min: 4, max: 25 })),
       } as KindParams[K]
     case "video":
       return {
@@ -140,7 +141,7 @@ export function randomFilter(rng: Rng): FilterParams {
 }
 
 /** Tune and drive at random; the LFOs, random source and macros are left as they are. */
-export function randomMod(kind: Kind, mod: ModParams, rng: Rng): ModParams {
+function randomMod(kind: Kind, mod: ModParams, rng: Rng): ModParams {
   return {
     ...mod,
     tune: hasTune(kind)

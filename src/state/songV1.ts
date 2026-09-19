@@ -52,7 +52,8 @@ import {
   type Track,
 } from "./pattern"
 import { MAX_CHAIN, padBank, PATTERN_COUNT } from "./patterns"
-import { bank, SongParseError, type Song } from "./song"
+import { fail, int, isRecord, list, num, oneOf, record } from "./parse"
+import { bank, type Song } from "./song"
 
 /** The mixer channels a version-1 file could name. */
 const V1_CHANNELS = ["drums", "perc", "sampler", "synth", "bass", "poly", "ep", "strings"] as const
@@ -124,32 +125,6 @@ interface V1Pattern {
   synth: SynthRow
   bass: BassRow
   poly: Record<PolyKind, PolyRow>
-}
-
-const fail = (path: string, expected: string): never => {
-  throw new SongParseError(`${path}: expected ${expected}`)
-}
-
-const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null
-
-const num = (v: unknown, path: string): number =>
-  typeof v === "number" && Number.isFinite(v) ? v : fail(path, "a finite number")
-
-const int = (v: unknown, path: string, max: number): number =>
-  Number.isInteger(v) && (v as number) >= 0 && (v as number) < max
-    ? (v as number)
-    : fail(path, `an integer in [0, ${max})`)
-
-const oneOf = <T extends string>(v: unknown, path: string, options: readonly T[]): T =>
-  options.includes(v as T) ? (v as T) : fail(path, `one of ${options.join(", ")}`)
-
-const record = (v: unknown, path: string): Record<string, unknown> =>
-  isRecord(v) ? v : fail(path, "an object")
-
-const list = (v: unknown, path: string, length?: number): unknown[] => {
-  if (!Array.isArray(v)) return fail(path, "an array")
-  if (length !== undefined && v.length !== length) return fail(path, `${length} items`)
-  return v
 }
 
 const boolRow = (v: unknown, path: string): boolean[] =>

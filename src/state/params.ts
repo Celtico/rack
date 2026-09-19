@@ -107,7 +107,7 @@ export const SYNTH_PARAMS_DEFAULT: SynthParams = {
 }
 
 export const BASS_WAVEFORMS = ["sawtooth", "square"] as const
-export type BassWaveform = (typeof BASS_WAVEFORMS)[number]
+type BassWaveform = (typeof BASS_WAVEFORMS)[number]
 
 export interface BassParams {
   waveform: BassWaveform
@@ -209,15 +209,23 @@ export interface StringsParams {
   /** String resonance, 0.8–0.999 — how long it rings. */
   sustain: number
   release: number
+  /** Milliseconds between one string and the next in a strum; 0 strikes them together. */
+  strum: number
 }
 
 export const STRINGS_RANGES = {
   damp: { min: 500, max: 8000 },
   sustain: { min: 0.8, max: 0.999 },
   release: { min: 0.05, max: 3 },
+  strum: { min: 0, max: 40 },
 } as const
 
-export const STRINGS_PARAMS_DEFAULT: StringsParams = { damp: 3200, sustain: 0.97, release: 1 }
+export const STRINGS_PARAMS_DEFAULT: StringsParams = {
+  damp: 4500,
+  sustain: 0.99,
+  release: 1.4,
+  strum: 14,
+}
 
 /** VID-1: a video loop whose soundtrack is the instrument. */
 export const VIDEO_BARS = [1, 2, 4, 8] as const
@@ -260,7 +268,6 @@ export const VIDEO_PARAMS_DEFAULT: VideoParams = {
 
 /** MIC-1: the microphone, heard live through the rack, with a loop of it that can be recorded. */
 export const MIC_BARS = [1, 2, 4, 8] as const
-export type MicBars = (typeof MIC_BARS)[number]
 
 export interface MicParams {
   /** The take used as the loop: its key in the browser's list of recordings. Null: no loop. */

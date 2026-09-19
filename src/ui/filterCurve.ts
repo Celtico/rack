@@ -14,8 +14,8 @@ const SAMPLE_RATE = 44100
 const STAGES = 2
 
 /** Frequency axis of the curve: log from 20 Hz to 20 kHz. */
-export const CURVE_MIN_HZ = 20
-export const CURVE_MAX_HZ = 20000
+const CURVE_MIN_HZ = 20
+const CURVE_MAX_HZ = 20000
 
 /**
  * Gain in dB of one of the rack's filters at `hz`, from the Web Audio biquad

@@ -10,7 +10,7 @@ export interface Section {
   bars: number
 }
 
-export const SECTION_NAME_MAX = 24
+const SECTION_NAME_MAX = 24
 /** Names offered when adding a section; anything else can be typed. */
 export const SECTION_NAMES = [
   "Intro",

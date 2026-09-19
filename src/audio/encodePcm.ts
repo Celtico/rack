@@ -23,7 +23,5 @@ export const pcmSource = (sampleRate: number, channels: readonly Float32Array[])
 
 /** WAV or MP3 from the channels — the same call the worker and the main-thread fallback make. */
 export async function encodePcm(format: AudioFormat, source: PcmSource): Promise<Blob> {
-  return format === "wav"
-    ? new Blob([encodeWav(source)], { type: "audio/wav" })
-    : encodeMp3(source)
+  return format === "wav" ? new Blob([encodeWav(source)], { type: "audio/wav" }) : encodeMp3(source)
 }

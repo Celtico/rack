@@ -76,7 +76,7 @@ export * from "./params"
 export * from "./mod"
 
 /** Everything needed to put a removed instance back exactly where it was. */
-export interface RemovedInstance {
+interface RemovedInstance {
   instance: Instance
   /** Its track in each bank slot. */
   tracks: readonly Track[]
@@ -285,7 +285,8 @@ export const selectPattern = (s: RackState): Pattern => {
   return p
 }
 
-export const selectInstance = (s: RackState, id: string): Instance | undefined =>
+/** The machine with this id — the one place the list is searched by id (the engine's state too). */
+export const selectInstance = (s: Pick<RackState, "instances">, id: string): Instance | undefined =>
   s.instances.find((i) => i.id === id)
 
 /** True while some other machine is soloed and this one is not — it is heard no more. */
@@ -391,7 +392,7 @@ const initialInstances = defaultInstances()
 
 /** Fold keys of the top panel's sections — they take part in Fold all / Unfold all. */
 export const MASTER_SECTIONS = ["CLOCK", "PATTERN", "SONG"] as const
-export type MasterSectionId = (typeof MASTER_SECTIONS)[number]
+type MasterSectionId = (typeof MASTER_SECTIONS)[number]
 /** The ones that start folded; the clock itself stays open. */
 const MASTER_FOLDABLE: readonly MasterSectionId[] = ["PATTERN", "SONG"]
 
@@ -509,7 +510,7 @@ export const useRackStore = create<RackState>()((set, get) => ({
     }),
   clearParts: (id) =>
     set((state) => {
-      const inst = state.instances.find((i) => i.id === id)
+      const inst = selectInstance(state, id)
       if (!inst) return state
       return {
         ...remember(state),
@@ -575,7 +576,7 @@ export const useRackStore = create<RackState>()((set, get) => ({
 
   addSection: (name, bars, pattern) =>
     set((state) => {
-      const count = Math.min(Math.max(1, Math.trunc(bars)), MAX_CHAIN - state.chain.length)
+      const count = clamp(Math.trunc(bars), 1, MAX_CHAIN - state.chain.length)
       if (count <= 0) return state
       const at = slot(pattern ?? state.activePattern)
       // Bars the song had without any section get one, so the new section is not the first thing named.
@@ -729,8 +730,8 @@ export const useRackStore = create<RackState>()((set, get) => ({
     }),
   copyInstance: (from, to) => {
     const state = get()
-    const source = state.instances.find((i) => i.id === from)
-    const target = state.instances.find((i) => i.id === to)
+    const source = selectInstance(state, from)
+    const target = selectInstance(state, to)
     if (!source || !target || from === to || source.kind !== target.kind) return false
     set({
       ...remember(state),
@@ -848,7 +849,7 @@ export const useRackStore = create<RackState>()((set, get) => ({
     })),
   setTrack: (id, index, track) => {
     const state = get()
-    const target = state.instances.find((i) => i.id === id)
+    const target = selectInstance(state, id)
     if (!target || target.kind !== track.kind) return false
     const at = slot(index)
     set({
@@ -898,7 +899,7 @@ export const useRackStore = create<RackState>()((set, get) => ({
     })),
   setInstanceKey: (id, patch) =>
     set((state) => {
-      const inst = state.instances.find((i) => i.id === id)
+      const inst = selectInstance(state, id)
       if (!inst || !isMelodicKind(inst.kind)) return state
       const base = inst.key ?? KEY_DEFAULT[inst.kind]
       return {
@@ -908,7 +909,7 @@ export const useRackStore = create<RackState>()((set, get) => ({
     }),
   setInstanceFilter: (id, patch) =>
     set((state) => {
-      const inst = state.instances.find((i) => i.id === id)
+      const inst = selectInstance(state, id)
       if (!inst?.filter) return state
       return {
         ...remember(state, `filter:${id}:${Object.keys(patch).join(",")}`),
@@ -942,7 +943,7 @@ export const useRackStore = create<RackState>()((set, get) => ({
     })),
   setMacro: (id, index, value) => {
     const state = get()
-    const inst = state.instances.find((i) => i.id === id)
+    const inst = selectInstance(state, id)
     const macro = inst?.mod.macros[index]
     if (!inst || !macro) return null
     const patches = macroPatches(macro, clamp(value, 0, 1))

@@ -1,4 +1,5 @@
 import { parseSong, type Song } from "../state/song"
+import { errorText } from "./errors"
 
 /** One song shipped with the rack, as listed in `public/songs/index.json`. */
 export interface BuiltinSong {
@@ -35,7 +36,7 @@ export function loadBuiltinSongs(): Promise<BuiltinSong[]> {
       const entries = (raw as { songs?: unknown }).songs
       return Array.isArray(entries) ? entries.filter(isEntry) : []
     } catch (err) {
-      console.warn("rack: built-in songs not listed —", err instanceof Error ? err.message : err)
+      console.warn("rack: built-in songs not listed —", errorText(err))
       return []
     }
   })()
@@ -57,10 +58,4 @@ export function loadBuiltinSong(file: string): Promise<Song> {
     songs.set(file, pending)
   }
   return pending
-}
-
-/** Test hook: forget what was fetched. */
-export function resetBuiltinSongs(): void {
-  list = null
-  songs.clear()
 }

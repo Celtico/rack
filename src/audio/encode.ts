@@ -19,7 +19,8 @@ export function encodeAudio(buffer: PcmSource, format: AudioFormat): Promise<Blo
   const channels = Array.from({ length: buffer.numberOfChannels }, (_, c) =>
     buffer.getChannelData(c).slice(),
   )
-  if (typeof Worker === "undefined") return encodePcm(format, pcmSource(buffer.sampleRate, channels))
+  if (typeof Worker === "undefined")
+    return encodePcm(format, pcmSource(buffer.sampleRate, channels))
   return new Promise((resolve, reject) => {
     const worker = new Worker(new URL("./encodeWorker.ts", import.meta.url), { type: "module" })
     worker.onmessage = (e: MessageEvent<EncodeReply>) => {

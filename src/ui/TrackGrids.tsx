@@ -1,5 +1,13 @@
 import { solfege } from "../state/key"
-import { DRUM_VOICES, PERC_VOICES, rowNotes, type BassFlag, type KitRows } from "../state/pattern"
+import {
+  DRUM_VOICES,
+  PERC_VOICES,
+  rowNotes,
+  VIDEO_VOICES,
+  type BassFlag,
+  type KitRows,
+  type VideoVoiceId,
+} from "../state/pattern"
 import { selectInstance, selectTrack, useRackStore } from "../state/store"
 import { StepGrid } from "./StepGrid"
 import { VOICE_LABELS } from "./unitMeta"
@@ -77,4 +85,19 @@ export function BassGrid({ id }: { id: string }) {
     else toggleNote(id, step, names.indexOf(row))
   }
   return <StepGrid rows={rows} onToggle={onToggle} />
+}
+
+/** VID-1 / MIC-1: the gate row — sixteen steps that let the sound through or cut it. */
+export function GateGrid({ id }: { id: string }) {
+  const track = useRackStore((s) => selectTrack(s, id))
+  const { toggleStep } = useRackStore.getState()
+  if (!track || !("rows" in track)) return null
+  const rows = VIDEO_VOICES.map((voice) => ({
+    id: voice,
+    label: VOICE_LABELS[voice] ?? voice,
+    steps: (track.rows as Record<string, readonly boolean[]>)[voice] ?? [],
+  }))
+  return (
+    <StepGrid rows={rows} onToggle={(voice: VideoVoiceId, step) => toggleStep(id, voice, step)} />
+  )
 }

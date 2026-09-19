@@ -1,23 +1,24 @@
-import { Flex, HStack, Text, VStack } from "@chakra-ui/react"
+import { Flex, HStack } from "@chakra-ui/react"
 
-import { instanceLabel, KIND_TITLE, type InstanceOf } from "../state/instances"
+import { KIND_TITLE, type InstanceOf } from "../state/instances"
 import { DRUM_VOICES, PERC_VOICES } from "../state/pattern"
 import { selectInstance, useRackStore } from "../state/store"
+import { formatPercent } from "./format"
+import { ControlGroup } from "./ControlGroup"
 import { StripFilterControls } from "./FilterControls"
 import { Knob } from "./Knob"
 import { ModPanel } from "./ModPanel"
 import { PartTools } from "./PartTools"
 import { RackUnit } from "./RackUnit"
 import { KitGrid } from "./TrackGrids"
-import { changeParams, formatPercent, KIND_FINISH, kindIcon, VOICE_LABELS } from "./unitMeta"
+import { changeParams, KIND_FINISH, kindIcon, VOICE_LABELS, useInstanceLabel } from "./unitMeta"
 
 type KitInstance = InstanceOf<"drums"> | InstanceOf<"perc">
 
 /** DR-4 or PERC-6: one-shot voices on a 16-step grid, with a level per voice. */
 export function KitUnit({ id }: { id: string }) {
   const inst = useRackStore((s) => selectInstance(s, id)) as KitInstance | undefined
-  // A string, so another machine's knob does not re-render this one; it changes only when a sibling comes or goes.
-  const label = useRackStore((s) => (inst ? instanceLabel(inst, s.instances) : ""))
+  const label = useInstanceLabel(inst)
   if (!inst) return null
 
   const voices = inst.kind === "drums" ? DRUM_VOICES : PERC_VOICES
@@ -46,10 +47,7 @@ export function KitUnit({ id }: { id: string }) {
           flex="1 1 20rem"
           minW="0"
         >
-          <VStack gap="2" align="flex-start">
-            <Text textStyle="silkscreen" color="rack.silkscreen.muted">
-              Level
-            </Text>
+          <ControlGroup title="Level">
             <HStack gap="4" wrap="wrap">
               {voices.map((voice) => (
                 <Knob
@@ -65,7 +63,7 @@ export function KitUnit({ id }: { id: string }) {
                 />
               ))}
             </HStack>
-          </VStack>
+          </ControlGroup>
           {inst.filter && <StripFilterControls id={id} filter={inst.filter} />}
           <PartTools id={id} kind={inst.kind} />
         </Flex>

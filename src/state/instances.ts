@@ -37,7 +37,7 @@ import {
   VIDEO_RANGES,
 } from "./params"
 import { clampKey, type KeyParams } from "./key"
-import { clampMod, defaultMod, type ModParams } from "./mod"
+import { defaultMod, type ModParams } from "./mod"
 import { isMelodicKind, KEY_DEFAULT, KINDS, PAD_IDS, type Kind, type PadId } from "./pattern"
 
 /**
@@ -88,10 +88,8 @@ export type Instance = {
   }
 }[Kind]
 
-export { clampMod }
-
 /** The kinds whose filter sits on the mixer strip; the synths carry theirs in `params`. */
-export const STRIP_FILTER_KINDS: readonly Kind[] = ["drums", "perc", "sampler", "ep", "strings"]
+const STRIP_FILTER_KINDS: readonly Kind[] = ["drums", "perc", "sampler", "ep", "strings"]
 export const hasStripFilter = (kind: Kind): boolean => STRIP_FILTER_KINDS.includes(kind)
 
 export const clampFilter = (f: FilterParams): FilterParams => ({
@@ -208,7 +206,10 @@ export function clampParams<K extends Kind>(kind: K, params: KindParams[K]): Kin
     case "ep":
       return clampFields(params as EpParams, EP_RANGES) as KindParams[K]
     case "strings":
-      return clampFields(params as StringsParams, STRINGS_RANGES) as KindParams[K]
+      return clampFields(
+        { ...STRINGS_PARAMS_DEFAULT, ...(params as StringsParams) },
+        STRINGS_RANGES,
+      ) as KindParams[K]
     case "video": {
       const v = clampFields({ ...VIDEO_PARAMS_DEFAULT, ...(params as VideoParams) }, VIDEO_RANGES)
       return {
@@ -229,12 +230,12 @@ export function clampParams<K extends Kind>(kind: K, params: KindParams[K]): Kin
 }
 
 /** `drums-3` → 3. */
-export function instanceNumber(id: string): number {
+function instanceNumber(id: string): number {
   return Number(id.slice(id.lastIndexOf("-") + 1)) || 1
 }
 
 /** Next free id for a kind: `${kind}-${n}` with n above every existing one. */
-export function nextInstanceId(kind: Kind, existing: readonly Instance[]): string {
+function nextInstanceId(kind: Kind, existing: readonly Instance[]): string {
   const taken = existing.filter((i) => i.kind === kind).map((i) => instanceNumber(i.id))
   return `${kind}-${(taken.length ? Math.max(...taken) : 0) + 1}`
 }

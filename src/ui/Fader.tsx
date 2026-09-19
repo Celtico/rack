@@ -1,12 +1,11 @@
 import { Slider, Text, VStack } from "@chakra-ui/react"
+import { formatPercent } from "./format"
 
 export interface FaderProps {
   label: string
   value: number
   onChange: (value: number) => void
 }
-
-const formatPercent = (v: number) => `${Math.round(v * 100)}%`
 
 /** Touch screens: a taller, thicker fader with a wide invisible strip to land a finger on. */
 const COARSE = "@media (pointer: coarse)"

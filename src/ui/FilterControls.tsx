@@ -1,4 +1,4 @@
-import { chakra, HStack, NativeSelect, Text, VStack } from "@chakra-ui/react"
+import { chakra, HStack, NativeSelect } from "@chakra-ui/react"
 import { useMemo } from "react"
 
 import {
@@ -8,9 +8,11 @@ import {
   type FilterParams,
   type FilterType,
 } from "../state/params"
+import { formatHz, formatQ } from "./format"
+import { ControlGroup } from "./ControlGroup"
 import { curveX, FILTER_LABELS, filterCurve } from "./filterCurve"
 import { Knob } from "./Knob"
-import { changeFilter, formatHz, formatQ } from "./unitMeta"
+import { changeFilter } from "./unitMeta"
 
 const isFilterType = (v: string): v is FilterType => FILTER_TYPES.includes(v as FilterType)
 
@@ -22,7 +24,7 @@ const DB_TOP = 24
 const DB_BOTTOM = -48
 
 /** The filter's response as a small amber trace on a dark window, the cutoff marked. */
-export function FilterCurve({
+function FilterCurve({
   type,
   cutoff,
   q,
@@ -104,12 +106,7 @@ export function FilterControls({
   heading?: boolean
 }) {
   return (
-    <VStack gap="2" align="flex-start">
-      {heading && (
-        <Text textStyle="silkscreen" color="rack.silkscreen.muted">
-          Filter
-        </Text>
-      )}
+    <ControlGroup title={heading ? "Filter" : undefined}>
       <NativeSelect.Root size="sm" w="40">
         <NativeSelect.Field
           aria-label="Filter type"
@@ -132,7 +129,7 @@ export function FilterControls({
         q={q}
         label={`${FILTER_LABELS[type]} response at ${Math.round(cutoff)} Hz`}
       />
-    </VStack>
+    </ControlGroup>
   )
 }
 

@@ -1,6 +1,54 @@
 {
   "songs": [
     {
+      "name": "Cavalls de Ferro · Speed rock",
+      "file": "songs/cavalls-de-ferro.json",
+      "bpm": 156,
+      "bars": 64
+    },
+    {
+      "name": "Cambra 36 · Boom bap",
+      "file": "songs/cambra-36.json",
+      "bpm": 93,
+      "bars": 58
+    },
+    {
+      "name": "Ferralla · Heavy",
+      "file": "songs/ferralla.json",
+      "bpm": 140,
+      "bars": 72
+    },
+    {
+      "name": "Carrer Mullat · Hip hop",
+      "file": "songs/carrer-mullat.json",
+      "bpm": 88,
+      "bars": 60
+    },
+    {
+      "name": "Nit de Festa · House",
+      "file": "songs/nit-de-festa.json",
+      "bpm": 124,
+      "bars": 80
+    },
+    {
+      "name": "Camí de Sorra · Downtempo",
+      "file": "songs/cami-de-sorra.json",
+      "bpm": 92,
+      "bars": 64
+    },
+    {
+      "name": "Torre de Ferro · Acid techno",
+      "file": "songs/torre-de-ferro.json",
+      "bpm": 138,
+      "bars": 72
+    },
+    {
+      "name": "Marea · Broken beat",
+      "file": "songs/marea.json",
+      "bpm": 100,
+      "bars": 80
+    },
+    {
       "name": "Factory · Techno",
       "file": "-rack-song.json",
       "bpm": 128,

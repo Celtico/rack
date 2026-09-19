@@ -164,7 +164,14 @@ function InstanceRow({
   onGo: () => void
 }) {
   return (
-    <HStack as="li" gap="2" py="1" align="center" borderTopWidth="1px" borderColor="rack.panel.divider">
+    <HStack
+      as="li"
+      gap="2"
+      py="1"
+      align="center"
+      borderTopWidth="1px"
+      borderColor="rack.panel.divider"
+    >
       <Button
         size="xs"
         variant="ghost"

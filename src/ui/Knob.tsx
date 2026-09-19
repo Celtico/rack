@@ -8,6 +8,7 @@ import {
   type PointerEvent,
 } from "react"
 
+import { clamp } from "../state/params"
 import type { knobRecipe } from "../theme/recipes/knob"
 
 type KnobVariants = RecipeVariantProps<typeof knobRecipe>
@@ -37,8 +38,6 @@ const DRAG_PX = 150
 const DRAG_PX_TOUCH = 100
 /** Keyboard nudge on a log knob, as a fraction of the travel. */
 const KEY_TRAVEL = 0.02
-
-const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v))
 
 /**
  * A hand-built rotary control. Because it is not a native input it owns its own

@@ -3,10 +3,8 @@ import * as Tone from "tone"
 import type { PadParams } from "../../state/params"
 import { PAD_IDS, type PadId } from "../../state/pattern"
 import { getAllSamples, sampleKey } from "../sampleStore"
-import type { Kit, Voice } from "../types"
+import { RAMP, type Kit, type Voice } from "../types"
 
-/** Ramp length for level changes. */
-const RAMP = 0.03
 /** Short fade on stop so a cut sample never clicks. */
 const FADE_OUT = 0.02
 

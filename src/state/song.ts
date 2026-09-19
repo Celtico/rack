@@ -10,6 +10,7 @@ import {
 } from "./mod"
 import {
   BASS_WAVEFORMS,
+  clamp,
   DELAY_TIMES,
   FILTER_DEFAULT,
   FILTER_TYPES,
@@ -36,13 +37,13 @@ import {
   type KitKind,
   type KitRows,
   type Pattern,
-  type PolyKind,
   type PolyRow,
   type SynthRow,
   type Track,
 } from "./pattern"
 import { MAX_CHAIN, padBank, PATTERN_COUNT } from "./patterns"
 import { fitSections, type Section } from "./sections"
+import { bool, fail, int, list, num, oneOf, record, SongParseError, str } from "./parse"
 import { parseSongV1 } from "./songV1"
 
 export const SONG_VERSION = 2
@@ -65,41 +66,7 @@ export interface Song {
   fx: FxParams
 }
 
-export class SongParseError extends Error {
-  override name = "SongParseError"
-}
-
-const fail = (path: string, expected: string): never => {
-  throw new SongParseError(`${path}: expected ${expected}`)
-}
-
-const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null
-
-const num = (v: unknown, path: string): number =>
-  typeof v === "number" && Number.isFinite(v) ? v : fail(path, "a finite number")
-
-const bool = (v: unknown, path: string): boolean =>
-  typeof v === "boolean" ? v : fail(path, "a boolean")
-
-const str = (v: unknown, path: string): string =>
-  typeof v === "string" && v.length > 0 ? v : fail(path, "a non-empty string")
-
-const int = (v: unknown, path: string, max: number): number =>
-  Number.isInteger(v) && (v as number) >= 0 && (v as number) < max
-    ? (v as number)
-    : fail(path, `an integer in [0, ${max})`)
-
-const oneOf = <T extends string>(v: unknown, path: string, options: readonly T[]): T =>
-  options.includes(v as T) ? (v as T) : fail(path, `one of ${options.join(", ")}`)
-
-const record = (v: unknown, path: string): Record<string, unknown> =>
-  isRecord(v) ? v : fail(path, "an object")
-
-const list = (v: unknown, path: string, length?: number): unknown[] => {
-  if (!Array.isArray(v)) return fail(path, "an array")
-  if (length !== undefined && v.length !== length) return fail(path, `${length} items`)
-  return v
-}
+export { SongParseError }
 
 /** Between one and PATTERN_COUNT patterns; shorter banks are padded by the caller. */
 export const bank = (v: unknown): unknown[] => {
@@ -118,7 +85,7 @@ const boolRow = (v: unknown, path: string): boolean[] =>
  * rhythm rather than dropping the note.
  */
 const rowIndex = (v: unknown, path: string, rows: number): number =>
-  Number.isInteger(v) ? Math.min(rows - 1, Math.max(0, v as number)) : fail(path, "an integer")
+  Number.isInteger(v) ? clamp(v as number, 0, rows - 1) : fail(path, "an integer")
 
 const monoRow = (v: unknown, path: string, rows: number): SynthRow =>
   list(v, path, STEP_COUNT).map((r, i) => (r === null ? null : rowIndex(r, `${path}[${i}]`, rows)))
@@ -428,7 +395,3 @@ export function parseSong(text: string): Song {
 export function serializeSong(song: Song): string {
   return JSON.stringify(song, null, 2)
 }
-
-/** Kind of a poly track, for callers that only have the kind string. */
-export const isPolyKind = (kind: Kind): kind is PolyKind =>
-  kind === "poly" || kind === "ep" || kind === "strings"

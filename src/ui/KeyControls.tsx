@@ -1,4 +1,4 @@
-import { HStack, NativeSelect, Text, VStack } from "@chakra-ui/react"
+import { HStack, NativeSelect } from "@chakra-ui/react"
 
 import {
   isScaleName,
@@ -10,6 +10,7 @@ import {
 } from "../state/key"
 import { KEY_DEFAULT, type MelodicKind } from "../state/pattern"
 import { selectInstance, useRackStore } from "../state/store"
+import { ControlGroup } from "./ControlGroup"
 
 const OCTAVES = Array.from(
   { length: KEY_RANGES.octave.max - KEY_RANGES.octave.min + 1 },
@@ -26,10 +27,7 @@ export function KeyControls({ id, kind }: { id: string; kind: MelodicKind }) {
   const key = useRackStore((s) => selectInstance(s, id)?.key) ?? KEY_DEFAULT[kind]
   const { setInstanceKey } = useRackStore.getState()
   return (
-    <VStack gap="2" align="flex-start">
-      <Text textStyle="silkscreen" color="rack.silkscreen.muted">
-        Key
-      </Text>
+    <ControlGroup title="Key">
       <HStack gap="2" wrap="wrap">
         <NativeSelect.Root size="sm" w="28">
           <NativeSelect.Field
@@ -76,6 +74,6 @@ export function KeyControls({ id, kind }: { id: string; kind: MelodicKind }) {
           <NativeSelect.Indicator />
         </NativeSelect.Root>
       </HStack>
-    </VStack>
+    </ControlGroup>
   )
 }

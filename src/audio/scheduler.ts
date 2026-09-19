@@ -28,7 +28,7 @@ export function hitsForStep(pattern: Pattern, step: number): [id: string, voice:
 const REST: BassStepEvent = { note: null, accent: false, slide: false }
 
 /** At full swing an off-beat sixteenth lands a third late — the triplet feel. */
-export const SWING_MAX_FRACTION = 1 / 3
+const SWING_MAX_FRACTION = 1 / 3
 
 /**
  * How late an off-beat sixteenth (odd step) sounds, in seconds. `swing` is
@@ -102,6 +102,11 @@ export class Scheduler {
   /** Rewind the bar counter. Call when the transport stops (it rewinds to step 0 itself). */
   reset(): void {
     this.bar = -1
+  }
+
+  /** The next bar to play is `bar` — an offline render of one stretch of a song starts here. */
+  seek(bar: number): void {
+    this.bar = bar - 1
   }
 
   dispose(): void {

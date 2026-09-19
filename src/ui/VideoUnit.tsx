@@ -13,33 +13,26 @@ import { useEffect, useRef, useState, type ChangeEvent } from "react"
 import { LuEraser, LuUpload } from "react-icons/lu"
 
 import { toaster } from "../components/ui/toaster"
-import { instanceLabel, KIND_TITLE, type InstanceOf } from "../state/instances"
-import { VIDEO_VOICES, type VideoVoiceId } from "../state/pattern"
+import { errorText, errorToast } from "./errors"
+import { ControlGroup } from "./ControlGroup"
+import { KIND_TITLE, type InstanceOf } from "../state/instances"
 import {
   selectInstance,
-  selectTrack,
   useRackStore,
   VIDEO_BARS,
   VIDEO_PARAMS_DEFAULT,
   VIDEO_RANGES,
   type VideoBars,
 } from "../state/store"
+import { formatHz, formatPercent, formatQ, formatTime } from "./format"
 import { Display } from "./Display"
 import { FilterControls } from "./FilterControls"
 import { Knob } from "./Knob"
 import { ModPanel } from "./ModPanel"
 import { PartTools } from "./PartTools"
 import { RackUnit } from "./RackUnit"
-import { StepGrid } from "./StepGrid"
-import {
-  changeParams,
-  formatHz,
-  formatPercent,
-  formatQ,
-  KIND_FINISH,
-  kindIcon,
-  VOICE_LABELS,
-} from "./unitMeta"
+import { GateGrid } from "./TrackGrids"
+import { changeParams, KIND_FINISH, kindIcon, isNumberOption, useInstanceLabel } from "./unitMeta"
 import {
   clearVideo,
   convertVideo,
@@ -56,10 +49,7 @@ import {
   type VideoFormat,
 } from "./videoLoops"
 
-const isBars = (v: string | null): v is `${VideoBars}` => VIDEO_BARS.some((b) => String(b) === v)
-
-const formatTime = (s: number) =>
-  `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}.${String(Math.floor((s % 1) * 10))}`
+const isBars = isNumberOption(VIDEO_BARS)
 
 /**
  * The trimmer, as in a video editor: a filmstrip of the whole file with two
@@ -153,21 +143,6 @@ function Trimmer({ id, start, end }: { id: string; start: number; end: number })
   )
 }
 
-/** The gate row: sixteen steps that let the loop's sound through or cut it. */
-function GateGrid({ id }: { id: string }) {
-  const track = useRackStore((s) => selectTrack(s, id))
-  const { toggleStep } = useRackStore.getState()
-  if (!track || !("rows" in track)) return null
-  const rows = VIDEO_VOICES.map((voice) => ({
-    id: voice,
-    label: VOICE_LABELS[voice] ?? voice,
-    steps: (track.rows as Record<string, readonly boolean[]>)[voice] ?? [],
-  }))
-  return (
-    <StepGrid rows={rows} onToggle={(voice: VideoVoiceId, step) => toggleStep(id, voice, step)} />
-  )
-}
-
 /**
  * VID-1: a video loop whose soundtrack is the instrument. The file lives in
  * the browser; the loop runs with the clock and starts over every N bars;
@@ -176,7 +151,7 @@ function GateGrid({ id }: { id: string }) {
  */
 export function VideoUnit({ id }: { id: string }) {
   const inst = useRackStore((s) => selectInstance(s, id)) as InstanceOf<"video"> | undefined
-  const label = useRackStore((s) => (inst ? instanceLabel(inst, s.instances) : ""))
+  const label = useInstanceLabel(inst)
   const fileInput = useRef<HTMLInputElement>(null)
   if (!inst) return null
   const p = inst.params
@@ -193,11 +168,7 @@ export function VideoUnit({ id }: { id: string }) {
       if (format) await convert(format, UPLOAD_HEIGHT, false)
       else toaster.create({ type: "success", title: "Video loaded", description: file.name })
     } catch (err) {
-      toaster.create({
-        type: "error",
-        title: "Could not load the video",
-        description: err instanceof Error ? err.message : String(err),
-      })
+      errorToast("Could not load the video", err)
     }
   }
   const clear = async () => {
@@ -233,7 +204,7 @@ export function VideoUnit({ id }: { id: string }) {
       toaster.update(toastId, {
         type: "error",
         title: "Could not convert",
-        description: err instanceof Error ? err.message : String(err),
+        description: errorText(err),
       })
     }
   }
@@ -263,10 +234,7 @@ export function VideoUnit({ id }: { id: string }) {
           flex="1 1 20rem"
           minW="0"
         >
-          <VStack gap="2" align="flex-start">
-            <Text textStyle="silkscreen" color="rack.silkscreen.muted">
-              Video
-            </Text>
+          <ControlGroup title="Video">
             <HStack gap="2" wrap="wrap">
               <Display tone="amber" minW="28">
                 {p.videoName ? p.videoName.replace(/\.[^.]+$/, "").slice(0, 16) : "— empty —"}
@@ -325,7 +293,7 @@ export function VideoUnit({ id }: { id: string }) {
                 bars
               </Text>
             </HStack>
-          </VStack>
+          </ControlGroup>
 
           <FilterControls
             type={p.filterType}

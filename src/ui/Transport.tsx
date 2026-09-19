@@ -3,14 +3,12 @@ import { Flex, HStack, Text, VStack } from "@chakra-ui/react"
 import { getEngine } from "../audio/engine"
 import { STEP_COUNT } from "../state/pattern"
 import { BPM_DEFAULT, BPM_MAX, BPM_MIN, MASTER_DEFAULT, useRackStore } from "../state/store"
+import { formatBpm, formatPercent } from "./format"
 import { Display } from "./Display"
 import { Knob } from "./Knob"
 import { Led } from "./Led"
 import { LevelMeter } from "./LevelMeter"
 import { RunButton } from "./RunButton"
-
-const formatBpm = (bpm: number) => `${bpm} BPM`
-const formatPercent = (level: number) => `${Math.round(level * 100)}%`
 
 const BEATS = Array.from({ length: STEP_COUNT / 4 }, (_, i) => i)
 

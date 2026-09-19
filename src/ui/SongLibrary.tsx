@@ -32,6 +32,7 @@ import {
 
 import { getEngine } from "../audio/engine"
 import { toaster } from "../components/ui/toaster"
+import { errorToast } from "./errors"
 import { serializeSong, type Song } from "../state/song"
 import {
   builtinKey,
@@ -49,6 +50,7 @@ import { exportSongAudio, type AudioFormat } from "./exportAudio"
 import { Cover } from "./Cover"
 import { COVER_GRID, songLength } from "./coverGrid"
 import { FolderMenuItems, FolderPicker, NEW_FOLDER } from "./FolderPicker"
+import { ChordChartButton } from "./ChordChartButton"
 import { LoadSongButton } from "./LoadSongButton"
 import { NewSongButton } from "./NewSongButton"
 import { playFolder, stopPlaylist, usePlaylistStore } from "./playlist"
@@ -80,11 +82,7 @@ async function playSong(key: string, getSong: () => Promise<Song>, name: string)
     await startTransport()
     toaster.create({ type: "info", title: "Playing", description: name })
   } catch (err) {
-    toaster.create({
-      type: "error",
-      title: "Could not play",
-      description: err instanceof Error ? err.message : String(err),
-    })
+    errorToast("Could not play", err)
   }
 }
 
@@ -157,22 +155,14 @@ export function SongCover({
     try {
       downloadJson(songFileName(name), serializeSong(await getSong()))
     } catch (err) {
-      toaster.create({
-        type: "error",
-        title: "Could not download",
-        description: err instanceof Error ? err.message : String(err),
-      })
+      errorToast("Could not download", err)
     }
   }
   const exportAudio = async (format: AudioFormat) => {
     try {
       await exportSongAudio(await getSong(), name, format)
     } catch (err) {
-      toaster.create({
-        type: "error",
-        title: "Could not export",
-        description: err instanceof Error ? err.message : String(err),
-      })
+      errorToast("Could not export", err)
     }
   }
   const act = (value: string) => {
@@ -578,6 +568,21 @@ export function SongsPanel() {
           From a file on this device
         </Text>
         <LoadSongButton onLoaded={setName} />
+      </HStack>
+
+      {/* A chord chart from the web: pasted, read as equivalences, put on the grids. */}
+      <HStack
+        gap="3"
+        pb="3"
+        mb="3"
+        align="center"
+        borderBottomWidth="1px"
+        borderColor="rack.panel.divider"
+      >
+        <Text textStyle="silkscreen" color="rack.silkscreen.muted" flex="1">
+          From a chord chart
+        </Text>
+        <ChordChartButton onImported={setName} />
       </HStack>
 
       {/* Start over: the rack as it opens the first time. */}
