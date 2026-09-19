@@ -920,7 +920,7 @@ function torreDeFerro() {
 }
 
 // ======================================================================
-// 4 · Marea — broken beat, 100 BPM, Mi mixolidi, two guitars
+// 4 · Marea — broken beat, 95 BPM, Mi mixolidi, two guitars
 // ======================================================================
 function marea() {
   // Rows (E mixolydian, octave 3): E3 F#3 G#3 A3 B3 C#4 D4 E4
@@ -1065,7 +1065,7 @@ function marea() {
   ]
 
   return song({
-    bpm: 100,
+    bpm: 95,
     swing: 0.12,
     fx: { delayTime: "8n", feedback: 0.35, reverbDecay: 5, pingPong: true, space: true },
     instances: [

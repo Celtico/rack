@@ -706,7 +706,7 @@ strict build order:
      macros on the acid bass, drive, swing. Parts are written as strings (`"x...x..."` for a kit row,
      `"0.2.4..."` for a note row of key-row indices, `"a...a."` + a chord table for a poly grid) so a
      part reads like a drum sheet. Nit de Festa (house, 120, La menor), Camí de Sorra (downtempo, 92, Re
-     dòric), Torre de Ferro (acid techno, 130, Fa menor), Marea (broken beat, 100, Mi mixolidi), and,
+     dòric), Torre de Ferro (acid techno, 130, Fa menor), Marea (broken beat, 95, Mi mixolidi), and,
      asked for later, Ferralla (heavy, 130, Mi menor: two driven STR-6s on power-chord riffs, chugs and
      gallops, double-kick chorus, a breakdown) and Carrer Mullat (hip hop, 85, Re menor, swing 0.28: boom
      bap, Dm7 / Gm7 / Bbmaj7 / Am7 on EP-1, a square sub, a MONO-1 hook), Cavalls de Ferro (speed rock, 140,
