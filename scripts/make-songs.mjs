@@ -426,7 +426,7 @@ function nitDeFesta() {
 }
 
 // ======================================================================
-// 2 · Camí de Sorra — downtempo, 92 BPM, Re dòric, swing
+// 2 · Camí de Sorra — downtempo, 88 BPM, Re dòric, swing
 // ======================================================================
 function camiDeSorra() {
   // Rows (D dorian, octave 3): D3 E3 F3 G3 A3 B3 C4 D4
@@ -558,7 +558,7 @@ function camiDeSorra() {
   ]
 
   return song({
-    bpm: 92,
+    bpm: 88,
     swing: 0.18,
     fx: { delayTime: "8n.", feedback: 0.45, reverbDecay: 4.5, pingPong: true, space: true },
     instances: [
