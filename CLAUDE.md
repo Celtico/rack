@@ -705,7 +705,7 @@ strict build order:
      with `space` on, ping-pong echo, LFOs on cutoff and pan, per-step random on level / cutoff / pitch,
      macros on the acid bass, drive, swing. Parts are written as strings (`"x...x..."` for a kit row,
      `"0.2.4..."` for a note row of key-row indices, `"a...a."` + a chord table for a poly grid) so a
-     part reads like a drum sheet. Nit de Festa (house, 124, La menor), Camí de Sorra (downtempo, 92, Re
+     part reads like a drum sheet. Nit de Festa (house, 120, La menor), Camí de Sorra (downtempo, 92, Re
      dòric), Torre de Ferro (acid techno, 138, Fa menor), Marea (broken beat, 100, Mi mixolidi), and,
      asked for later, Ferralla (heavy, 130, Mi menor: two driven STR-6s on power-chord riffs, chugs and
      gallops, double-kick chorus, a breakdown) and Carrer Mullat (hip hop, 85, Re menor, swing 0.28: boom

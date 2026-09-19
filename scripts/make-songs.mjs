@@ -141,7 +141,7 @@ const song = ({ bpm, swing = 0, master = 0.8, fx, instances, patterns, sections,
 const pattern = (tracks, muted) => ({ tracks, ...(muted?.length ? { muted } : {}) })
 
 // ======================================================================
-// 1 · Nit de Festa — house, 124 BPM, La menor
+// 1 · Nit de Festa — house, 120 BPM, La menor
 // ======================================================================
 function nitDeFesta() {
   // Rows (A minor, octave 3): A3 B3 C4 D4 E4 F4 G4 A4
@@ -283,7 +283,7 @@ function nitDeFesta() {
   ]
 
   return song({
-    bpm: 124,
+    bpm: 120,
     swing: 0.08,
     fx: { delayTime: "8n.", feedback: 0.38, reverbDecay: 2.8, pingPong: true },
     instances: [
