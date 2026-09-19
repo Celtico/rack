@@ -674,7 +674,7 @@ function camiDeSorra() {
 }
 
 // ======================================================================
-// 3 · Torre de Ferro — acid techno, 138 BPM, Fa menor, two BASS-2s
+// 3 · Torre de Ferro — acid techno, 130 BPM, Fa menor, two BASS-2s
 // ======================================================================
 function torreDeFerro() {
   const four = "x...x...x...x..."
@@ -783,7 +783,7 @@ function torreDeFerro() {
   ]
 
   return song({
-    bpm: 138,
+    bpm: 130,
     swing: 0.03,
     fx: { delayTime: "16n", feedback: 0.5, reverbDecay: 1.6, pingPong: true },
     instances: [
