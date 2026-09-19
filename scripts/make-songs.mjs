@@ -2009,7 +2009,7 @@ function cavallsDeFerro() {
 }
 
 // ======================================================================
-// 8 · Cambra 36 — boom bap, 93 BPM, Do# menor: a dusty piano loop, a sub, a dry snare
+// 8 · Cambra 36 — boom bap, 88 BPM, Do# menor: a dusty piano loop, a sub, a dry snare
 // ======================================================================
 function cambra36() {
   // Rows (C# minor, octave 3): C#3 D#3 E3 F#3 G#3 A3 B3 C#4 — the loop is a four-note motif, chopped.
@@ -2149,7 +2149,7 @@ function cambra36() {
   ]
 
   return song({
-    bpm: 93,
+    bpm: 88,
     swing: 0.16,
     fx: { delayTime: "8n.", feedback: 0.25, reverbDecay: 1.8 },
     places: {

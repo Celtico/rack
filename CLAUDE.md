@@ -711,7 +711,7 @@ strict build order:
      gallops, double-kick chorus, a breakdown) and Carrer Mullat (hip hop, 88, Re menor, swing 0.28: boom
      bap, Dm7 / Gm7 / Bbmaj7 / Am7 on EP-1, a square sub, a MONO-1 hook), Cavalls de Ferro (speed rock, 140,
      Mi blues: the BASS-2 is the rhythm guitar — sawtooth, filter open, drive 0.8, eighths — under two
-     driven STR-6s, a double-kick chorus, a solo, a stop) and Cambra 36 (boom bap, 93, Do# menor, swing
+     driven STR-6s, a double-kick chorus, a solo, a stop) and Cambra 36 (boom bap, 88, Do# menor, swing
      0.16: a chopped EP-1 loop through a dusty 3.2 kHz lowpass with drive, a sine MONO-1 motif as the
      "sample", a sub, a cracking dry snare) — all four in 3D (`song({ places })`
      in the generator puts machines at `[angle, distance]` and switches `fx.space` on). The song
