@@ -1,6 +1,5 @@
 import * as Tone from "tone"
 
-import type { SynthNote } from "../../state/pattern"
 import type { SynthParams } from "../../state/store"
 import { transposeNote, type ModHooks } from "../types"
 import { fatOscillator } from "./oscillators"
@@ -40,7 +39,7 @@ export class MonoVoice implements ModHooks {
     }).connect(output)
   }
 
-  trigger(note: SynthNote, time: number): void {
+  trigger(note: string, time: number): void {
     this.synth.triggerAttackRelease(transposeNote(note, this.tune), "16n", time)
   }
 

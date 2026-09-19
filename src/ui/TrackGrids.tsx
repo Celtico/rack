@@ -1,14 +1,6 @@
-import {
-  BASS_NOTES,
-  DRUM_VOICES,
-  PERC_VOICES,
-  SYNTH_NOTES,
-  type BassFlag,
-  type BassNote,
-  type KitRows,
-  type SynthNote,
-} from "../state/pattern"
-import { selectTrack, useRackStore } from "../state/store"
+import { solfege } from "../state/key"
+import { DRUM_VOICES, PERC_VOICES, rowNotes, type BassFlag, type KitRows } from "../state/pattern"
+import { selectInstance, selectTrack, useRackStore } from "../state/store"
 import { StepGrid } from "./StepGrid"
 import { VOICE_LABELS } from "./unitMeta"
 
@@ -35,48 +27,54 @@ export function KitGrid({ id }: { id: string }) {
   return <StepGrid rows={gridRows} onToggle={(voice, step) => toggleStep(id, voice, step)} />
 }
 
-/** Highest note on top, like a piano roll. */
-const SYNTH_ROWS = [...SYNTH_NOTES].reverse()
-
-/** MONO-1: one note per column on an 8-row grid. */
+/**
+ * MONO-1: one note per column on an 8-row grid. The rows are the machine's
+ * key's notes (or its fixed ones without a key), highest on top like a piano
+ * roll, labelled as a score reads them.
+ */
 export function SynthGrid({ id }: { id: string }) {
   const track = useRackStore((s) => selectTrack(s, id))
+  const key = useRackStore((s) => selectInstance(s, id)?.key)
   const { toggleNote } = useRackStore.getState()
   if (track?.kind !== "synth") return null
-  const rows = SYNTH_ROWS.map((note) => {
-    const rowIndex = SYNTH_NOTES.indexOf(note)
-    return { id: note, label: note, steps: track.notes.map((r) => r === rowIndex) }
-  })
+  const names = rowNotes("synth", key)
+  const rows = [...names]
+    .map((note, rowIndex) => ({
+      id: note,
+      label: solfege(note),
+      steps: track.notes.map((r) => r === rowIndex),
+    }))
+    .reverse()
   return (
-    <StepGrid
-      rows={rows}
-      onToggle={(note: SynthNote, step) => toggleNote(id, step, SYNTH_NOTES.indexOf(note))}
-    />
+    <StepGrid rows={rows} onToggle={(note, step) => toggleNote(id, step, names.indexOf(note))} />
   )
 }
 
 /** Highest note on top, then the two flag rows. */
-const BASS_ROWS = [...BASS_NOTES].reverse()
-type BassRowId = BassNote | BassFlag
-const isFlag = (id: BassRowId): id is BassFlag => id === "accent" || id === "slide"
+const isFlag = (id: string): id is BassFlag => id === "accent" || id === "slide"
 
 /** BASS-2: one note per column, plus accent and slide per step. */
 export function BassGrid({ id }: { id: string }) {
   const track = useRackStore((s) => selectTrack(s, id))
+  const key = useRackStore((s) => selectInstance(s, id)?.key)
   const { toggleNote, toggleFlag } = useRackStore.getState()
   if (track?.kind !== "bass") return null
   const bass = track.bass
+  const names = rowNotes("bass", key)
   const rows = [
-    ...BASS_ROWS.map((note) => {
-      const rowIndex = BASS_NOTES.indexOf(note)
-      return { id: note as BassRowId, label: note, steps: bass.notes.map((r) => r === rowIndex) }
-    }),
-    { id: "accent" as BassRowId, label: "Accent", steps: bass.accent },
-    { id: "slide" as BassRowId, label: "Slide", steps: bass.slide },
+    ...[...names]
+      .map((note, rowIndex) => ({
+        id: note,
+        label: solfege(note),
+        steps: bass.notes.map((r) => r === rowIndex),
+      }))
+      .reverse(),
+    { id: "accent", label: "Accent", steps: bass.accent },
+    { id: "slide", label: "Slide", steps: bass.slide },
   ]
-  const onToggle = (row: BassRowId, step: number) => {
+  const onToggle = (row: string, step: number) => {
     if (isFlag(row)) toggleFlag(id, step, row)
-    else toggleNote(id, step, BASS_NOTES.indexOf(row))
+    else toggleNote(id, step, names.indexOf(row))
   }
   return <StepGrid rows={rows} onToggle={onToggle} />
 }

@@ -2,7 +2,7 @@ import * as Tone from "tone"
 
 import type { Instance, KindParams } from "../state/instances"
 import { modSwing, type ModParams, type ModTarget } from "../state/mod"
-import { PAD_IDS, type Kind, type PadId } from "../state/pattern"
+import { isMelodicKind, PAD_IDS, rowNotes, type Kind, type PadId } from "../state/pattern"
 import { resolvePlayingPattern } from "../state/patterns"
 import {
   useRackStore,
@@ -227,6 +227,10 @@ export class AudioEngine {
         return resolvePlayingPattern(s.patterns, s.activePattern, s.followSong ? s.chain : [], bar)
       },
       getSwing: () => this.source.getState().swing,
+      rowsOf: (id) => {
+        const inst = this.source.getState().instances.find((i) => i.id === id)
+        return inst && isMelodicKind(inst.kind) ? rowNotes(inst.kind, inst.key) : undefined
+      },
       sixteenthSeconds: () => this.transport.toSeconds("16n"),
       onTick: (time) => this.stepMod(time),
       trigger: (id, voice, time) => this.hit(id, voice, time),

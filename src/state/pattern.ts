@@ -1,3 +1,5 @@
+import { keyRows, type KeyParams } from "./key"
+
 export const STEP_COUNT = 16
 
 /** Kinds of machine. Every instance in the rack is one of these. */
@@ -63,6 +65,33 @@ export const POLY_NOTES: Readonly<Record<PolyKind, readonly string[]>> = {
   poly: ["C3", "D3", "E3", "G3", "A3", "C4", "D4", "E4"],
   ep: ["C3", "E3", "G3", "B3", "D4", "E4", "G4", "B4"],
   strings: ["E2", "G2", "A2", "B2", "D3", "E3", "G3", "B3"],
+}
+
+/** The kinds whose rows are notes — the ones a key can re-pitch. */
+export const MELODIC_KINDS = ["synth", "bass", "poly", "ep", "strings"] as const
+export type MelodicKind = (typeof MELODIC_KINDS)[number]
+export const isMelodicKind = (kind: Kind): kind is MelodicKind =>
+  (MELODIC_KINDS as readonly string[]).includes(kind)
+
+/** The fixed rows a melodic kind had before keys — what a machine without a key still plays. */
+export const LEGACY_ROWS: Readonly<Record<MelodicKind, readonly string[]>> = {
+  synth: SYNTH_NOTES,
+  bass: BASS_NOTES,
+  ...POLY_NOTES,
+}
+
+/** The key each kind's fixed rows are closest to — where its key selector starts. */
+export const KEY_DEFAULT: Readonly<Record<MelodicKind, KeyParams>> = {
+  synth: { root: 0, scale: "minor", octave: 2 },
+  bass: { root: 4, scale: "minorPentatonic", octave: 1 },
+  poly: { root: 0, scale: "majorPentatonic", octave: 3 },
+  ep: { root: 0, scale: "major", octave: 3 },
+  strings: { root: 4, scale: "minorPentatonic", octave: 2 },
+}
+
+/** The note names of a melodic machine's rows, low to high: its key's, or the fixed ones without a key. */
+export function rowNotes(kind: MelodicKind, key: KeyParams | undefined): readonly string[] {
+  return key ? keyRows(key) : LEGACY_ROWS[kind]
 }
 
 export type StepRow = readonly boolean[]
@@ -350,28 +379,39 @@ export function hitsAt(track: KitTrack, step: number): string[] {
   return KIT_VOICES[track.kind].filter((voice) => rows[voice]?.[step] === true)
 }
 
-/** The MONO-1 note name sounding at a step, or null for a rest. */
-export function synthNoteAt(notes: SynthRow, step: number): SynthNote | null {
+/** The MONO-1 note name sounding at a step, or null for a rest. `rows` is the machine's key's rows. */
+export function synthNoteAt(
+  notes: SynthRow,
+  step: number,
+  rows: readonly string[] = SYNTH_NOTES,
+): string | null {
   const rowIndex = notes[step]
   if (rowIndex === null || rowIndex === undefined) return null
-  return SYNTH_NOTES[rowIndex] ?? null
+  return rows[rowIndex] ?? null
 }
 
 /** The note names a polyphonic track plays at a step — empty for a rest. */
-export function polyNotesAt(track: PolyTrack, step: number): string[] {
-  const names = POLY_NOTES[track.kind]
-  return (track.chords[step] ?? []).flatMap((r) => names[r] ?? [])
+export function polyNotesAt(
+  track: PolyTrack,
+  step: number,
+  rows: readonly string[] = POLY_NOTES[track.kind],
+): string[] {
+  return (track.chords[step] ?? []).flatMap((r) => rows[r] ?? [])
 }
 
 /** What BASS-2 does at a step — sent every step so a held slide can be released on a rest. */
 export interface BassStepEvent {
-  note: BassNote | null
+  note: string | null
   accent: boolean
   slide: boolean
 }
 
-export function bassEventAt(bass: BassRow, step: number): BassStepEvent {
+export function bassEventAt(
+  bass: BassRow,
+  step: number,
+  rows: readonly string[] = BASS_NOTES,
+): BassStepEvent {
   const rowIndex = bass.notes[step]
-  const note = rowIndex === null || rowIndex === undefined ? null : (BASS_NOTES[rowIndex] ?? null)
+  const note = rowIndex === null || rowIndex === undefined ? null : (rows[rowIndex] ?? null)
   return { note, accent: bass.accent[step] === true, slide: bass.slide[step] === true }
 }

@@ -10,7 +10,6 @@ import {
   synthNoteAt,
   type BassStepEvent,
   type Pattern,
-  type SynthNote,
 } from "../state/pattern"
 import type { PlayingPattern } from "../state/patterns"
 
@@ -52,7 +51,12 @@ export interface SchedulerDeps {
   /** Sound one voice of a kit instance at the audio-clock time given by the transport callback. */
   trigger: (id: string, voice: string, time: number) => void
   /** Sound a MONO-1 instance. */
-  triggerNote: (id: string, note: SynthNote, time: number) => void
+  triggerNote: (id: string, note: string, time: number) => void
+  /**
+   * The note names of a melodic machine's rows, low to high — its key's. Read fresh each tick, like
+   * the pattern. Absent (or `undefined` for an id): the kind's fixed rows.
+   */
+  rowsOf?: (id: string) => readonly string[] | undefined
   /** Drive a BASS-2 instance — every step, rests included, so slides can release. */
   triggerBass: (id: string, event: BassStepEvent, time: number, stepSeconds: number) => void
   /** Sound a chord on a polyphonic instance. Only called when there are notes. */
@@ -133,17 +137,22 @@ export class Scheduler {
           this.deps.triggerGate(id, hitsAt(track, step).length > 0, at, bar, step)
           break
         case "synth": {
-          const note = synthNoteAt(track.notes, step)
+          const note = synthNoteAt(track.notes, step, this.deps.rowsOf?.(id))
           if (note) this.deps.triggerNote(id, note, at)
           break
         }
         case "bass":
-          this.deps.triggerBass(id, bassEventAt(track.bass, step), at, sixteenth)
+          this.deps.triggerBass(
+            id,
+            bassEventAt(track.bass, step, this.deps.rowsOf?.(id)),
+            at,
+            sixteenth,
+          )
           break
         case "poly":
         case "ep":
         case "strings": {
-          const notes = polyNotesAt(track, step)
+          const notes = polyNotesAt(track, step, this.deps.rowsOf?.(id))
           if (notes.length) this.deps.triggerPoly(id, notes, at)
           break
         }

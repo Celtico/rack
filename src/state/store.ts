@@ -2,6 +2,7 @@ import { create } from "zustand"
 
 import {
   clampFilter,
+  clampInstanceKey,
   clampParams,
   clampSpace,
   createInstance,
@@ -22,8 +23,11 @@ import {
   PAN_RANGE,
 } from "./params"
 import { FILTER_DEFAULT, type FilterParams, type FxParams, type SpaceParams } from "./params"
+import { clampKey, type KeyParams } from "./key"
 import {
   emptyTrack,
+  isMelodicKind,
+  KEY_DEFAULT,
   toggleBassFlag,
   toggleKitStep,
   togglePartMute,
@@ -206,6 +210,12 @@ export interface RackState {
   setInstanceSpace: (id: string, patch: Partial<SpaceParams>) => void
   setInstanceMute: (id: string, mute: boolean) => void
   setInstanceSolo: (id: string, solo: boolean) => void
+  /**
+   * Change part of a melodic machine's key (root, scale, octave): its rows become that key's notes,
+   * every lit cell now sounding the new note of its row. A machine still on its fixed rows starts
+   * from `KEY_DEFAULT`. Nothing happens on a kind without notes.
+   */
+  setInstanceKey: (id: string, patch: Partial<KeyParams>) => void
   /** Change part of a strip filter; nothing happens on a kind whose filter is in its params. */
   setInstanceFilter: (id: string, patch: Partial<FilterParams>) => void
   /** Tune and drive. */
@@ -319,9 +329,10 @@ const clampFx = (fx: FxParams): FxParams => ({
  * before the strip filter and the modulation block existed come back as plain
  * objects (not through `parseSong`), so whatever they lack gets its default.
  */
-const clampInstance = (inst: Instance): Instance =>
+const clampInstance = ({ key, ...inst }: Instance): Instance =>
   ({
     ...inst,
+    ...withKey(clampInstanceKey(inst.kind, key)),
     params: clampParams(inst.kind, inst.params as never),
     level: clamp(inst.level, 0, 1),
     send: clamp(inst.send, 0, 1),
@@ -333,6 +344,10 @@ const clampInstance = (inst: Instance): Instance =>
       : {}),
     mod: clampMod(mergeMod(inst.mod)),
   }) as Instance
+
+/** `{ key }` when there is one — a machine without a key keeps the field out, not `undefined`. */
+const withKey = (key: KeyParams | undefined): { key?: KeyParams } =>
+  key ? { key: { ...key } } : {}
 
 /** A modulation block with every missing piece filled in from the default. */
 const mergeMod = (mod: Partial<ModParams> | undefined): ModParams => {
@@ -720,7 +735,9 @@ export const useRackStore = create<RackState>()((set, get) => ({
     set({
       ...remember(state),
       instances: state.instances.map((i) =>
-        i.id === to ? ({ ...i, params: structuredClone(source.params) } as Instance) : i,
+        i.id === to
+          ? ({ ...i, params: structuredClone(source.params), ...withKey(source.key) } as Instance)
+          : i,
       ),
       patterns: state.patterns.map((p) => {
         const track = p.tracks[from]
@@ -742,6 +759,7 @@ export const useRackStore = create<RackState>()((set, get) => ({
       mute: source.mute,
       pan: source.pan,
       space: { ...source.space },
+      ...withKey(source.key),
     } as Instance
     const instances = [...state.instances]
     instances.splice(index + 1, 0, inst)
@@ -878,6 +896,16 @@ export const useRackStore = create<RackState>()((set, get) => ({
       ...remember(state),
       ...editInstance(state, id, (i) => ({ ...i, mute })),
     })),
+  setInstanceKey: (id, patch) =>
+    set((state) => {
+      const inst = state.instances.find((i) => i.id === id)
+      if (!inst || !isMelodicKind(inst.kind)) return state
+      const base = inst.key ?? KEY_DEFAULT[inst.kind]
+      return {
+        ...remember(state, `key:${id}:${Object.keys(patch).sort().join(",")}`),
+        ...editInstance(state, id, (i) => ({ ...i, key: clampKey({ ...base, ...patch }, base) })),
+      }
+    }),
   setInstanceFilter: (id, patch) =>
     set((state) => {
       const inst = state.instances.find((i) => i.id === id)
@@ -1042,6 +1070,7 @@ export function toSong(state: RackState): Song {
           space: { ...i.space },
           ...(i.filter ? { filter: { ...i.filter } } : {}),
           mod: structuredClone(i.mod),
+          ...withKey(i.key),
         }) as Instance,
     ),
     patterns: state.patterns.map((p) => ({

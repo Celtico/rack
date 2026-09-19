@@ -648,6 +648,23 @@ strict build order:
      it falls back to `RACK_VERSION` / `RACK_COMMIT` from the environment, else "dev". The same `version`
      and `commit` go into the PWA manifest as informational (non-standard) fields. The Docker build
      installs git and `.dockerignore` no longer drops `.git` (34 MB), so the container shows the real number.
+   - ✅ Extra — **keys**: a melodic machine's eight rows are the notes of a key. `src/state/key.ts` (pure):
+     `KeyParams { root 0–11, scale, octave }`, `SCALES` (major, minor, harmonic minor, dorian,
+     mixolydian, both pentatonics, blues), `keyRows(key)` (the scale's degrees from the root at the
+     octave, carrying into the next octave), `clampKey`, `solfege("Eb2") → "Mib2"`. `Instance.key?` on
+     `MELODIC_KINDS` (`isMelodicKind` in `pattern.ts`) — **absent means the fixed rows from before**
+     (`LEGACY_ROWS` = `SYNTH_NOTES` / `BASS_NOTES` / `POLY_NOTES`), so older songs sound as they did;
+     `KEY_DEFAULT[kind]` is the key each kind's fixed rows are closest to (exact for synth, bass and
+     poly; ep/strings differ) and where the selector starts. `rowNotes(kind, key)` is the one place rows
+     come from: the grids (`SynthGrid` / `BassGrid` / `PolyGrid`, labels in solfège, row ids the note
+     names) and the scheduler, whose `rowsOf?(id)` dep the engine answers from the store per tick
+     (`synthNoteAt` / `bassEventAt` / `polyNotesAt` take the rows as a third argument). Store
+     `setInstanceKey(id, patch)` (history key `key:<id>:<keys>`, no-op on a kit), saved in the song
+     (`clampInstanceKey` in `instances.ts`: nonsense → no key, a key on a kit is dropped), copied by
+     duplicate / Copy to. UI `KeyControls` (`src/ui/KeyControls.tsx`): a "Key" group of three
+     `NativeSelect`s (root as "Fa · F", scale, "Oct n") first in the controls row of MONO-1, BASS-2 and
+     the poly units. The tracks keep row indices, so a change of key re-pitches every lit cell. A
+     free-text "Notes" fold per module was built the same day and taken out at the user's request.
    - ✅ Extra — the toolbar's add button is labelled **"Modules"** (rack icon + "Modules", beside "Songs";
      it was "Add" and before that "Add unit"); the panel it opens is titled "Modules" too. Ids, files and
      store names keep `add` / `AddUnit`.

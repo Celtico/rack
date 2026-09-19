@@ -15,6 +15,7 @@ import {
 import { FilterControls, StripFilterControls } from "./FilterControls"
 import { Knob } from "./Knob"
 import { ModPanel } from "./ModPanel"
+import { KeyControls } from "./KeyControls"
 import { PolyGrid } from "./PolyGrid"
 import { PartTools } from "./PartTools"
 import { RackUnit } from "./RackUnit"
@@ -241,6 +242,7 @@ export function PolyUnit({ id }: { id: string }) {
           flex="1 1 20rem"
           minW="0"
         >
+          <KeyControls id={id} kind={inst.kind} />
           {inst.kind === "poly" && <PadControls id={id} inst={inst} />}
           {inst.kind === "ep" && <PianoControls id={id} inst={inst} />}
           {inst.kind === "strings" && <GuitarControls id={id} inst={inst} />}

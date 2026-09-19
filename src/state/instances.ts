@@ -36,8 +36,18 @@ import {
   VIDEO_PARAMS_DEFAULT,
   VIDEO_RANGES,
 } from "./params"
+import { clampKey, type KeyParams } from "./key"
 import { clampMod, defaultMod, type ModParams } from "./mod"
-import { KINDS, PAD_IDS, type Kind, type PadId } from "./pattern"
+import { isMelodicKind, KEY_DEFAULT, KINDS, PAD_IDS, type Kind, type PadId } from "./pattern"
+
+/**
+ * A machine's key pulled into range, or nothing: a key on a kind without notes is dropped, and
+ * so is a missing one (the machine keeps its fixed rows).
+ */
+export function clampInstanceKey(kind: Kind, key: unknown): KeyParams | undefined {
+  if (!isMelodicKind(kind) || typeof key !== "object" || key === null) return undefined
+  return clampKey(key as Partial<KeyParams>, KEY_DEFAULT[kind])
+}
 
 /** The parameter object of each kind. */
 export interface KindParams {
@@ -70,6 +80,11 @@ export type Instance = {
     filter?: FilterParams
     /** Tuning, drive, LFOs, random and macros — every kind. */
     mod: ModParams
+    /**
+     * The key whose notes the grid rows are (melodic kinds only, `isMelodicKind`). Absent: the
+     * kind's fixed rows from before keys, so older songs sound as they did.
+     */
+    key?: KeyParams
   }
 }[Kind]
 

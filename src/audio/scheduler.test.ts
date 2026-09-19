@@ -252,6 +252,36 @@ describe("Scheduler", () => {
     ])
   })
 
+  it("sounds the rows a machine's key gives it, read per tick, and the fixed ones without", () => {
+    let pattern = empty()
+    pattern = note(pattern, "synth-1", 0, 0)
+    pattern = note(pattern, "synth-1", 1, 7)
+    const triggerNote = vi.fn()
+    let rows: readonly string[] | undefined = ["F3", "G3", "Ab3", "Bb3", "C4", "Db4", "Eb4", "F4"]
+    const scheduler = new Scheduler({
+      getPattern: () => ({ index: 0, pattern }),
+      getSwing: () => 0,
+      sixteenthSeconds: () => SIXTEENTH,
+      rowsOf: (id) => (id === "synth-1" ? rows : undefined),
+      trigger: vi.fn(),
+      triggerNote,
+      triggerBass: vi.fn(),
+      triggerPoly: vi.fn(),
+      triggerGate: vi.fn(),
+    })
+    scheduler.start()
+    const seq = fake.sequences[0]!
+    seq.callback(0, 0)
+    seq.callback(0.125, 1)
+    rows = undefined
+    seq.callback(0.25, 0)
+    expect(triggerNote.mock.calls).toEqual([
+      ["synth-1", "F3", 0],
+      ["synth-1", "F4", 0.125],
+      ["synth-1", "C2", 0.25],
+    ])
+  })
+
   it("swings off-beat steps late, for sound and playhead alike, reading the amount per tick", () => {
     let pattern = empty()
     pattern = hit(pattern, "drums-1", "hat", 0)

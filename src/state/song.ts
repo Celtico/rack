@@ -1,4 +1,4 @@
-import { defaultParams, hasStripFilter, type Instance } from "./instances"
+import { clampInstanceKey, defaultParams, hasStripFilter, type Instance } from "./instances"
 import {
   defaultMod,
   LFO_SHAPES,
@@ -310,6 +310,8 @@ function parseInstance(v: unknown, path: string): Instance {
   const obj = record(v, path)
   const alias = typeof obj.kind === "string" ? KIND_ALIASES[obj.kind.toLowerCase()] : undefined
   const kind = alias ?? oneOf(obj.kind, `${path}.kind`, KINDS)
+  // A key is optional and lenient: out of range is pulled in, a nonsense one is no key (the fixed rows).
+  const key = clampInstanceKey(kind, obj.key)
   return {
     id: str(obj.id, `${path}.id`),
     kind,
@@ -322,6 +324,7 @@ function parseInstance(v: unknown, path: string): Instance {
     space: parseSpace(obj.space, `${path}.space`),
     ...(hasStripFilter(kind) ? { filter: parseFilter(obj.filter, `${path}.filter`) } : {}),
     mod: parseMod(obj.mod, `${path}.mod`),
+    ...(key ? { key } : {}),
   } as Instance
 }
 

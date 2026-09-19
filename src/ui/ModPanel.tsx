@@ -270,10 +270,13 @@ function MacroBlock({ id, inst, index }: { id: string; inst: Instance; index: nu
  */
 function PanelFold({
   title,
+  hint,
   first,
   children,
 }: {
   title: string
+  /** A muted glimpse of what is inside, printed after the title while the fold is closed. */
+  hint?: string
   first?: boolean
   children: ReactNode
 }) {
@@ -308,7 +311,23 @@ function PanelFold({
           aria-expanded={open}
         >
           {title}
-          <chakra.span ml="auto">{open ? <LuChevronUp /> : <LuChevronDown />}</chakra.span>
+          {hint && !open && (
+            <chakra.span
+              textTransform="none"
+              letterSpacing="normal"
+              fontWeight="normal"
+              opacity={0.7}
+              minW="0"
+              overflow="hidden"
+              textOverflow="ellipsis"
+              whiteSpace="nowrap"
+            >
+              {hint}
+            </chakra.span>
+          )}
+          <chakra.span ml="auto" flexShrink={0}>
+            {open ? <LuChevronUp /> : <LuChevronDown />}
+          </chakra.span>
         </chakra.button>
       </Collapsible.Trigger>
       <Collapsible.Content>

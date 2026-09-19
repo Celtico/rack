@@ -147,6 +147,28 @@ describe("song save/load", () => {
     expect(parsed.fx).toMatchObject({ pingPong: false, space: false })
   })
 
+  it("keeps a machine's key, leaves it out when there is none and drops a nonsense one", () => {
+    const store = useRackStore.getState()
+    store.setInstanceKey("bass-1", { root: 9, scale: "blues", octave: 1 })
+    const text = serializeSong(toSong(useRackStore.getState()))
+    const song = parseSong(text)
+    expect(instOf<"bass">(song, "bass-1").key).toEqual({ root: 9, scale: "blues", octave: 1 })
+    expect("key" in instOf<"synth">(song, "synth-1")).toBe(false)
+
+    const raw = JSON.parse(text) as { instances: Record<string, unknown>[] }
+    raw.instances.find((i) => i.id === "bass-1")!.key = { root: 40, scale: "whatever", octave: 2 }
+    raw.instances.find((i) => i.id === "synth-1")!.key = "F minor"
+    raw.instances.find((i) => i.id === "drums-1")!.key = { root: 0, scale: "major", octave: 3 }
+    const parsed = parseSong(JSON.stringify(raw))
+    expect(instOf<"bass">(parsed, "bass-1").key).toEqual({
+      root: 11,
+      scale: "minorPentatonic",
+      octave: 2,
+    })
+    expect(instOf<"synth">(parsed, "synth-1").key).toBeUndefined()
+    expect(instOf<"drums">(parsed, "drums-1").key).toBeUndefined()
+  })
+
   it("keeps swing through a round-trip and defaults it when the file lacks it", () => {
     useRackStore.getState().setSwing(0.6)
     const song = parseSong(serializeSong(toSong(useRackStore.getState())))

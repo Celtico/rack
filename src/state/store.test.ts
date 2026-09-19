@@ -152,6 +152,23 @@ describe("rack store", () => {
     expect(back.space.angle).toBe(0)
   })
 
+  it("gives a melodic machine a key from its default, in range, and none to a kit", () => {
+    const store = useRackStore.getState()
+    const keyOf = (id: string) => useRackStore.getState().instances.find((i) => i.id === id)!.key
+    expect(keyOf("synth-1")).toBeUndefined()
+    store.setInstanceKey("synth-1", { root: 5 })
+    expect(keyOf("synth-1")).toEqual({ root: 5, scale: "minor", octave: 2 })
+    store.setInstanceKey("synth-1", { scale: "major", octave: 9 })
+    expect(keyOf("synth-1")).toEqual({ root: 5, scale: "major", octave: 6 })
+    store.setInstanceKey("drums-1", { root: 5 })
+    expect(keyOf("drums-1")).toBeUndefined()
+    const dup = store.duplicateInstance("synth-1")!
+    expect(keyOf(dup.id)).toEqual({ root: 5, scale: "major", octave: 6 })
+    store.undo()
+    store.undo()
+    expect(keyOf("synth-1")).toEqual({ root: 5, scale: "minor", octave: 2 })
+  })
+
   it("clamps master volume to 0–1", () => {
     const { setMasterVolume } = useRackStore.getState()
     setMasterVolume(-1)

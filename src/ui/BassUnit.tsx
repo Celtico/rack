@@ -13,6 +13,7 @@ import { Knob } from "./Knob"
 import { ModPanel } from "./ModPanel"
 import { PartTools } from "./PartTools"
 import { RackUnit } from "./RackUnit"
+import { KeyControls } from "./KeyControls"
 import { BassGrid } from "./TrackGrids"
 import { WavePicker } from "./WavePicker"
 import {
@@ -55,6 +56,7 @@ export function BassUnit({ id }: { id: string }) {
           flex="1 1 20rem"
           minW="0"
         >
+          <KeyControls id={id} kind="bass" />
           <WavePicker
             value={params.waveform}
             options={BASS_WAVEFORMS}
