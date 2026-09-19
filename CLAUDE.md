@@ -707,7 +707,7 @@ strict build order:
      `"0.2.4..."` for a note row of key-row indices, `"a...a."` + a chord table for a poly grid) so a
      part reads like a drum sheet. Nit de Festa (house, 124, La menor), Camí de Sorra (downtempo, 92, Re
      dòric), Torre de Ferro (acid techno, 138, Fa menor), Marea (broken beat, 100, Mi mixolidi), and,
-     asked for later, Ferralla (heavy, 140, Mi menor: two driven STR-6s on power-chord riffs, chugs and
+     asked for later, Ferralla (heavy, 130, Mi menor: two driven STR-6s on power-chord riffs, chugs and
      gallops, double-kick chorus, a breakdown) and Carrer Mullat (hip hop, 88, Re menor, swing 0.28: boom
      bap, Dm7 / Gm7 / Bbmaj7 / Am7 on EP-1, a square sub, a MONO-1 hook), Cavalls de Ferro (speed rock, 140,
      Mi blues: the BASS-2 is the rhythm guitar — sawtooth, filter open, drive 0.8, eighths — under two

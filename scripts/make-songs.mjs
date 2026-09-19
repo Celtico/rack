@@ -1196,7 +1196,7 @@ function marea() {
 }
 
 // ======================================================================
-// 5 · Ferralla — heavy, 140 BPM, Mi menor, two driven guitars
+// 5 · Ferralla — heavy, 130 BPM, Mi menor, two driven guitars
 // ======================================================================
 function ferralla() {
   // Rows (E minor, octave 2): E2 F#2 G2 A2 B2 C3 D3 E3 — power chords are root + fifth (+ octave).
@@ -1375,7 +1375,7 @@ function ferralla() {
     )
 
   return song({
-    bpm: 140,
+    bpm: 130,
     swing: 0,
     fx: { delayTime: "8n", feedback: 0.2, reverbDecay: 1.4 },
     // Two guitars either side, the drums and the bass dead ahead, the lead a little to the right.
