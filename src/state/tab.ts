@@ -13,17 +13,29 @@ export interface TabNote {
   fret: number
 }
 
-/** One step of a tab: the notes struck together in that column. */
-export type TabColumn = TabNote[]
-
 const STRINGS_PER_SYSTEM = 6
+export const STEPS_PER_PATTERN = 16
 /** A tab line: an optional string name, a bar, then dashes, digits and the odd symbol. */
 const TAB_LINE = /^\s*[eEBGDAa]?\s*\|?([-0-9|hp/\\~xbrs^() ]*)\|?\s*$/
 const MIDI_OF_STRING = [40, 45, 50, 55, 59, 64] as const
 
+/** One step of a tab: the notes struck together in that column, and when. */
+export interface TabColumn extends Array<TabNote> {
+  /** The sixteenth the column falls on, counted from the tab's first note across bars and systems. */
+  step: number
+}
+
+const column = (notes: TabNote[], step: number): TabColumn => Object.assign(notes, { step })
+
 /**
  * Read a tab. Lines are grouped six at a time (a system); systems follow one
  * another in time. Line order within a system is top = thin E, as written.
+ *
+ * Time: a tab's bar lines (`|` inside the body) split it into bars, and a
+ * bar's characters are spread over sixteen steps, so "|-2---1---|" is
+ * two notes an eighth apart, not two sixteenths. When that would land two
+ * struck columns on the same step — a tab written wider than a bar, with no
+ * inner bar lines — the columns go one step each instead, as they read.
  */
 export function parseTab(text: string): TabColumn[] {
   const lines = text
@@ -31,21 +43,54 @@ export function parseTab(text: string): TabColumn[] {
     .map((l) => l.replace(/\s+$/, ""))
     .filter((l) => /[-]{2,}/.test(l) && TAB_LINE.test(l))
   const columns: TabColumn[] = []
+  let base = 0
   for (let start = 0; start + STRINGS_PER_SYSTEM <= lines.length; start += STRINGS_PER_SYSTEM) {
     const system = lines.slice(start, start + STRINGS_PER_SYSTEM).map(bodyOf)
     const width = Math.max(...system.map((l) => l.length))
+    // The struck columns of this system, by character position.
+    const struck: { x: number; notes: TabNote[] }[] = []
     for (let x = 0; x < width; x++) {
-      const column: TabColumn = []
+      const notes: TabNote[] = []
       system.forEach((line, i) => {
         const c = line[x]
         // The first digit of a number counts; the second is read with it and skipped.
         if (c === undefined || !/\d/.test(c) || (x > 0 && /\d/.test(line[x - 1]!))) return
         const two = line[x + 1] !== undefined && /\d/.test(line[x + 1]!) ? line.slice(x, x + 2) : c
         const fret = Number(two)
-        if (fret <= 24) column.push({ string: STRINGS_PER_SYSTEM - 1 - i, fret })
+        if (fret <= 24) notes.push({ string: STRINGS_PER_SYSTEM - 1 - i, fret })
       })
-      if (column.length > 0) columns.push(column)
+      if (notes.length > 0) struck.push({ x, notes })
     }
+    if (struck.length === 0) continue
+    // Bars: the body between bar lines, taken from the longest line. A bar with nothing in it
+    // (the trailing one after a closing "|") does not count.
+    const longest = system.reduce((a, b) => (b.length > a.length ? b : a), "")
+    const bars: { from: number; to: number }[] = []
+    let from = 0
+    for (let x = 0; x <= longest.length; x++)
+      if (x === longest.length || longest[x] === "|") {
+        if (x > from) bars.push({ from, to: x })
+        from = x + 1
+      }
+    const firstNote = struck[0]!.x
+    const timed = struck.map(({ x, notes }) => {
+      const bar = Math.max(
+        0,
+        bars.findIndex((b) => x >= b.from && x < b.to),
+      )
+      const { from: barFrom, to } = bars[bar] ?? { from: 0, to: width }
+      // The first note of the tab starts its bar: what precedes it is the writer's margin.
+      const lead = bar === 0 ? Math.max(0, firstNote - barFrom) : 0
+      const span = Math.max(1, to - barFrom - lead)
+      const step =
+        bar * STEPS_PER_PATTERN + Math.floor(((x - barFrom - lead) * STEPS_PER_PATTERN) / span)
+      return { step, notes }
+    })
+    const collides = timed.some((t, i) => i > 0 && t.step <= timed[i - 1]!.step)
+    const placed = collides ? struck.map(({ notes }, i) => ({ step: i, notes })) : timed
+    for (const { step, notes } of placed) columns.push(column(notes, base + step))
+    const last = placed[placed.length - 1]!.step
+    base += (Math.floor(last / STEPS_PER_PATTERN) + 1) * STEPS_PER_PATTERN
   }
   return columns
 }
@@ -125,27 +170,25 @@ export function pickKeyForPitches(
 export const pickKeyFor = (columns: readonly TabColumn[]): TabKeyChoice =>
   pickKeyForPitches(columns.flat().map(tabMidi))
 
-export const STEPS_PER_PATTERN = 16
-
 /**
- * The tab as poly-grid patterns for a key: one step per column, the rows of
- * its notes (those the key has), sixteen steps a pattern, as many patterns as
- * the tab is long. Empty columns never occur (a column is a struck one).
+ * The tab as poly-grid patterns for a key: every column at its step (the
+ * rows of its notes, those the key has), sixteen steps a pattern, as many
+ * patterns as the tab is long.
  */
 export function tabToPatterns(columns: readonly TabColumn[], key: KeyParams): number[][][] {
   const rowOf = new Map(keyRows(key).map((name, row) => [midiOfName(name), row]))
-  const steps = columns.map((column) =>
-    [
-      ...new Set(
-        column.map((n) => rowOf.get(tabMidi(n))).filter((r): r is number => r !== undefined),
-      ),
-    ].sort((a, b) => a - b),
+  const last = columns.length > 0 ? columns[columns.length - 1]!.step : 0
+  const patterns: number[][][] = Array.from(
+    { length: Math.floor(last / STEPS_PER_PATTERN) + 1 },
+    () => Array.from({ length: STEPS_PER_PATTERN }, () => [] as number[]),
   )
-  const patterns: number[][][] = []
-  for (let i = 0; i < steps.length; i += STEPS_PER_PATTERN) {
-    const chunk = steps.slice(i, i + STEPS_PER_PATTERN)
-    while (chunk.length < STEPS_PER_PATTERN) chunk.push([])
-    patterns.push(chunk)
+  for (const col of columns) {
+    const rows = [
+      ...new Set(col.map((n) => rowOf.get(tabMidi(n))).filter((r): r is number => r !== undefined)),
+    ].sort((a, b) => a - b)
+    const pattern = patterns[Math.floor(col.step / STEPS_PER_PATTERN)]!
+    const step = col.step % STEPS_PER_PATTERN
+    pattern[step] = [...new Set([...pattern[step]!, ...rows])].sort((a, b) => a - b)
   }
   return patterns
 }

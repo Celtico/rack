@@ -15,6 +15,7 @@ import { Knob } from "./Knob"
 import { ModPanel } from "./ModPanel"
 import { PartTools } from "./PartTools"
 import { RackUnit } from "./RackUnit"
+import { TabDialog } from "./TabDialog"
 import { KeyControls } from "./KeyControls"
 import { BassGrid } from "./TrackGrids"
 import { WavePicker } from "./WavePicker"
@@ -144,6 +145,9 @@ export function BassUnit({ id }: { id: string }) {
             </HStack>
           </ControlGroup>
           <PartTools id={id} kind="bass" />
+          <ControlGroup title="Tab">
+            <TabDialog id={id} label={label} onWritten={() => {}} />
+          </ControlGroup>
         </Flex>
       </Flex>
       <ModPanel id={id} />

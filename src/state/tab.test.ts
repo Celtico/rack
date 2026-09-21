@@ -15,11 +15,48 @@ describe("parseTab", () => {
   it("reads the columns left to right, one note each, the thin E as string 5", () => {
     const columns = parseTab(ARPEGGIO)
     expect(columns).toHaveLength(16)
-    expect(columns[0]).toEqual([{ string: 3, fret: 2 }])
-    expect(columns[1]).toEqual([{ string: 5, fret: 0 }])
-    expect(columns[2]).toEqual([{ string: 4, fret: 0 }])
-    expect(columns[3]).toEqual([{ string: 5, fret: 0 }])
-    expect(columns[15]).toEqual([{ string: 5, fret: 0 }])
+    expect([...columns[0]!]).toEqual([{ string: 3, fret: 2 }])
+    expect([...columns[1]!]).toEqual([{ string: 5, fret: 0 }])
+    expect([...columns[2]!]).toEqual([{ string: 4, fret: 0 }])
+    expect([...columns[3]!]).toEqual([{ string: 5, fret: 0 }])
+    expect([...columns[15]!]).toEqual([{ string: 5, fret: 0 }])
+    // Sixteen notes over forty-two characters would collide on a bar's grid: they go a step each.
+    expect(columns.map((c) => c.step)).toEqual(Array.from({ length: 16 }, (_, i) => i))
+  })
+
+  it("spreads a bar's characters over sixteen steps, so an eighth-note tab fills the bar", () => {
+    const text = ` e|---1---1---1---1-|
+        B|-----3-------3---|
+        G|-2-------2-------|
+        D|-----------------|
+        A|-----------------|
+        E|-----------------|`
+    const columns = parseTab(text)
+    expect(columns).toHaveLength(8)
+    expect(columns.map((c) => c.step)).toEqual([0, 2, 4, 6, 8, 10, 12, 14])
+    const key = pickKeyFor(columns).key
+    const [pattern] = tabToPatterns(columns, key)
+    expect(pattern!.filter((s) => s.length > 0)).toHaveLength(8)
+    expect(pattern![15]).toEqual([])
+  })
+
+  it("counts bars across a system and carries on into the next pattern and system", () => {
+    const text = `e|--0--|--3--|
+B|-----|-----|
+G|-----|-----|
+D|-----|-----|
+A|-----|-----|
+E|-----|-----|
+
+e|--5--|
+B|-----|
+G|-----|
+D|-----|
+A|-----|
+E|-----|`
+    const columns = parseTab(text)
+    expect(columns.map((c) => c.step)).toEqual([0, 16 + 6, 32])
+    expect(tabToPatterns(columns, pickKeyFor(columns).key)).toHaveLength(3)
   })
 
   it("skips a chord name above and a fingering line below", () => {
@@ -44,7 +81,7 @@ A|-----|
 E|-----|
 `
     const columns = parseTab(text)
-    expect(columns).toEqual([
+    expect(columns.map((c) => [...c])).toEqual([
       [
         { string: 5, fret: 12 },
         { string: 4, fret: 1 },
@@ -80,7 +117,9 @@ describe("pickKeyFor / tabToPatterns", () => {
   })
 
   it("spills a long tab into more patterns and drops what the key cannot hold", () => {
-    const columns = Array.from({ length: 20 }, (_, i) => [{ string: 5, fret: i % 12 }])
+    const columns = Array.from({ length: 20 }, (_, i) =>
+      Object.assign([{ string: 5, fret: i % 12 }], { step: i }),
+    )
     const choice = pickKeyFor(columns)
     expect(choice.covered).toBeLessThanOrEqual(8)
     expect(choice.dropped).toBe(12 - choice.covered)

@@ -833,7 +833,20 @@ strict build order:
      each, sixteen a pattern, `setTrack` writes them into the slot on screen and the ones after it
      (more than one → the chain becomes those slots), `engine.syncFromStore()`; notes the key has
      no row for are left out and counted. The dialog shows the read live ("16 steps · key La minor ·
-     A3–A4 · 3 notes fit"), the toast repeats it, and the tab's notes go on the neck as marks. The
+     A3–A4 · 3 notes fit"), the toast repeats it, and the tab's notes go on the neck as marks.
+     **Every melodic machine takes a tab** (the user asked for MONO-1): `writeTab` builds the track
+     by kind (`trackFor`) — the chord grids (STR-6, POLY-4, EP-1) take every note of a column,
+     MONO-1 and BASS-2 one note a step, the **highest** of a column (the melody sits on top of a
+     tab's chords; BASS-2 gets no accents or slides); a kit returns null. The button sits in a
+     "Tab" group after `PartTools` on MONO-1, BASS-2, POLY-4 and EP-1; STR-6 keeps it in its
+     fretboard fold. **Time from the characters** (the user's half-bar arpeggio came out as eight
+     consecutive sixteenths and left the bar half empty): `TabColumn` carries a `step` — the body's
+     inner `|` split it into bars, a bar's characters are spread over sixteen steps (`floor(pos ×
+     16 / span)`), the first note starts its bar (what precedes it is the writer's margin), bars and
+     systems carry on into the next pattern; when that would land two struck columns on one step (a
+     bar written wider than its beats, no inner bar lines — the first arpeggio the user pasted, 16
+     notes over 42 characters), the columns go one step each as before. `tabToPatterns` places by
+     `step`, so a tab of eighths fills its bar. The
      marks
      are a scratchpad for reading a tablature — press the tab's positions, see their names, hear
      them. Two earlier shapes were built and taken out the same hour: a step-picker popover per dot,

@@ -6,7 +6,8 @@ import {
   type TabKeyChoice,
 } from "../state/tab"
 import { PATTERN_COUNT } from "../state/patterns"
-import { useRackStore } from "../state/store"
+import { isMelodicKind, type Track } from "../state/pattern"
+import { selectInstance, useRackStore } from "../state/store"
 import { getEngine } from "../audio/engine"
 
 export interface TabImport {
@@ -23,23 +24,50 @@ export function readTab(text: string): { columns: TabColumn[]; choice: TabKeyCho
 }
 
 /**
- * Write a tab into a STR-6: its key becomes the one that holds the most of the
- * tab's notes, and the columns go a step each into the pattern on screen and
- * the slots after it (as many as the tab needs, up to the bank's end); with
- * more than one, the chain becomes those slots in order so Play runs the tab
- * through. Null when the text holds no tab. One undo step per slot.
+ * A pattern of the tab as the machine's track: the chord grids take every note
+ * of a column; MONO-1 and BASS-2, one note a step, take the highest — the
+ * melody sits on top of a tab's chords. Null for a kit.
+ */
+function trackFor(kind: string, chords: number[][]): Track | null {
+  const top = () => chords.map((c) => (c.length > 0 ? c[c.length - 1]! : null))
+  switch (kind) {
+    case "strings":
+    case "poly":
+    case "ep":
+      return { kind, chords }
+    case "synth":
+      return { kind, notes: top() }
+    case "bass":
+      return {
+        kind,
+        bass: { notes: top(), accent: chords.map(() => false), slide: chords.map(() => false) },
+      }
+    default:
+      return null
+  }
+}
+
+/**
+ * Write a tab into a melodic machine: its key becomes the one that holds the
+ * most of the tab's notes, and the columns go a step each into the pattern on
+ * screen and the slots after it (as many as the tab needs, up to the bank's
+ * end); with more than one, the chain becomes those slots in order so Play
+ * runs the tab through. Null when the text holds no tab or the machine is a
+ * kit. One undo step per slot.
  */
 export function writeTab(id: string, text: string): TabImport | null {
   const { columns, choice } = readTab(text)
-  if (columns.length === 0) return null
   const s = useRackStore.getState()
+  const inst = selectInstance(s, id)
+  if (columns.length === 0 || !inst || !isMelodicKind(inst.kind)) return null
   s.setInstanceKey(id, choice.key)
   const patterns = tabToPatterns(columns, choice.key)
   const slots: number[] = []
   patterns.forEach((chords, i) => {
     const slot = s.activePattern + i
     if (slot >= PATTERN_COUNT) return
-    if (s.setTrack(id, slot, { kind: "strings", chords })) slots.push(slot)
+    const track = trackFor(inst.kind, chords)
+    if (track && s.setTrack(id, slot, track)) slots.push(slot)
   })
   if (slots.length > 1) {
     s.clearChain()

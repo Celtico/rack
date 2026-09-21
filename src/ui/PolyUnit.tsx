@@ -13,6 +13,7 @@ import {
   WAVEFORMS,
 } from "../state/store"
 import { formatHz, formatMs, formatPercent, formatQ, formatRatio, formatSeconds } from "./format"
+import { ControlGroup } from "./ControlGroup"
 import { FilterControls, StripFilterControls } from "./FilterControls"
 import { Fretboard } from "./Fretboard"
 import { Knob } from "./Knob"
@@ -22,6 +23,7 @@ import { KeyControls } from "./KeyControls"
 import { PolyGrid } from "./PolyGrid"
 import { PartTools } from "./PartTools"
 import { RackUnit } from "./RackUnit"
+import { TabDialog } from "./TabDialog"
 import { WavePicker } from "./WavePicker"
 import { changeParams, KIND_FINISH, kindIcon, useInstanceLabel } from "./unitMeta"
 
@@ -251,6 +253,12 @@ export function PolyUnit({ id }: { id: string }) {
           {inst.kind === "strings" && <GuitarControls id={id} inst={inst} />}
           {inst.filter && <StripFilterControls id={id} filter={inst.filter} />}
           <PartTools id={id} kind={inst.kind} />
+          {/* STR-6 has it in its fretboard fold. */}
+          {inst.kind !== "strings" && (
+            <ControlGroup title="Tab">
+              <TabDialog id={id} label={label} onWritten={() => {}} />
+            </ControlGroup>
+          )}
         </Flex>
       </Flex>
       {inst.kind === "strings" && (
