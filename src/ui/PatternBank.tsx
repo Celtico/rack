@@ -2,15 +2,16 @@ import { Button, chakra, HStack, useSlotRecipe, VStack } from "@chakra-ui/react"
 import { useCallback, useEffect, useMemo, useState, type DragEvent, type ReactNode } from "react"
 import { LuPlay, LuRepeat } from "react-icons/lu"
 
+import { toaster } from "../components/ui/toaster"
 import { instanceLabel } from "../state/instances"
 import { isMutedIn, isPatternEmpty, isTrackEmpty } from "../state/pattern"
 import { useRackStore, type RackState } from "../state/store"
 import { ConfirmDialog } from "./ConfirmDialog"
 import { PART_DRAG, PATTERN_DRAG, useClearOnDragEnd } from "./dragTypes"
-import { removeInstanceWithUndo, scrollToUnit } from "./removeInstance"
+import { scrollToUnit } from "./removeInstance"
 import { StepGrid, type CellDrag } from "./StepGrid"
 import { startTransport } from "./transportControl"
-import { inTextField } from "./undoRedo"
+import { inTextField, undoEdit } from "./undoRedo"
 import { KIND_FINISH, kindIcon } from "./unitMeta"
 
 const slotPlayhead = (s: RackState) => s.playingPattern
@@ -61,8 +62,9 @@ function PartsMatrix({ header }: { header: (slot: number) => ReactNode }) {
   const instances = useRackStore((s) => s.instances)
   const patterns = useRackStore((s) => s.patterns)
   const { togglePartMute } = useRackStore.getState()
-  // A click on a machine's name selects it; Delete / Backspace then takes it out of the rack (with the
-  // Undo toast), Escape or a press anywhere else lets it go. A machine that left the rack is forgotten.
+  // A click on a machine's name selects it; Delete / Backspace then empties its part in the pattern on
+  // screen (the machine stays — the grip menu and the Modules panel take machines out), Escape or a
+  // press anywhere else lets it go. A machine that left the rack is forgotten.
   const [selected, setSelected] = useState<string | null>(null)
   const selectedInstance = instances.find((i) => i.id === selected) ?? null
   useEffect(() => {
@@ -71,11 +73,13 @@ function PartsMatrix({ header }: { header: (slot: number) => ReactNode }) {
       if (inTextField(e.target)) return
       if (e.key === "Delete" || e.key === "Backspace") {
         e.preventDefault()
-        setSelected(null)
-        removeInstanceWithUndo(
-          selectedInstance.id,
-          instanceLabel(selectedInstance, useRackStore.getState().instances),
-        )
+        const state = useRackStore.getState()
+        state.clearPart(selectedInstance.id, state.activePattern)
+        toaster.create({
+          type: "info",
+          title: `${instanceLabel(selectedInstance, state.instances)} · pattern ${state.activePattern + 1} emptied`,
+          action: { label: "Undo", onClick: () => undoEdit() },
+        })
       } else if (e.key === "Escape") setSelected(null)
     }
     const onPress = (e: PointerEvent) => {
@@ -159,7 +163,7 @@ export function PatternBank() {
   const empty = useMemo(() => patterns.map(isPatternEmpty), [patterns])
 
   // A slot or a part dropped on the bank's own surface — not on a cell or a slot button — is asked
-  // about, then emptied: the pattern's every part, or that one part.
+  // about, then emptied: the pattern's every part, or that one part in that one pattern.
   const [discard, setDiscard] = useState<
     { kind: "pattern"; slot: number } | { kind: "part"; id: string; slot: number } | null
   >(null)
@@ -206,14 +210,14 @@ export function PatternBank() {
     if (!yes || !what) return
     const state = useRackStore.getState()
     if (what.kind === "pattern") state.clearPattern(what.slot)
-    else state.clearParts(what.id)
+    else state.clearPart(what.id, what.slot)
   }
   const discardQuestion =
     discard === null
       ? null
       : discard.kind === "pattern"
         ? `Empty pattern ${discard.slot + 1}? Every machine's part in it goes. Undo brings it back.`
-        : `Empty ${instanceLabelOf(discard.id)}'s part in every pattern? Its whole row goes. Undo brings it back.`
+        : `Empty ${instanceLabelOf(discard.id)}'s part in pattern ${discard.slot + 1}? Undo brings it back.`
   // Same blocks as the SONG bars: grey, lit in the pattern's colour while it sounds.
   const styles = useSlotRecipe({ key: "songTimeline" })()
 

@@ -150,7 +150,8 @@ export interface RackState {
   /** Every part of a slot emptied (who sits it out is kept) — a pattern dropped on the bank's surface. */
   clearPattern: (index: number) => void
   /** A machine's part emptied in every slot — its row dropped on the bank's surface. One undo step. */
-  clearParts: (id: string) => void
+  /** One machine's part in one bank slot back to nothing (who sits out is kept). */
+  clearPart: (id: string, slot: number) => void
   appendToChain: (index: number) => void
   /** One more bar of whatever the last bar plays — "again". */
   repeatLastBar: () => void
@@ -508,13 +509,16 @@ export const useRackStore = create<RackState>()((set, get) => ({
         ),
       }
     }),
-  clearParts: (id) =>
+  clearPart: (id, index) =>
     set((state) => {
       const inst = selectInstance(state, id)
-      if (!inst) return state
+      const pattern = state.patterns[slot(index)]
+      if (!inst || !pattern) return state
       return {
         ...remember(state),
-        patterns: state.patterns.map((p) => withTrack(p, id, emptyTrack(inst.kind))),
+        patterns: state.patterns.map((p) =>
+          p === pattern ? withTrack(p, id, emptyTrack(inst.kind)) : p,
+        ),
       }
     }),
   copyPattern: (from, to) =>
