@@ -31,6 +31,37 @@
           stage = `render ${path}`
           const buffer = await renderSong(song)
           log(`PASS ${path} ${buffer.duration.toFixed(2)}s`)
+          // Loudness: peak and RMS overall, and the RMS of every four bars, so a mix can be judged
+          // without ears — a dip is a section that dropped out, a flat top is the limiter working.
+          const db = (v) => (v > 0 ? (20 * Math.log10(v)).toFixed(1) : "-inf")
+          const channels = Array.from({ length: buffer.numberOfChannels }, (_, c) =>
+            buffer.getChannelData(c),
+          )
+          let peak = 0
+          let sum = 0
+          for (const ch of channels)
+            for (let i = 0; i < ch.length; i++) {
+              const v = Math.abs(ch[i])
+              if (v > peak) peak = v
+              sum += v * v
+            }
+          const rms = Math.sqrt(sum / (channels[0].length * channels.length))
+          const block = Math.round((240 / song.bpm) * 4 * buffer.sampleRate)
+          const blocks = []
+          for (let start = 0; start + block <= channels[0].length; start += block) {
+            let bs = 0
+            let bp = 0
+            for (const ch of channels)
+              for (let i = start; i < start + block; i++) {
+                const v = Math.abs(ch[i])
+                bs += v * v
+                if (v > bp) bp = v
+              }
+            blocks.push(`${db(Math.sqrt(bs / (block * channels.length)))}/${db(bp)}`)
+          }
+          log(
+            `STATS ${path} peak=${db(peak)} rms=${db(rms)} per4bars(rms/peak)=${blocks.join(" ")}`,
+          )
         } catch (err) {
           log(`FAIL ${path} ${err instanceof Error ? err.stack : String(err)}`)
         }

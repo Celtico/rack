@@ -1,6 +1,60 @@
 {
   "songs": [
     {
+      "name": "Sol, solet · Infantil",
+      "file": "songs/sol-solet.json",
+      "bpm": 92,
+      "bars": 8
+    },
+    {
+      "name": "Cargol, treu banya · Infantil",
+      "file": "songs/cargol-treu-banya.json",
+      "bpm": 96,
+      "bars": 10
+    },
+    {
+      "name": "El gegant del Pi · Infantil",
+      "file": "songs/el-gegant-del-pi.json",
+      "bpm": 100,
+      "bars": 10
+    },
+    {
+      "name": "Silenci · Fingerpicking",
+      "file": "songs/silenci.json",
+      "bpm": 99,
+      "bars": 38
+    },
+    {
+      "name": "Daus · Drum & bass",
+      "file": "songs/daus.json",
+      "bpm": 174,
+      "bars": 60
+    },
+    {
+      "name": "Riera · Folk",
+      "file": "songs/riera.json",
+      "bpm": 116,
+      "bars": 40
+    },
+    {
+      "name": "Passos · Hip hop",
+      "file": "songs/passos.json",
+      "bpm": 92,
+      "bars": 56
+    },
+    {
+      "name": "El Teu Camí · Rock",
+      "file": "songs/el-teu-cami.json",
+      "bpm": 132,
+      "bars": 72
+    },
+    {
+      "name": "Berlín · Techno",
+      "file": "songs/berlin.json",
+      "bpm": 128,
+      "bars": 64
+    },
+    {
       "name": "Cavalls de Ferro · Speed rock",
       "file": "songs/cavalls-de-ferro.json",
       "bpm": 140,

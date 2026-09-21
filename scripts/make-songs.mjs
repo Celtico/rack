@@ -2286,9 +2286,1102 @@ function cambra36() {
   })
 }
 
+// ======================================================================
+// Cançons infantils — three traditional Catalan children's songs, played
+// slowly by a small band: STR-6 #1 picks the tune one note at a time (octave
+// 4, where the tune is bright on a guitar), STR-6 #2 strums the chords under it
+// (octave 2), a soft BASS-2 on the roots, a light DR-4. The tune rows are read
+// straight off the grid (every cell prints its note), so a child can follow
+// the song on the panel — or change it. The melodies are written from memory
+// of the common school versions; a wrong note is one cell away.
+// ======================================================================
+
+/**
+ * A children's song: `tune` is the melody, one pattern string per bar over
+ * the key's rows at octave 4; `chords` the strummed chords per bar
+ * ("c.......g.......") over `table` at octave 2; `roots` the bass per bar
+ * (rows at octave 1). `intro` bars of chords alone first, then the song
+ * twice (the second verse is sung to the same tune).
+ */
+/** A tune line's digit is one row: "4.2." on a poly grid is a single note a column. */
+const ONE_NOTE = Object.fromEntries([0, 1, 2, 3, 4, 5, 6, 7].map((r) => [String(r), [r]]))
+
+function kidsSong({ bpm, root, tune, chords, roots, table, intro = 2 }) {
+  const strumOnly = pattern({
+    "drums-1": drums({ kick: "x.......x.......", hat: "..x...x...x...x." }),
+    "strings-2": poly("strings", chords[0], table),
+    "bass-1": bass(roots[0]),
+  })
+  const bars = tune.map((line, i) =>
+    pattern({
+      "drums-1": drums({ kick: "x.......x.......", hat: "..x...x...x...x." }),
+      "strings-1": poly("strings", line, ONE_NOTE),
+      "strings-2": poly("strings", chords[i], table),
+      "bass-1": bass(roots[i]),
+    }),
+  )
+  const patterns = [...bars, strumOnly]
+  const song_ = bars.map((_, i) => i)
+  return song({
+    bpm,
+    fx: { delayTime: "8n", feedback: 0.15, reverbDecay: 2 },
+    instances: [
+      instance(
+        "strings-1",
+        "strings",
+        { damp: 5000, sustain: 0.99, release: 1.4, strum: 0 },
+        {
+          level: 0.95,
+          send: 0.2,
+          pan: 0.2,
+          key: key(root, "major", 4),
+          filter: lowpass(20000, 0.1),
+        },
+      ),
+      instance(
+        "strings-2",
+        "strings",
+        { damp: 4000, sustain: 0.985, release: 1.4, strum: 14 },
+        {
+          level: 0.5,
+          send: 0.15,
+          pan: -0.3,
+          key: key(root, "major", 2),
+          filter: lowpass(20000, 0.1),
+        },
+      ),
+      instance(
+        "bass-1",
+        "bass",
+        {
+          waveform: "square",
+          filterType: "lowpass",
+          cutoff: 220,
+          resonance: 0.5,
+          envMod: 0.1,
+          attack: 0.01,
+          decay: 0.5,
+          sustain: 0.6,
+          release: 0.3,
+        },
+        { level: 0.6, send: 0, key: key(root, "major", 1) },
+      ),
+      instance(
+        "drums-1",
+        "drums",
+        { kick: 0.7, snare: 0.5, clap: 0.5, hat: 0.25 },
+        { level: 0.55, send: 0.1 },
+      ),
+    ],
+    patterns,
+    sections: [
+      ["Intro", intro, [bars.length]],
+      ["Cançó", bars.length, song_],
+      ["Cançó", bars.length, song_],
+    ],
+  })
+}
+
+// Major-key rows at octave 4: 0 = do, 1 = re, 2 = mi, 3 = fa, 4 = sol, 5 = la, 6 = si, 7 = do'.
+// Chord tables are rows at octave 2: c = I, g = V7 (root, third, fifth, seventh).
+const I_V7 = { c: [0, 2, 4], g: [4, 6, 1, 3] }
+
+/** Sol, solet (Do major): sol so-let / vi-ne'm a veu-re / … / que tinc fred. Two eighths a beat. */
+function solSolet() {
+  return kidsSong({
+    bpm: 92,
+    root: 0,
+    tune: [
+      // Sol, so-let, vi-ne'm a veu-re,
+      "4...2.4.5.542.4.",
+      // vi-ne'm a veu-re, sol, so-let,
+      "5.542.4.4...2.4.",
+      // vi-ne'm a veu-re que tinc fred.
+      "5.542.4.5.4.2...",
+    ],
+    chords: ["c.......c.......", "c.......c.......", "c.......g...c..."],
+    roots: ["0.......0.......", "0.......0.......", "0.......4...0..."],
+    table: I_V7,
+  })
+}
+
+/** Cargol, treu banya (Do major): a sol–mi–la song. */
+function cargolTreuBanya() {
+  return kidsSong({
+    bpm: 96,
+    root: 0,
+    tune: [
+      // Car-gol, treu ba-nya,
+      "4.2.4.4.2.......",
+      // pu-ja a la mun-ta-nya;
+      "4.4.5.5.4.2.....",
+      // car-gol bo-ver,
+      "4.2.4.2.........",
+      // jo tam-bé vin-dré.
+      "4.4.5.4.2.......",
+    ],
+    chords: ["c.......c.......", "g.......c.......", "c.......c.......", "g.......c......."],
+    roots: ["0.......0.......", "4.......0.......", "0.......0.......", "4.......0......."],
+    table: I_V7,
+  })
+}
+
+/** El gegant del Pi (Sol major): si do re si sol / do si la sol la la si sol / … */
+function gegantDelPi() {
+  return kidsSong({
+    bpm: 100,
+    root: 7,
+    tune: [
+      // El ge-gant del Pi, a-ra
+      "2.3.4.2.0...3.2.",
+      // ba-lla, a-ra ba-lla,
+      "1.0.1.1.2.0.....",
+      // el ge-gant del Pi, a-ra
+      "2.3.4.2.0...3.2.",
+      // ba-lla pel ca-mí.
+      "1.0.1.2.0.......",
+    ],
+    chords: ["c.......c.......", "g.......c.......", "c.......c.......", "g.......c......."],
+    roots: ["0.......0.......", "4.......0.......", "0.......0.......", "4.......0......."],
+    table: I_V7,
+  })
+}
+
+// ======================================================================
+// Silenci — fingerpicking ballad, 99 BPM, La menor. Two guitars over a
+// folk chord loop (Am · G · C · F): one picks an eighth-note arpeggio, the
+// other strums each half bar; a square bass on the roots; drums come in
+// for the second verse. Written as the accompaniment a strummer would put
+// under a sixties folk song — chords and picking only, no melody.
+// ======================================================================
+function silenci() {
+  // Picking rows (A minor, octave 2): A2 B2 C3 D3 E3 F3 G3 A3 — root, fifth, third, fifth.
+  const PICK = {
+    Am: "0.4.2.4.0.4.2.4.",
+    G: "6.3.1.3.6.3.1.3.",
+    C: "2.6.4.6.2.6.4.6.",
+    F: "5.2.0.2.5.2.0.2.",
+  }
+  // Strum rows (octave 3): A3 B3 C4 D4 E4 F4 G4 A4.
+  const STRUM = { a: [0, 2, 4], g: [1, 3, 6], c: [2, 4, 6], f: [0, 2, 5] }
+  const ROOT = { Am: 0, G: 6, C: 2, F: 5 }
+  const CHORDS = ["Am", "G", "C", "F"]
+  const bar = (chord, withDrums) =>
+    pattern({
+      "strings-1": poly("strings", PICK[chord], ONE_NOTE),
+      "strings-2": poly(
+        "strings",
+        `${chord[0].toLowerCase()}.......${chord[0].toLowerCase()}.......`,
+        STRUM,
+      ),
+      "bass-1": bass(`${ROOT[chord]}.......${ROOT[chord]}.......`, "x..............."),
+      "drums-1": drums(
+        withDrums
+          ? { kick: "x.......x.......", snare: "....x.......x...", hat: "..x...x...x...x." }
+          : {},
+      ),
+    })
+  const patterns = [...CHORDS.map((c) => bar(c, false)), ...CHORDS.map((c) => bar(c, true))]
+  const verse = ["Am", "G", "G", "Am", "C", "F", "C", "F", "C", "C", "F", "C", "Am", "C", "G", "Am"]
+  const slots = verse.map((c) => CHORDS.indexOf(c))
+  return song({
+    bpm: 99,
+    master: 1,
+    fx: { delayTime: "8n.", feedback: 0.2, reverbDecay: 2.6 },
+    instances: [
+      instance(
+        "strings-1",
+        "strings",
+        { damp: 5200, sustain: 0.992, release: 1.6, strum: 0 },
+        {
+          level: 0.95,
+          send: 0.25,
+          pan: 0.15,
+          key: key(9, "minor", 2),
+          filter: lowpass(20000, 0.1),
+        },
+      ),
+      instance(
+        "strings-2",
+        "strings",
+        { damp: 3800, sustain: 0.985, release: 1.6, strum: 16 },
+        { level: 0.6, send: 0.2, pan: -0.35, key: key(9, "minor", 3), filter: lowpass(20000, 0.1) },
+      ),
+      instance(
+        "bass-1",
+        "bass",
+        {
+          waveform: "square",
+          filterType: "lowpass",
+          cutoff: 200,
+          resonance: 0.5,
+          envMod: 0.1,
+          attack: 0.01,
+          decay: 0.6,
+          sustain: 0.7,
+          release: 0.3,
+        },
+        { level: 0.75, send: 0, key: key(9, "minor", 1) },
+      ),
+      instance(
+        "drums-1",
+        "drums",
+        { kick: 0.7, snare: 0.45, clap: 0.4, hat: 0.22 },
+        { level: 0.7, send: 0.12 },
+      ),
+    ],
+    patterns,
+    sections: [
+      ["Intro", 4, [0]],
+      ["Verse", 16, slots],
+      ["Verse", 16, slots.map((i) => i + 4)],
+      ["Outro", 2, [0]],
+    ],
+  })
+}
+
+// ======================================================================
+// Four more "in the style of" demos, asked for from a playlist: a jump-up
+// drum & bass tune, a fingerpicked folk song with hand percussion, a
+// nineties boom-bap hip hop beat, and a driving seventies rock song.
+// All original: their own chords and lines, only the feel is borrowed.
+// ======================================================================
+
+// ---------- Daus · Drum & bass, 174 BPM, Fa menor ----------
+function daus() {
+  // Rows (F minor): bass oct 1 F1 G1 Ab1 Bb1 C2 Db2 Eb2 F2; EP / pad oct 3; lead oct 4.
+  const CH = { f: [0, 2, 4, 6], d: [5, 0, 2, 4], e: [6, 1, 3], b: [3, 5, 7] } // Fm7 Dbmaj7 Eb Bbm
+  const hatsIntro = drums({ hat: "x.x.x.x.x.x.x.x." })
+  const twoStep = drums({
+    kick: "x.........x.....",
+    snare: "....x.......x...",
+    hat: "x.x.x.x.x.x.x.x.",
+  })
+  const twoStepFill = drums({
+    kick: "x.........x...x.",
+    snare: "....x.......x.xx",
+    clap: "....x.......x...",
+    hat: "x.x.x.x.x.x.x.x.",
+  })
+  const build = drums({
+    kick: "x...x...x...x...",
+    clap: "x.x.x.x.xxxxxxxx",
+    hat: "xxxxxxxxxxxxxxxx",
+  })
+  const percDrop = perc({ shaker: "x.xxx.xxx.xxx.xx", rim: "......x.......x." })
+  const percBreak = perc({ shaker: "..x...x...x...x.", crash: "x..............." })
+  const sub = (a, b) => bass(a, b, "")
+  const bassF = bass("0...0.0...0.7.5.", "x.........x.....", "............x...")
+  const bassD = bass("5...5.5...5.4.3.", "x.........x.....", "............x...")
+  const bassE = bass("6...6.6...6.5.4.", "x.........x.....", "............x...")
+  const bassB = bass("3...3.3...3.2.0.", "x.........x.....", "............x...")
+  const bassDrop = bass("0.0.0.0.7.7.5.3.", "x...x...x...x...", "..........x.....")
+  const leadA = synth("0.2.3...7.5.3...")
+  const leadB = synth("5.3.2.0...2.3...")
+  const leadC = synth("7...5.3.2.0.....")
+  const ep = (c) => poly("ep", `${c}.....${c}.....${c}...`, CH)
+  const pad = (c) => poly("poly", `${c}...............`, CH)
+  const patterns = [
+    /* 0 intro */ pattern({ "drums-1": hatsIntro, "poly-1": pad("f"), "ep-1": ep("f") }),
+    /* 1 intro */ pattern({ "drums-1": hatsIntro, "poly-1": pad("d"), "ep-1": ep("d") }),
+    /* 2 build */ pattern({
+      "drums-1": build,
+      "bass-1": sub("0...............", "x..............."),
+      "poly-1": pad("e"),
+      "ep-1": ep("e"),
+    }),
+    /* 3 drop F */ pattern({
+      "drums-1": twoStep,
+      "perc-1": percDrop,
+      "bass-1": bassF,
+      "ep-1": ep("f"),
+      "synth-1": leadA,
+    }),
+    /* 4 drop Db */ pattern({
+      "drums-1": twoStep,
+      "perc-1": percDrop,
+      "bass-1": bassD,
+      "ep-1": ep("d"),
+      "synth-1": leadB,
+    }),
+    /* 5 drop Eb */ pattern({
+      "drums-1": twoStep,
+      "perc-1": percDrop,
+      "bass-1": bassE,
+      "ep-1": ep("e"),
+      "synth-1": leadA,
+    }),
+    /* 6 drop Bbm fill */ pattern({
+      "drums-1": twoStepFill,
+      "perc-1": percDrop,
+      "bass-1": bassB,
+      "ep-1": ep("b"),
+      "synth-1": leadC,
+    }),
+    /* 7 break */ pattern({
+      "drums-1": hatsIntro,
+      "perc-1": percBreak,
+      "poly-1": pad("f"),
+      "ep-1": ep("f"),
+    }),
+    /* 8 break */ pattern({
+      "drums-1": hatsIntro,
+      "poly-1": pad("b"),
+      "ep-1": ep("b"),
+      "synth-1": leadC,
+    }),
+    /* 9 drop 2 F */ pattern({
+      "drums-1": twoStep,
+      "perc-1": percDrop,
+      "bass-1": bassDrop,
+      "ep-1": ep("f"),
+      "poly-1": pad("f"),
+      "synth-1": leadA,
+    }),
+    /* 10 drop 2 Bbm */ pattern({
+      "drums-1": twoStepFill,
+      "perc-1": percDrop,
+      "bass-1": bassB,
+      "ep-1": ep("b"),
+      "poly-1": pad("b"),
+      "synth-1": leadB,
+    }),
+    /* 11 outro */ pattern({
+      "drums-1": twoStep,
+      "bass-1": sub("0...............", "x..............."),
+      "poly-1": pad("f"),
+    }),
+  ]
+  return song({
+    bpm: 174,
+    master: 0.9,
+    fx: { delayTime: "8n.", feedback: 0.35, reverbDecay: 2.2 },
+    instances: [
+      instance(
+        "drums-1",
+        "drums",
+        { kick: 0.9, snare: 0.8, clap: 0.45, hat: 0.3 },
+        { level: 0.8, send: 0.06, mod: mod({ random: { target: "level", amount: 0.1 } }) },
+      ),
+      instance(
+        "perc-1",
+        "perc",
+        { tomLo: 0.5, tomHi: 0.5, rim: 0.4, cowbell: 0.3, shaker: 0.3, crash: 0.5 },
+        { level: 0.55, send: 0.3, pan: 0.3, filter: highpass(600) },
+      ),
+      instance(
+        "bass-1",
+        "bass",
+        {
+          waveform: "sawtooth",
+          filterType: "lowpass",
+          cutoff: 240,
+          resonance: 4,
+          envMod: 0.5,
+          attack: 0.005,
+          decay: 0.3,
+          sustain: 0.6,
+          release: 0.1,
+        },
+        {
+          level: 0.75,
+          send: 0,
+          key: key(5, "minor", 1),
+          mod: mod({ drive: 0.35, lfo1: lfo("cutoff", 0.25, 0.35, "sine") }),
+        },
+      ),
+      instance(
+        "ep-1",
+        "ep",
+        { tone: 2, bright: 5, decay: 0.9, release: 0.5 },
+        { level: 0.6, send: 0.5, pan: -0.3, key: key(5, "minor", 3), filter: highpass(300) },
+      ),
+      instance(
+        "poly-1",
+        "poly",
+        {
+          waveform: "sawtooth",
+          filterType: "lowpass",
+          cutoff: 1200,
+          resonance: 1,
+          attack: 1.2,
+          decay: 0.5,
+          sustain: 0.9,
+          release: 3,
+        },
+        {
+          level: 0.55,
+          send: 0.6,
+          key: key(5, "minor", 3),
+          mod: mod({ lfo1: lfo("cutoff", 0.08, 0.4, "sine") }),
+        },
+      ),
+      instance(
+        "synth-1",
+        "synth",
+        {
+          waveform: "square",
+          filterType: "lowpass",
+          cutoff: 2200,
+          resonance: 2,
+          attack: 0.005,
+          decay: 0.2,
+          sustain: 0.3,
+          release: 0.2,
+        },
+        {
+          level: 0.5,
+          send: 0.5,
+          pan: 0.25,
+          key: key(5, "minor", 4),
+          mod: mod({ lfo1: lfo("pan", 0.5, 0.6, "sine") }),
+        },
+      ),
+    ],
+    patterns,
+    sections: [
+      ["Intro", 8, [0, 0, 1, 1]],
+      ["Build", 8, [0, 1, 0, 1, 2, 2, 2, 2]],
+      ["Drop", 16, [3, 4, 5, 6]],
+      ["Break", 8, [7, 8]],
+      ["Drop", 16, [9, 4, 5, 10]],
+      ["Outro", 4, [11]],
+    ],
+  })
+}
+
+// ---------- Riera · Folk, 116 BPM, Mi menor ----------
+function riera() {
+  // Picking rows (E minor, octave 2): E2 F#2 G2 A2 B2 C3 D3 E3.
+  const PICK = {
+    Em: "0.4.2.4.0.4.2.4.",
+    D: "6.3.1.3.6.3.1.3.",
+    C: "5.2.0.2.5.2.0.2.",
+    G: "2.6.4.6.2.6.4.6.",
+  }
+  // Strum rows (octave 3): E3 F#3 G3 A3 B3 C4 D4 E4.
+  const STRUM = { e: [0, 2, 4], d: [1, 3, 6], c: [0, 2, 5], g: [2, 4, 6] }
+  const ROOT = { Em: 0, D: 6, C: 5, G: 2 }
+  const congas = perc({
+    tomLo: "x..x..x...x..x..",
+    tomHi: "..x.....x...x...",
+    shaker: "x.x.x.x.x.x.x.x.",
+  })
+  const congasSoft = perc({ tomLo: "x.......x.......", shaker: "..x...x...x...x." })
+  const bar = (chord, soft) =>
+    pattern({
+      "strings-1": poly("strings", PICK[chord], ONE_NOTE),
+      "strings-2": poly(
+        "strings",
+        soft
+          ? ""
+          : `${chord[0].toLowerCase()}...${chord[0].toLowerCase()}...${chord[0].toLowerCase()}...${chord[0].toLowerCase()}...`,
+        STRUM,
+      ),
+      // Softer bars: the bass on the one and the three only; full bars add the pickup on the four.
+      "bass-1": bass(
+        soft
+          ? `${ROOT[chord]}.......${ROOT[chord]}.......`
+          : `${ROOT[chord]}.......${ROOT[chord]}...${ROOT[chord]}...`,
+        "x...............",
+      ),
+      "perc-1": soft ? congasSoft : congas,
+    })
+  const CHORDS = ["Em", "D", "C", "G"]
+  const patterns = [...CHORDS.map((c) => bar(c, true)), ...CHORDS.map((c) => bar(c, false))]
+  const verse = ["Em", "D", "Em", "D", "C", "G", "Em", "D"]
+  const chorus = ["C", "G", "D", "Em", "C", "G", "D", "Em"]
+  const soft = (list) => list.map((c) => CHORDS.indexOf(c))
+  const full = (list) => list.map((c) => CHORDS.indexOf(c) + 4)
+  return song({
+    bpm: 116,
+    master: 0.9,
+    fx: { delayTime: "8n.", feedback: 0.18, reverbDecay: 2.4 },
+    instances: [
+      instance(
+        "strings-1",
+        "strings",
+        { damp: 5000, sustain: 0.992, release: 1.6, strum: 0 },
+        { level: 0.9, send: 0.25, pan: 0.2, key: key(4, "minor", 2), filter: lowpass(20000, 0.1) },
+      ),
+      instance(
+        "strings-2",
+        "strings",
+        { damp: 3600, sustain: 0.985, release: 1.4, strum: 18 },
+        {
+          level: 0.65,
+          send: 0.2,
+          pan: -0.35,
+          key: key(4, "minor", 3),
+          filter: lowpass(20000, 0.1),
+        },
+      ),
+      instance(
+        "bass-1",
+        "bass",
+        {
+          waveform: "square",
+          filterType: "lowpass",
+          cutoff: 180,
+          resonance: 0.5,
+          envMod: 0.1,
+          attack: 0.01,
+          decay: 0.5,
+          sustain: 0.7,
+          release: 0.3,
+        },
+        { level: 0.65, send: 0, key: key(4, "minor", 1) },
+      ),
+      instance(
+        "perc-1",
+        "perc",
+        { tomLo: 0.7, tomHi: 0.55, rim: 0.4, cowbell: 0.3, shaker: 0.35, crash: 0.4 },
+        { level: 0.6, send: 0.2, pan: 0.1 },
+      ),
+    ],
+    patterns,
+    sections: [
+      ["Intro", 4, soft(["Em", "D"])],
+      ["Verse", 8, soft(verse)],
+      ["Chorus", 8, full(chorus)],
+      ["Verse", 8, full(verse)],
+      ["Chorus", 8, full(chorus)],
+      ["Outro", 4, soft(["Em", "D", "Em", "Em"])],
+    ],
+  })
+}
+
+// ---------- Passos · Hip hop, 92 BPM, Re menor, swing ----------
+function passos() {
+  // EP rows (D minor, octave 3): D3 E3 F3 G3 A3 Bb3 C4 D4.
+  const CH = { d: [0, 2, 4, 6], g: [3, 5, 7, 2], b: [5, 0, 2, 4], a: [4, 6, 1, 3] } // Dm7 Gm7 Bbmaj7 Am7
+  const boom = drums({
+    kick: "x..x....x.x.....",
+    snare: "....x.......x...",
+    hat: "x.x.x.x.x.x.x.x.",
+  })
+  const boomFill = drums({
+    kick: "x..x....x.x...x.",
+    snare: "....x.......x.x.",
+    clap: "............x...",
+    hat: "x.x.x.x.x.x.x.xx",
+  })
+  const hatsOnly = drums({ hat: "x.x.x.x.x.x.x.x." })
+  const shaker = perc({ shaker: "..x...x...x...x." })
+  const ep = (c) => poly("ep", `${c}.......${c}..${c}.....`, CH)
+  // Bass rows (octave 1): D1 E1 F1 G1 A1 Bb1 C2 D2.
+  const bassD = bass("0.....0...0...7.", "x.......x.......")
+  const bassG = bass("3.....3...3...2.", "x.......x.......")
+  const bassB = bass("5.....5...5...4.", "x.......x.......")
+  const bassA = bass("4.....4...4...0.", "x.......x.......")
+  // Hook (sine MONO-1, octave 4).
+  const hookA = synth("4...2.0...2.....")
+  const hookB = synth("5...4.2...0.....")
+  const patterns = [
+    /* 0 intro */ pattern({ "drums-1": hatsOnly, "ep-1": ep("d"), "perc-1": shaker }),
+    /* 1 */ pattern({ "drums-1": boom, "ep-1": ep("d"), "bass-1": bassD, "perc-1": shaker }),
+    /* 2 */ pattern({ "drums-1": boom, "ep-1": ep("g"), "bass-1": bassG, "perc-1": shaker }),
+    /* 3 */ pattern({ "drums-1": boom, "ep-1": ep("b"), "bass-1": bassB, "perc-1": shaker }),
+    /* 4 */ pattern({ "drums-1": boomFill, "ep-1": ep("a"), "bass-1": bassA, "perc-1": shaker }),
+    /* 5 hook */ pattern({
+      "drums-1": boom,
+      "ep-1": ep("d"),
+      "bass-1": bassD,
+      "perc-1": shaker,
+      "synth-1": hookA,
+    }),
+    /* 6 hook */ pattern({
+      "drums-1": boom,
+      "ep-1": ep("g"),
+      "bass-1": bassG,
+      "perc-1": shaker,
+      "synth-1": hookB,
+    }),
+    /* 7 hook */ pattern({
+      "drums-1": boom,
+      "ep-1": ep("b"),
+      "bass-1": bassB,
+      "perc-1": shaker,
+      "synth-1": hookA,
+    }),
+    /* 8 hook */ pattern({
+      "drums-1": boomFill,
+      "ep-1": ep("a"),
+      "bass-1": bassA,
+      "perc-1": shaker,
+      "synth-1": hookB,
+    }),
+    /* 9 outro */ pattern({ "drums-1": hatsOnly, "ep-1": ep("d"), "bass-1": bassD }),
+  ]
+  return song({
+    bpm: 92,
+    swing: 0.2,
+    fx: { delayTime: "8n.", feedback: 0.25, reverbDecay: 1.6 },
+    instances: [
+      instance(
+        "drums-1",
+        "drums",
+        { kick: 0.9, snare: 0.8, clap: 0.45, hat: 0.28 },
+        {
+          level: 0.78,
+          send: 0.05,
+          filter: lowpass(9000, 0.5),
+          mod: mod({ drive: 0.35, random: { target: "level", amount: 0.15 } }),
+        },
+      ),
+      instance(
+        "perc-1",
+        "perc",
+        { tomLo: 0.5, tomHi: 0.4, rim: 0.4, cowbell: 0.3, shaker: 0.25, crash: 0.3 },
+        { level: 0.5, send: 0.2, pan: -0.4, filter: highpass(500) },
+      ),
+      instance(
+        "bass-1",
+        "bass",
+        {
+          waveform: "square",
+          filterType: "lowpass",
+          cutoff: 140,
+          resonance: 0.6,
+          envMod: 0.1,
+          attack: 0.01,
+          decay: 0.6,
+          sustain: 0.8,
+          release: 0.25,
+        },
+        { level: 0.7, send: 0, key: key(2, "minor", 1) },
+      ),
+      instance(
+        "ep-1",
+        "ep",
+        { tone: 1, bright: 2.5, decay: 1.5, release: 0.8 },
+        {
+          level: 0.5,
+          send: 0.3,
+          pan: 0.25,
+          key: key(2, "minor", 3),
+          filter: lowpass(3400, 0.6),
+          mod: mod({ drive: 0.2, random: { target: "level", amount: 0.1 } }),
+        },
+      ),
+      instance(
+        "synth-1",
+        "synth",
+        {
+          waveform: "sine",
+          filterType: "lowpass",
+          cutoff: 2600,
+          resonance: 0.5,
+          attack: 0.01,
+          decay: 0.4,
+          sustain: 0.5,
+          release: 0.5,
+        },
+        {
+          level: 0.45,
+          send: 0.45,
+          pan: -0.2,
+          key: key(2, "minor", 4),
+          mod: mod({ lfo1: lfo("pitch", 5, 0.03, "sine") }),
+        },
+      ),
+    ],
+    patterns,
+    sections: [
+      ["Intro", 4, [0]],
+      ["Verse", 16, [1, 2, 3, 4]],
+      ["Hook", 8, [5, 6, 7, 8]],
+      ["Verse", 16, [1, 2, 3, 4]],
+      ["Hook", 8, [5, 6, 7, 8]],
+      ["Outro", 4, [9]],
+    ],
+  })
+}
+
+// ---------- El Teu Camí · Rock, 132 BPM, Fa major ----------
+function elTeuCami() {
+  // Strum rows (F major, octave 2): F2 G2 A2 Bb2 C3 D3 E3 F3.
+  const STRUM = { f: [0, 2, 4], c: [1, 4, 6], b: [0, 3, 5], d: [2, 5, 0] } // F C Bb Dm
+  const ROOT = { f: 0, c: 4, b: 3, d: 5 }
+  const drive = drums({
+    kick: "x...x...x...x...",
+    snare: "....x.......x...",
+    hat: "x.x.x.x.x.x.x.x.",
+  })
+  const driveVerse = drums({
+    kick: "x.......x.......",
+    snare: "....x.......x...",
+    hat: "x.x.x.x.x.x.x.x.",
+  })
+  const driveFill = drums({
+    kick: "x...x...x...x.x.",
+    snare: "....x.......x.xx",
+    hat: "x.x.x.x.x.x.x.x.",
+  })
+  const toms = perc({
+    tomLo: "..x...x...x...x.",
+    tomHi: "x...x...x...x...",
+    crash: "x...............",
+  })
+  const tomsQuiet = perc({ tomLo: "......x.......x." })
+  const strumBar = (c) => poly("strings", `${c}.${c}.${c}.${c}.${c}.${c}.${c}.${c}.`, STRUM)
+  const pickBar = (c) => poly("strings", `${c}...${c}...${c}...${c}...`, STRUM)
+  const bassBar = (c) =>
+    bass(
+      `${ROOT[c]}.${ROOT[c]}.${ROOT[c]}.${ROOT[c]}.${ROOT[c]}.${ROOT[c]}.${ROOT[c]}.${ROOT[c]}.`,
+      "x.......x.......",
+    )
+  const bassVerse = (c) =>
+    bass(`${ROOT[c]}...${ROOT[c]}...${ROOT[c]}...${ROOT[c]}...`, "x.......x.......")
+  // Lead rows (octave 4): F4 G4 A4 Bb4 C5 D5 E5 F5.
+  const solo = [
+    synth("4.5.7...5.4.2..."),
+    synth("2.4.5...4.2.0..."),
+    synth("7...5.4.5.7....."),
+    synth("4.2.0.2.4......."),
+  ]
+  const verse = (c, i) =>
+    pattern({
+      "drums-1": i === 3 ? driveFill : driveVerse,
+      "perc-1": tomsQuiet,
+      "strings-1": pickBar(c),
+      "bass-1": bassVerse(c),
+    })
+  const chorus = (c, i) =>
+    pattern({
+      "drums-1": i === 3 ? driveFill : drive,
+      "perc-1": toms,
+      "strings-1": strumBar(c),
+      "strings-2": pickBar(c),
+      "bass-1": bassBar(c),
+    })
+  const soloBar = (c, i) =>
+    pattern({
+      "drums-1": drive,
+      "perc-1": tomsQuiet,
+      "strings-1": strumBar(c),
+      "bass-1": bassBar(c),
+      "synth-1": solo[i],
+    })
+  const V = ["f", "c", "b", "c"]
+  const C = ["b", "f", "c", "c"]
+  const patterns = [
+    ...V.map(verse), // 0–3
+    ...C.map(chorus), // 4–7
+    ...V.map(soloBar), // 8–11
+    /* 12 intro */ pattern({ "drums-1": drive, "strings-2": pickBar("f"), "bass-1": bassBar("f") }),
+    /* 13 outro */ pattern({
+      "drums-1": drive,
+      "perc-1": toms,
+      "strings-1": strumBar("f"),
+      "bass-1": bassBar("f"),
+    }),
+  ]
+  return song({
+    bpm: 132,
+    fx: { delayTime: "8n", feedback: 0.15, reverbDecay: 1.8 },
+    instances: [
+      instance(
+        "drums-1",
+        "drums",
+        { kick: 0.9, snare: 0.9, clap: 0.4, hat: 0.3 },
+        { level: 0.72, send: 0.08, mod: mod({ drive: 0.15 }) },
+      ),
+      instance(
+        "perc-1",
+        "perc",
+        { tomLo: 0.8, tomHi: 0.7, rim: 0.4, cowbell: 0.3, shaker: 0.3, crash: 0.6 },
+        { level: 0.55, send: 0.2, pan: 0.2 },
+      ),
+      instance(
+        "bass-1",
+        "bass",
+        {
+          waveform: "sawtooth",
+          filterType: "lowpass",
+          cutoff: 420,
+          resonance: 1,
+          envMod: 0.2,
+          attack: 0.005,
+          decay: 0.3,
+          sustain: 0.7,
+          release: 0.1,
+        },
+        { level: 0.6, send: 0, key: key(5, "major", 1), mod: mod({ drive: 0.25 }) },
+      ),
+      instance(
+        "strings-1",
+        "strings",
+        { damp: 5500, sustain: 0.98, release: 0.8, strum: 10 },
+        {
+          level: 0.6,
+          send: 0.2,
+          pan: -0.4,
+          key: key(5, "major", 2),
+          filter: lowpass(20000, 0.1),
+          mod: mod({ drive: 0.5 }),
+        },
+      ),
+      instance(
+        "strings-2",
+        "strings",
+        { damp: 6000, sustain: 0.99, release: 1.2, strum: 4 },
+        {
+          level: 0.45,
+          send: 0.3,
+          pan: 0.45,
+          key: key(5, "major", 3),
+          filter: lowpass(20000, 0.1),
+          mod: mod({ drive: 0.25 }),
+        },
+      ),
+      instance(
+        "synth-1",
+        "synth",
+        {
+          waveform: "sawtooth",
+          filterType: "lowpass",
+          cutoff: 2800,
+          resonance: 2,
+          attack: 0.01,
+          decay: 0.3,
+          sustain: 0.6,
+          release: 0.3,
+        },
+        {
+          level: 0.5,
+          send: 0.4,
+          pan: 0.1,
+          key: key(5, "major", 4),
+          mod: mod({ drive: 0.4, lfo1: lfo("pitch", 5.5, 0.04, "sine") }),
+        },
+      ),
+    ],
+    patterns,
+    sections: [
+      ["Intro", 4, [12]],
+      ["Verse", 16, [0, 1, 2, 3]],
+      ["Chorus", 8, [4, 5, 6, 7]],
+      ["Verse", 16, [0, 1, 2, 3]],
+      ["Chorus", 8, [4, 5, 6, 7]],
+      ["Solo", 8, [8, 9, 10, 11]],
+      ["Chorus", 8, [4, 5, 6, 7]],
+      ["Outro", 4, [13]],
+    ],
+  })
+}
+
+// ---------- Berlín · Techno, 128 BPM, Do menor ----------
+// Minimal Berlin techno in the Kalkbrenner manner: a four-on-the-floor kick, offbeat hats, a
+// rolling sixteenth bass under a slow filter, and one bouncy detuned lead motif that comes and goes.
+function berlin() {
+  const kick = "x...x...x...x..."
+  const hats = drums({ kick, hat: "..x...x...x...x." })
+  const full = drums({ kick, clap: "....x.......x...", hat: "..x...x...x...x." })
+  const fullFill = drums({
+    kick: "x...x...x...x.x.",
+    clap: "....x.......x.xx",
+    hat: "..x...x...x...x.",
+  })
+  const noKick = drums({ hat: "..x...x...x...x." })
+  const percLight = perc({ shaker: "x.x.x.x.x.x.x.x." })
+  const percFull = perc({ shaker: "xxxxxxxxxxxxxxxx", rim: "...x......x....." })
+  const crash = perc({
+    shaker: "xxxxxxxxxxxxxxxx",
+    rim: "...x......x.....",
+    crash: "x...............",
+  })
+  // Bass rows (C minor, octave 1): C1 D1 Eb1 F1 G1 Ab1 Bb1 C2.
+  const roll = bass("0.0.0.0.0.0.0.0.", "x...x...x...x...")
+  const pulse = bass("0...0...0...0...", "x...x...x...x...")
+  const pulseUp = bass("0...0...0...0.7.", "x...x...x...x...")
+  const rollUp = bass("0.0.0.7.0.0.0.7.", "x...x...x...x...", "......x.......x.")
+  const rollAb = bass("5.5.5.5.5.5.5.7.", "x...x...x...x...")
+  const rollBb = bass("6.6.6.6.6.6.3.3.", "x...x...x...x...")
+  // Lead rows (octave 4): C4 D4 Eb4 F4 G4 Ab4 Bb4 C5.
+  const leadA = synth("0...3.2.0...5.3.")
+  const leadB = synth("7...5.3.2...0...")
+  const leadC = synth("3.2.0.......2.3.")
+  const leadD = synth("5...3.2.0.......")
+  // Pad stabs (octave 3): Cm, Ab, Bb.
+  const CH = { c: [0, 2, 4], a: [5, 0, 2], b: [6, 1, 3] }
+  const stab = (c) => poly("poly", `..${c}.....${c}...${c}...`, CH)
+  const pad = (c) => poly("poly", `${c}...............`, CH)
+  const patterns = [
+    /* 0 intro */ pattern({ "drums-1": noKick, "bass-1": pulse }),
+    /* 1 intro */ pattern({ "drums-1": hats, "bass-1": pulseUp, "perc-1": percLight }),
+    /* 2 build */ pattern({
+      "drums-1": full,
+      "bass-1": roll,
+      "perc-1": percFull,
+      "poly-1": stab("c"),
+    }),
+    /* 3 build */ pattern({
+      "drums-1": fullFill,
+      "bass-1": rollAb,
+      "perc-1": percFull,
+      "poly-1": stab("a"),
+    }),
+    /* 4 main */ pattern({
+      "drums-1": full,
+      "bass-1": roll,
+      "perc-1": crash,
+      "poly-1": stab("c"),
+      "synth-1": leadA,
+    }),
+    /* 5 main */ pattern({
+      "drums-1": full,
+      "bass-1": rollUp,
+      "perc-1": percFull,
+      "poly-1": stab("c"),
+      "synth-1": leadB,
+    }),
+    /* 6 main */ pattern({
+      "drums-1": full,
+      "bass-1": rollAb,
+      "perc-1": percFull,
+      "poly-1": stab("a"),
+      "synth-1": leadC,
+    }),
+    /* 7 main */ pattern({
+      "drums-1": fullFill,
+      "bass-1": rollBb,
+      "perc-1": percFull,
+      "poly-1": stab("b"),
+      "synth-1": leadD,
+    }),
+    /* 8 break */ pattern({
+      "drums-1": noKick,
+      "perc-1": percLight,
+      "poly-1": pad("c"),
+      "synth-1": leadA,
+    }),
+    /* 9 break */ pattern({
+      "drums-1": noKick,
+      "perc-1": percLight,
+      "poly-1": pad("a"),
+      "synth-1": leadC,
+    }),
+    /* 10 break end */ pattern({
+      "drums-1": drums({
+        kick: "x...x...x...x...",
+        clap: "xxxxxxxxxxxxxxxx",
+        hat: "..x...x...x...x.",
+      }),
+      "perc-1": percFull,
+      "poly-1": pad("b"),
+      "synth-1": leadD,
+    }),
+    /* 11 outro */ pattern({ "drums-1": hats, "bass-1": pulse, "poly-1": pad("c") }),
+  ]
+  return song({
+    bpm: 128,
+    fx: { delayTime: "8n.", feedback: 0.4, reverbDecay: 2.8, pingPong: true },
+    instances: [
+      instance(
+        "drums-1",
+        "drums",
+        { kick: 0.95, snare: 0.6, clap: 0.55, hat: 0.3 },
+        { level: 0.85, send: 0.05, mod: mod({ drive: 0.12 }) },
+      ),
+      instance(
+        "perc-1",
+        "perc",
+        { tomLo: 0.5, tomHi: 0.5, rim: 0.45, cowbell: 0.3, shaker: 0.22, crash: 0.5 },
+        { level: 0.5, send: 0.35, pan: -0.3, filter: highpass(700) },
+      ),
+      instance(
+        "bass-1",
+        "bass",
+        {
+          waveform: "sawtooth",
+          filterType: "lowpass",
+          cutoff: 300,
+          resonance: 5,
+          envMod: 0.45,
+          attack: 0.003,
+          decay: 0.16,
+          sustain: 0.2,
+          release: 0.06,
+        },
+        {
+          level: 0.7,
+          send: 0.05,
+          key: key(0, "minor", 1),
+          mod: mod({ drive: 0.2, lfo1: lfo("cutoff", 0.03, 0.5, "triangle") }),
+        },
+      ),
+      instance(
+        "poly-1",
+        "poly",
+        {
+          waveform: "sawtooth",
+          filterType: "lowpass",
+          cutoff: 1400,
+          resonance: 1.5,
+          attack: 0.01,
+          decay: 0.25,
+          sustain: 0.2,
+          release: 0.6,
+        },
+        {
+          level: 0.4,
+          send: 0.6,
+          pan: 0.2,
+          key: key(0, "minor", 3),
+          mod: mod({ lfo1: lfo("cutoff", 0.12, 0.35, "sine") }),
+        },
+      ),
+      instance(
+        "synth-1",
+        "synth",
+        {
+          waveform: "sawtooth",
+          filterType: "lowpass",
+          cutoff: 1900,
+          resonance: 2.5,
+          attack: 0.005,
+          decay: 0.22,
+          sustain: 0.25,
+          release: 0.25,
+        },
+        {
+          level: 0.55,
+          send: 0.55,
+          pan: 0.1,
+          key: key(0, "minor", 4),
+          mod: mod({
+            drive: 0.15,
+            random: { target: "pitch", amount: 0.06 },
+            lfo1: lfo("pan", 0.3, 0.5, "sine"),
+          }),
+        },
+      ),
+    ],
+    patterns,
+    sections: [
+      ["Intro", 8, [0, 0, 1, 1]],
+      ["Build", 8, [2, 2, 2, 3]],
+      ["Main", 16, [4, 5, 6, 7]],
+      ["Break", 8, [8, 9, 8, 10]],
+      ["Main", 16, [4, 5, 6, 7]],
+      ["Outro", 8, [11]],
+    ],
+  })
+}
+
 // ---------- write ----------
 
 const SONGS = [
+  ["sol-solet.json", solSolet],
+  ["cargol-treu-banya.json", cargolTreuBanya],
+  ["el-gegant-del-pi.json", gegantDelPi],
+  ["silenci.json", silenci],
+  ["daus.json", daus],
+  ["riera.json", riera],
+  ["passos.json", passos],
+  ["el-teu-cami.json", elTeuCami],
+  ["berlin.json", berlin],
   ["nit-de-festa.json", nitDeFesta],
   ["cami-de-sorra.json", camiDeSorra],
   ["torre-de-ferro.json", torreDeFerro],
