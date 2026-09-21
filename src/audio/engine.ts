@@ -871,6 +871,21 @@ export class AudioEngine {
   }
 
   /**
+   * Strike notes on a polyphonic machine now, outside the sequence — the fretboard's dots. Called
+   * from a gesture: it starts the audio and builds the graph if that has not happened yet. With
+   * `spacing` (seconds) the notes come one after another instead of together.
+   */
+  async playNotes(id: string, notes: string[], spacing = 0): Promise<void> {
+    await Tone.start()
+    this.build()
+    const d = this.strips.get(id)?.device
+    if (!d || !("poly" in d)) return
+    const now = this.transport.now()
+    if (spacing > 0) notes.forEach((note, i) => d.poly.trigger([note], now + i * spacing))
+    else d.poly.trigger(notes, now)
+  }
+
+  /**
    * One FX-2 parameter. Delay time and feedback are Signals and ramp; the
    * reverb tail is not automatable — Tone re-renders the impulse response and
    * swaps it in, so it is debounced rather than applied per pointer move.

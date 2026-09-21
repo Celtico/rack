@@ -1,6 +1,7 @@
 import { createSystem, defaultConfig, defineConfig } from "@chakra-ui/react"
 
 import { displayRecipe } from "./recipes/display"
+import { fretboardRecipe } from "./recipes/fretboard"
 import { knobRecipe } from "./recipes/knob"
 import { ledRecipe } from "./recipes/led"
 import { miniGridRecipe } from "./recipes/miniGrid"
@@ -299,6 +300,7 @@ const config = defineConfig({
       stepGrid: stepGridRecipe,
       meter: meterRecipe,
       miniGrid: miniGridRecipe,
+      fretboard: fretboardRecipe,
       // Not `timeline`: Chakra ships a Timeline component whose slot recipe owns that key.
       songTimeline: timelineRecipe,
     },

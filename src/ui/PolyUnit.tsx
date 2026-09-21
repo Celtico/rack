@@ -14,8 +14,10 @@ import {
 } from "../state/store"
 import { formatHz, formatMs, formatPercent, formatQ, formatRatio, formatSeconds } from "./format"
 import { FilterControls, StripFilterControls } from "./FilterControls"
+import { Fretboard } from "./Fretboard"
 import { Knob } from "./Knob"
 import { ModPanel } from "./ModPanel"
+import { PanelFold } from "./PanelFold"
 import { KeyControls } from "./KeyControls"
 import { PolyGrid } from "./PolyGrid"
 import { PartTools } from "./PartTools"
@@ -251,7 +253,16 @@ export function PolyUnit({ id }: { id: string }) {
           <PartTools id={id} kind={inst.kind} />
         </Flex>
       </Flex>
-      <ModPanel id={id} />
+      {inst.kind === "strings" && (
+        <PanelFold
+          title="Fretboard"
+          hint="where the notes fall on a guitar — press one to play it"
+          first
+        >
+          <Fretboard id={id} />
+        </PanelFold>
+      )}
+      <ModPanel id={id} first={inst.kind !== "strings"} />
     </RackUnit>
   )
 }
