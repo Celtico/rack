@@ -1,4 +1,4 @@
-import { solfege } from "../state/key"
+import { noteLabel, solfegeShort } from "../state/key"
 import {
   DRUM_VOICES,
   PERC_VOICES,
@@ -49,7 +49,8 @@ export function SynthGrid({ id }: { id: string }) {
   const rows = [...names]
     .map((note, rowIndex) => ({
       id: note,
-      label: solfege(note),
+      label: noteLabel(note),
+      text: solfegeShort(note),
       steps: track.notes.map((r) => r === rowIndex),
     }))
     .reverse()
@@ -73,7 +74,8 @@ export function BassGrid({ id }: { id: string }) {
     ...[...names]
       .map((note, rowIndex) => ({
         id: note,
-        label: solfege(note),
+        label: noteLabel(note),
+        text: solfegeShort(note),
         steps: bass.notes.map((r) => r === rowIndex),
       }))
       .reverse(),

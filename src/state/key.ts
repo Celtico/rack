@@ -159,6 +159,16 @@ export function rowPitchClasses(key: KeyParams, count = ROW_COUNT): number[] {
   return Array.from({ length: count }, (_, i) => (key.root + steps[i % steps.length]!) % 12)
 }
 
+/** "Eb2" → "Mib", "F#3" → "Fa#": the solfège name without its octave — what a grid cell prints. */
+export const solfegeShort = (note: string): string => solfege(note).replace(/-?\d+$/, "")
+
+/**
+ * "G2" → "Sol2 · G": a grid row's label, the solfège name with the letter a chord chart uses
+ * beside it, so a poster's "G" finds its row.
+ */
+export const noteLabel = (note: string): string =>
+  `${solfege(note)} · ${note.replace(/-?\d+$/, "")}`
+
 /** "Eb2" → "Mib2", "F#3" → "Fa#3": a note (or bare letter name) as a score names it. */
 export function solfege(note: string): string {
   const m = /^([A-G])([#b]?)(-?\d+)?$/.exec(note)

@@ -1,6 +1,14 @@
 import { describe, expect, it } from "vitest"
 
-import { clampKey, keyRows, noteName, solfege, spelledWithSharps } from "./key"
+import {
+  clampKey,
+  keyRows,
+  noteLabel,
+  noteName,
+  solfege,
+  solfegeShort,
+  spelledWithSharps,
+} from "./key"
 import { KEY_DEFAULT, LEGACY_ROWS, rowNotes } from "./pattern"
 
 describe("keys", () => {
@@ -47,6 +55,11 @@ describe("keys", () => {
     expect(solfege("C4")).toBe("Do4")
     expect(solfege("Bb")).toBe("Sib")
     expect(solfege("Accent")).toBe("Accent")
+    expect(solfegeShort("Eb2")).toBe("Mib")
+    expect(solfegeShort("F#3")).toBe("Fa#")
+    expect(solfegeShort("C-1")).toBe("Do")
+    expect(noteLabel("G2")).toBe("Sol2 · G")
+    expect(noteLabel("F#3")).toBe("Fa#3 · F#")
   })
 
   it("spells a key's rows with the sharps or flats of its signature", () => {

@@ -31,6 +31,11 @@ interface StepGridRow<Id extends string> {
   marks?: readonly boolean[]
   /** Printed in every cell that is off, in place of the pictogram — the bank's "sits out" mark. */
   offIcon?: ReactNode
+  /**
+   * A short text printed in every cell of the row — the melodic grids print the note ("Sol#"),
+   * so a tune can be laid out by name without reading the labels across.
+   */
+  text?: string
 }
 
 /** Drag and drop between cells: a marked cell can be picked up, any cell can take a drop. */
@@ -87,6 +92,7 @@ interface StepCellProps {
   marked: boolean
   tinted: boolean
   draggable: boolean
+  text: string | undefined
   onToggle: (row: never, step: number) => void
   columnName: string
 }
@@ -107,6 +113,7 @@ const StepCell = memo(function StepCell({
   marked,
   tinted,
   draggable,
+  text,
   onToggle,
   columnName,
 }: StepCellProps) {
@@ -119,13 +126,14 @@ const StepCell = memo(function StepCell({
       data-accent={step % 4 === 0 ? "" : undefined}
       data-marked={marked ? "" : undefined}
       data-tinted={tinted ? "" : undefined}
+      data-text={text !== undefined ? "" : undefined}
       data-row={rowId}
       data-step={step}
       draggable={draggable || undefined}
       style={COLUMN_STYLE[step]}
       onClick={() => onToggle(rowId as never, step)}
     >
-      {!on && offIcon !== undefined ? offIcon : marked && icon}
+      {!on && offIcon !== undefined ? offIcon : marked ? icon : text}
     </chakra.button>
   )
 })
@@ -375,6 +383,7 @@ export function StepGrid<Id extends string>({
                 marked={row.marks?.[step] === true}
                 tinted={row.tint !== undefined}
                 draggable={drag !== undefined && row.marks?.[step] === true}
+                text={row.text}
                 onToggle={toggleCell}
                 columnName={columnName}
               />

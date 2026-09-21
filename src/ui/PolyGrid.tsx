@@ -1,4 +1,4 @@
-import { solfege } from "../state/key"
+import { noteLabel, solfegeShort } from "../state/key"
 import { rowNotes } from "../state/pattern"
 import { selectInstance, selectTrack, useRackStore } from "../state/store"
 import { StepGrid } from "./StepGrid"
@@ -19,7 +19,8 @@ export function PolyGrid({ id }: { id: string }) {
   const rows = [...names]
     .map((note, rowIndex) => ({
       id: note,
-      label: solfege(note),
+      label: noteLabel(note),
+      text: solfegeShort(note),
       steps: track.chords.map((column) => column.includes(rowIndex)),
     }))
     .reverse()

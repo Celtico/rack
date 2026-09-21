@@ -31,6 +31,21 @@ describe("<StepGrid />", () => {
     expect(screen.getAllByRole("button")).toHaveLength(32)
   })
 
+  it("prints a row's text in every cell, on or off", () => {
+    const noted = [{ id: "G2", label: "Sol2", text: "Sol", steps: rows[0].steps }, rows[1]]
+    renderWithChakra(<StepGrid rows={noted} onToggle={() => {}} />)
+
+    const on = screen.getByRole("button", { name: "Sol2 step 1" })
+    const off = screen.getByRole("button", { name: "Sol2 step 2" })
+    expect(on).toHaveTextContent("Sol")
+    expect(off).toHaveTextContent("Sol")
+    expect(on).toHaveAttribute("data-text")
+    // A row without text prints nothing.
+    const hat = screen.getByRole("button", { name: "Hat step 1" })
+    expect(hat).toBeEmptyDOMElement()
+    expect(hat).not.toHaveAttribute("data-text")
+  })
+
   it("reports toggles with the row id and zero-based step", async () => {
     const user = userEvent.setup()
     const onToggle = vi.fn()

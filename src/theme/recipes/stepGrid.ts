@@ -123,6 +123,19 @@ export const stepGridRecipe = defineSlotRecipe({
       p: "0",
       "& > svg": { w: "52%", h: "52%", pointerEvents: "none" },
       "&[data-marked]": { color: "whiteAlpha.600" },
+      // A cell that prints its row's note: tiny silkscreen, faint while off and dark ink on a lit
+      // cell, clipped rather than wrapped when the cells shrink to their 20px.
+      "&[data-text]": {
+        fontSize: "2xs",
+        lineHeight: "1",
+        fontWeight: "semibold",
+        letterSpacing: "tighter",
+        fontVariantNumeric: "tabular-nums",
+        whiteSpace: "nowrap",
+        overflow: "hidden",
+        color: "rack.silkscreen.muted",
+      },
+      "&[data-text][aria-pressed=true]": { color: "blackAlpha.800" },
       "&[data-tinted][data-marked]": { color: TINT_ACCENT },
       "&[aria-pressed=true]": { bg: "rack.step.on", shadow: "stepOn" },
       "&[data-playing]": { borderColor: "rack.step.playing", shadow: "stepPlaying" },
