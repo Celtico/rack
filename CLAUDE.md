@@ -494,8 +494,9 @@ strict build order:
      include makes the browser discard the drop silently, which is how parts fell through — the pointer's release that ends the
      drag lands right after the drop and shut a dialog that mounted inside it before it was seen)
      and then empties it: the whole pattern (`clearPattern(slot)`: every part to `emptyTrack`, who sits
-     out kept) or, for a part, the machine's **whole row** — its part in every slot (`clearParts(id)`;
-     the user asked for the row, not the one cell). Cancel, Escape or a click outside do
+     out kept) or, for a part, **that one cell** — the machine's part in the pattern it was dragged from
+     (`clearPart(id, slot)`; it used to empty the machine's whole row, and the user lost every pattern
+     of a guitar to it, so the row went). Cancel, Escape or a click outside do
      nothing; both are one undo step. `StepGrid` takes an optional `drag`
      (`CellDrag`: `type`, `dataOf`, `accepts`, `onDrop`), handled on the grid so the memoised cells stay
      handler-free; the cell under the drag is outlined on the DOM (`data-drop-target`); the grid's own
@@ -506,8 +507,11 @@ strict build order:
      does two things: `openInstrument` in `PatternBank.tsx` pauses the song on the slot on screen
      (`setFollowSong(false)`, it keeps looping as picking a slot does) and unfolds and scrolls the panel
      into view (`scrollToUnit`) — it was a double-click, the user wanted one —, and the machine is
-     selected: Delete or Backspace then takes it out of the rack (`removeInstanceWithUndo`, the same Undo toast as the grip menu), Escape or a press anywhere
-     else lets it go; the key handler skips text fields (`inTextField`, exported from `undoRedo.ts`).
+     selected: Delete or Backspace then **empties its part in the pattern on screen** (`clearPart(id,
+     activePattern)`, a toast with Undo via `undoEdit`; it used to take the whole machine out of the rack
+     — the user wanted the pattern, and machines leave through the grip menu or Modules), Escape or a
+     press anywhere else lets it go; the key handler skips text fields (`inTextField`, exported from
+     `undoRedo.ts`).
    - ✅ Extra — a folded unit's `MiniGrid` goes **dark while the machine is not heard** (`selectSilent`: sits
      the sounding slot out, muted, or silenced by another's solo) — the matrix shows what plays, not the part.
    - ✅ Extra — **parts per pattern**: `Pattern.muted?: string[]` — instance ids that keep their part but
@@ -752,6 +756,133 @@ strict build order:
      strum 14. The chart importer gives its guitar a dry send (0.12) and the folk strum by default. The whole strum
      is kept inside a sixteenth at any tempo (spacing capped at 60 ms over the strings). All six strings
      struck at once was what made it sound like a toy.
+
+   - ✅ Extra — **note names in the cells**: every melodic grid (MONO-1, BASS-2's note rows, POLY-4, EP-1,
+     STR-6) prints the row's solfège name without the octave ("Sol", "Fa#") inside each cell, on or off
+     (`StepGridRow.text`, `solfegeShort` in `key.ts`; `data-text` on the cell, `2xs` semibold silkscreen,
+     faint while off and dark ink on a lit cell) — so a child can lay out "Sol solet" by name without
+     reading the labels across. The row labels read "Sol2 · G" (`noteLabel`): the letter a chord poster
+     uses beside the solfège, so a poster's "G" finds its row. Both follow the key like the labels did.
+     Widest cell text is 19 px at the cells' 20 px minimum; touch screens never go under 28.
+   - ✅ Extra — **STR-6 fretboard**: under the guitar's controls, a `Fretboard` (`src/ui/Fretboard.tsx`,
+     slot recipe `fretboard`) draws a neck as SVG — six strings (high E on top), twelve frets, inlay
+     markers — with one dot per grid row at the lowest fret that reaches its note in standard tuning
+     (`positionOf` in `src/ui/fretPositions.ts`, pure, with `midiOf`; rows off the neck get no dot), the
+     solfège name printed in it. The dots of the sounding column light amber from a store subscription
+     on the DOM (`data-on` on the dot's `<g>`), no render per step. The file is `fretPositions.ts`, not
+     `fretboard.ts`: macOS would not tell that apart from `Fretboard.tsx`, and `tsc` refused. It sits in
+     its own **fold** ("Fretboard", `PanelFold` — moved out of `ModPanel.tsx` into `src/ui/PanelFold.tsx`;
+     `ModPanel` takes `first={false}` after it) above Modulation. The dots are **buttons**
+     (`role="button"`, pointer down or Enter/Space): `strikeNote` (`src/ui/strikeNote.ts`) sounds the
+     note now through `engine.playNotes(id, notes)` (which `Tone.start()`s and builds on first use, so
+     it works before the clock has ever run) and, **while the clock runs, toggles it in the sounding
+     step** of the pattern on screen — tap along to write the tune, tap a note that is there to take it
+     out (the user asked for a toggle, not add-only); stopped, it only sounds. A struck dot flashes
+     (`data-hit`, 180 ms). Synthetic clicks from a script never start audio (no gesture), which is why
+     the browser check needed a real click. Each dot carries its **fret number** at its top right
+     (`fretTag` slot, amber mono; an open string's "0" sits on the left, off the nut) — the number a
+     guitar tablature prints on that string's line, so a tab can be read against the neck (the user
+     brought one and asked how to understand it). The name text is `text[data-name]` so the lit-dot
+     rules leave the tag alone. **Every string and fret is a press target** (`place` slot: an
+     invisible `rect` per string × fret 0–12, `role="button"`, "String 1 fret 3" — string 1 is the high
+     E as a tab counts them; drawn under the dots): pressed, it sounds the note there (`noteAt` in
+     `fretPositions.ts`, spelled with the key's sharps or flats) on the pointer's press, and the
+     **click** that follows opens the `PlaceMenu` (a Chakra `Menu`, controlled, anchored through
+     `positioning.getAnchorRect`, in a `Portal`; the sound goes on the press for latency, the menu on
+     the click so the press that opened it is over before the menu listens for presses outside; a
+     fresh `Menu.Root` per open, `key={menuKey}`): the note's name and "string N · fret F", then
+     **Add to the fretboard** — a **mark**: a dot outlined amber (`data-mark`, same `dot` slot) with
+     the name and fret number, kept in `Fretboard` state in the order placed (UI-only, not saved);
+     Add is offered on a row dot's place too, the user asked for the open strings — **Remove from the
+     fretboard** on a marked place (Delete with the mark focused does the same), and **Add to STR-6
+     #n** — the note into the pattern on screen at its **next free step** (`nextFreeStep` /
+     `appendNote` in `strikeNote.ts`: the step after the last column holding anything; a tab read
+     left to right writes itself). **When the key has no row for the note** (the open strings, most
+     of the time — "no em deixa ficar 0"), `planAppend(id, midi)` looks for a key that holds it
+     together with every pitch already in the part (`pickKeyForPitches` in `tab.ts`, preferring the
+     current root and scale so often only the octave moves), the item reads "· step N · key → La
+     major · oct 3", and `applyAppend` re-indexes the part's rows so every note keeps its pitch, sets
+     the key and writes the note as one undo step (`beginStroke` / `endStroke`) and
+     `syncFromStore`s; disabled with the reason only when the bar is full or no eight-row key holds
+     them all. A **ghost dot** (`ghost` slot: dashed amber ring, the note's name) follows a mouse
+     over the neck (`onPointerEnter` on the place rects, `pointerType === "mouse"` only, cleared
+     on the SVG's `pointerleave`), so where a press will land is seen before it lands — the user
+     reported marks "falling on the wrong string"; the hit areas were checked against the drawn
+     lines with `elementFromPoint` and match, so the fix is feedback. A row dot's click opens the same menu while the clock is stopped (running, the
+     tap records, as before). Above the neck: **Play** plays the marks one after another, an eighth
+     apart at the clock's tempo (`engine.playNotes(id, notes, spacing)` schedules them `spacing`
+     seconds apart), **Clear** takes them all off, and **Key notes** hides or puts back the key's
+     row dots all at once; a single row dot goes with **Remove from the fretboard** on its place, or
+     Delete with it focused (`hiddenRows`, UI-only — read as fixed marks that could not be taken
+     off, they got in the scratchpad's way; the user asked twice). **Reading aids** (the user pasted
+     an ASCII tab and asked for a drawing they could interpret): the strings' names at the left of
+     the nut as a tab writes them (`STRING_NAMES` = E A D G B e, low to high, the thin E on top;
+     `stringName` slot, mono bold), every fret's number under the neck (0–12; the inlay frets and 0
+     at full opacity, the rest at 55 %), and under the neck a **tablature readout** of the marks in
+     the order they were put (`tabLines(notes, columns = 16)` in `fretPositions.ts`, pure: six lines
+     "e|-3-…|", three characters a column, on the displays' dark readout — `tab` slot, mono `xs`,
+     scrolls sideways when long). **Paste a tab** (`TabDialog`, `src/ui/TabDialog.tsx`, a button in
+     the fold's row; the user could not get an arpeggio in by hand): a text tablature pasted from
+     anywhere — `parseTab` in `src/state/tab.ts` (pure): lines that look like tab lines are grouped
+     six at a time (a system, the thin E on top), the body after the first `|` is scanned column by
+     column, a digit (two digits read together) is a note on that string, columns with a note are the
+     steps, notes in one column a chord; systems follow in time — is written by `writeTab`
+     (`src/ui/tabImport.ts`): `pickKeyFor` tries every root × scale × octave and keeps the key whose
+     eight rows hold the most of the tab's distinct pitches (ties: a root on the tab's lowest note,
+     then the plainer scale), `setInstanceKey` sets it, `tabToPatterns` lays the columns a step
+     each, sixteen a pattern, `setTrack` writes them into the slot on screen and the ones after it
+     (more than one → the chain becomes those slots), `engine.syncFromStore()`; notes the key has
+     no row for are left out and counted. The dialog shows the read live ("16 steps · key La minor ·
+     A3–A4 · 3 notes fit"), the toast repeats it, and the tab's notes go on the neck as marks. The
+     marks
+     are a scratchpad for reading a tablature — press the tab's positions, see their names, hear
+     them. Two earlier shapes were built and taken out the same hour: a step-picker popover per dot,
+     and a double-press to remove. **Tests**: under jsdom only the first Chakra menu opened in a
+     document takes its items' presses (a later one, even from a fresh mount, ignores them — a real
+     browser does not, checked by hand), so `Fretboard.test.tsx` opens one menu, "Add to STR-6" lives
+     in `FretboardWrite.test.tsx`, and the next-free-step rule is unit-tested in
+     `strikeNote.test.ts`; opening a menu in a test is press + click + `findByRole("menu")` + a
+     30 ms wait. The neck
+     **runs the whole width of the panel** (`scroller` slot: the SVG is `w: full`, `minW: 36rem`, and
+     scrolls sideways inside the scroller when the panel is narrower — a phone), so on a wide rack the
+     dots come out large.
+   - ✅ Extra — **children's songs** as demos (`kidsSong` in `scripts/make-songs.mjs`, listed first in
+     `index.json` as "· Infantil"): Sol, solet (Do, 92), Cargol, treu banya (Do, 96), El gegant del Pi
+     (Sol, 100). STR-6 #1 picks the tune one note a column at octave 4 (the tune lines are digit strings
+     over `ONE_NOTE`), STR-6 #2 strums I / V7 at octave 2, a square BASS-2 on the roots, a light DR-4;
+     two intro bars of chords, then the song twice. The tunes are written from memory of the common
+     school versions (no score was found online to check them against) — a wrong note is one cell away.
+     **Silenci · Fingerpicking** (`silenci()`, 99 BPM, La menor, 38 bars): the accompaniment the user
+     asked for under a sixties folk song (they brought its tab) — a picked eighth-note arpeggio (root,
+     fifth, third, fifth) at octave 2, a second STR-6 strumming each half bar at octave 3, a square
+     bass on the roots, drums from the second verse, over Am · G · C · F in the song's order. Chords
+     and a generic picking pattern only, **no melody** and not the song's name: the demos ship CC0
+     and the song is under copyright; the user's own copy with the title lives in `docs/`
+     (never committed). Four more from a playlist the user pasted, the same way — the feel, own
+     chords and lines, neutral names: **Daus · Drum & bass** (174, Fa menor: two-step DR-4, shaker
+     PERC-6, a reese-ish saw BASS-2 with slides and a cutoff LFO, EP-1 stabs, POLY-4 pad, a square
+     MONO-1 lead panned by an LFO; Intro / Build / Drop / Break / Drop / Outro, 60 bars), **Riera ·
+     Folk** (116, Mi menor: picked and strummed STR-6s, congas on PERC-6 toms, 40 bars), **Passos ·
+     Hip hop** (92, swing 0.2, Re menor: boom bap with drive and random level, EP-1 Dm7 / Gm7 /
+     Bbmaj7 / Am7 through a dusty lowpass, square sub, sine MONO-1 hook, 56 bars) and **El Teu
+     Camí · Rock** (132, Fa major: driving eighths, PERC-6 toms and crash in the chorus, saw bass on
+     eighths, two driven STR-6s strumming and picking F · C · Bb · Dm, a saw MONO-1 solo, 72 bars).
+     **Balanced by numbers**: `scripts/render-check.html` now prints a `STATS` line per song after
+     `PASS` — peak and RMS in dBFS, and RMS/peak per four bars — so a mix can be judged without ears
+     (a dip is a section that dropped out, a flat top the limiter working). Reference: Nit de Festa
+     sits at −12.5 dB RMS in its full sections, breaks at −26, peaks around −1. The six new demos
+     were rendered, levelled and rendered again until: full sections −12.5…−15 (Silenci and Riera,
+     ballads, −15…−16), verses 1.5–2 dB under choruses, intros 3–15 dB under, peaks ≤ 0 (Passos
+     and El Teu Camí started at −12 RMS with peaks at +2, the limiter never resting; Berlín's intro
+     started as loud as its main — now four bars without the kick). The generator's instance calls
+     are multi-line after Prettier, so edits to them are made with whitespace-tolerant regexes
+     checked to match exactly once, never with plain string replaces (a first pass silently did
+     nothing). The old hand-made `kamuffel-style.json` (a 16-bar loop) stays; **Berlín · Techno** (`berlin()`,
+     128, Do menor, 64 bars) is the generated one the user asked for when they pasted Altes Kamuffel:
+     four-on-the-floor with offbeat hats, a rolling sixteenth saw bass under a very slow triangle
+     LFO on the cutoff, POLY-4 offbeat stabs, one bouncy saw MONO-1 motif with a little random pitch
+     and a pan LFO, ping-pong delay; Intro / Build / Main / Break (no kick, a clap roll into the drop)
+     / Main / Outro.
 
 **All extras above are done.** Other ideas: LCD readouts per synth, drag-reorder on the timeline, per-step
 velocity on the kits.
