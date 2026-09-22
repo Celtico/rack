@@ -775,9 +775,11 @@ activePattern)`, a toast with Undo via `undoEdit`; it used to take the whole mac
 
    - ✅ Extra — **STR-6 sampled guitars** (the user found the string model poor: "un SMP-8 però amb
      guitarra"). `StringsParams.sound` (`STRINGS_SOUNDS` = `nylon` / `electric` / `model` in
-     `params.ts`; default **nylon**, so older songs and the demos — none of which name a sound —
-     play the recording; `parseSong` checks it, `clampParams` falls back to the default, Random
-     sound keeps it). Recordings are CC0: FreePats' Spanish Classical Guitar (nylon) and
+     `params.ts`; default **nylon**, so older songs and the demos play the recording — except the
+     heavy ones: the driven STR-6s of Ferralla and Cavalls de Ferro are `sound: "model"` in
+     `make-songs.mjs`, the user preferred the plucked strings there (electric was tried and taken
+     out); `parseSong` checks it, `clampParams` falls back to the default, Random sound keeps it).
+     Recordings are CC0: FreePats' Spanish Classical Guitar (nylon) and
      Karoryfer's Black And Green Guitars (the green Gretsch, electric), one note about every three
      semitones from E2 to G5 as mono 96 kbps MP3 (4 s, faded, peak −1 dBFS; 1.2 MB in all) in
      `public/samples/guitar/<sound>/<Note>.mp3` + `LICENSE.txt`, built by

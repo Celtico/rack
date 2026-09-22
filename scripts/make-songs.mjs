@@ -1363,7 +1363,8 @@ function ferralla() {
     instance(
       id,
       "strings",
-      { damp: 5200, sustain: 0.992, release: 0.6, strum: 4 },
+      // The plucked-string model: driven this hard, the user preferred it to the recordings.
+      { sound: "model", damp: 5200, sustain: 0.992, release: 0.6, strum: 4 },
       {
         level: 0.7,
         send: 0.08,
@@ -1904,7 +1905,8 @@ function cavallsDeFerro() {
     instance(
       id,
       "strings",
-      { damp: 5600, sustain: 0.99, release: 0.4, strum: 3 },
+      // The plucked-string model, as in Ferralla.
+      { sound: "model", damp: 5600, sustain: 0.99, release: 0.4, strum: 3 },
       {
         level: 0.65,
         send: 0.06,
