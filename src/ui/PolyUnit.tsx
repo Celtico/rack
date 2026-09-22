@@ -1,4 +1,4 @@
-import { Flex, HStack } from "@chakra-ui/react"
+import { Flex, HStack, NativeSelect } from "@chakra-ui/react"
 
 import { KIND_TITLE, type InstanceOf } from "../state/instances"
 import {
@@ -9,8 +9,10 @@ import {
   selectInstance,
   STRINGS_PARAMS_DEFAULT,
   STRINGS_RANGES,
+  STRINGS_SOUNDS,
   useRackStore,
   WAVEFORMS,
+  type StringsSound,
 } from "../state/store"
 import { formatHz, formatMs, formatPercent, formatQ, formatRatio, formatSeconds } from "./format"
 import { ControlGroup } from "./ControlGroup"
@@ -170,11 +172,36 @@ function PianoControls({ id, inst }: { id: string; inst: InstanceOf<"ep"> }) {
   )
 }
 
-/** STR-6 controls: dampening, sustain and release of the strings. */
+const SOUND_LABELS: Readonly<Record<StringsSound, string>> = {
+  nylon: "Nylon guitar",
+  electric: "Electric guitar",
+  model: "String model",
+}
+
+/**
+ * STR-6 controls: which guitar it is (two sampled ones, or the plucked-string model), then
+ * dampening, sustain (the model's ring — a recording rings on its own) and release of the strings.
+ */
 function GuitarControls({ id, inst }: { id: string; inst: InstanceOf<"strings"> }) {
   const p = inst.params
   return (
     <HStack gap="4" wrap="wrap" align="flex-start">
+      <ControlGroup title="Sound">
+        <NativeSelect.Root size="xs" w="36">
+          <NativeSelect.Field
+            value={p.sound}
+            aria-label="Guitar sound"
+            onChange={(e) => changeParams(id, { sound: e.target.value as StringsSound })}
+          >
+            {STRINGS_SOUNDS.map((s) => (
+              <option key={s} value={s}>
+                {SOUND_LABELS[s]}
+              </option>
+            ))}
+          </NativeSelect.Field>
+          <NativeSelect.Indicator />
+        </NativeSelect.Root>
+      </ControlGroup>
       <Knob
         label="Damp"
         scale="log"
@@ -186,16 +213,18 @@ function GuitarControls({ id, inst }: { id: string; inst: InstanceOf<"strings"> 
         format={formatHz}
         onChange={(damp) => changeParams(id, { damp })}
       />
-      <Knob
-        label="Sustain"
-        value={p.sustain}
-        min={STRINGS_RANGES.sustain.min}
-        max={STRINGS_RANGES.sustain.max}
-        step={0.001}
-        defaultValue={STRINGS_PARAMS_DEFAULT.sustain}
-        format={formatSustain}
-        onChange={(sustain) => changeParams(id, { sustain })}
-      />
+      {p.sound === "model" && (
+        <Knob
+          label="Sustain"
+          value={p.sustain}
+          min={STRINGS_RANGES.sustain.min}
+          max={STRINGS_RANGES.sustain.max}
+          step={0.001}
+          defaultValue={STRINGS_PARAMS_DEFAULT.sustain}
+          format={formatSustain}
+          onChange={(sustain) => changeParams(id, { sustain })}
+        />
+      )}
       <Knob
         label="Release"
         scale="log"

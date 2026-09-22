@@ -221,7 +221,8 @@ export function PatternBank() {
   // Same blocks as the SONG bars: grey, lit in the pattern's colour while it sounds.
   const styles = useSlotRecipe({ key: "songTimeline" })()
 
-  // Drag a slot onto another to swap them (⌥ copies instead); a part from the matrix lands in the slot.
+  // Drag a slot onto another to copy it there — the source stays as it is (⌥ swaps the two instead);
+  // a part from the matrix lands in the slot.
   const [over, setOver] = useState<number | null>(null)
   const clearOver = useCallback(() => setOver(null), [])
   useClearOnDragEnd(over !== null, clearOver)
@@ -231,7 +232,7 @@ export function PatternBank() {
   }
   const onDragOver = (slot: number) => (e: DragEvent<HTMLButtonElement>) => {
     const { types } = e.dataTransfer
-    if (types.includes(PATTERN_DRAG)) e.dataTransfer.dropEffect = e.altKey ? "copy" : "move"
+    if (types.includes(PATTERN_DRAG)) e.dataTransfer.dropEffect = e.altKey ? "move" : "copy"
     else if (types.includes(PART_DRAG)) e.dataTransfer.dropEffect = "copy"
     else return
     e.preventDefault()
@@ -244,8 +245,8 @@ export function PatternBank() {
     if (pattern) {
       e.preventDefault()
       const from = Number(pattern)
-      if (e.altKey) copyPattern(from, slot)
-      else swapPatterns(from, slot)
+      if (e.altKey) swapPatterns(from, slot)
+      else copyPattern(from, slot)
     } else if (part) {
       e.preventDefault()
       const source = parsePart(part)

@@ -1,0 +1,7 @@
+Guitar samples for STR-6, all under the Creative Commons CC0 1.0 public domain dedication
+(https://creativecommons.org/publicdomain/zero/1.0/), converted by scripts/make-guitar-samples.sh.
+
+nylon/    Spanish Classical Guitar, FreePats project, recorded by roberto@zenvoid.org (2008,
+          version 2019-06-18). https://freepats.zenvoid.org/Guitar/acoustic-guitar.html
+electric/ Black And Green Guitars (the green Gretsch Anniversary), Karoryfer Lecolds, recorded
+          by Brian Wood, 2022. https://github.com/sfzinstruments/karoryfer.black-and-green-guitars

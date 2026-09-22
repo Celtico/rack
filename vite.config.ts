@@ -72,7 +72,7 @@ export default defineConfig({
             urlPattern: ({ url }) =>
               /^\/(songs|samples|midi)\//.test(url.pathname) || url.pathname === "/-rack-song.json",
             handler: "StaleWhileRevalidate",
-            options: { cacheName: "rack-content", expiration: { maxEntries: 80 } },
+            options: { cacheName: "rack-content", expiration: { maxEntries: 160 } },
           },
         ],
       },

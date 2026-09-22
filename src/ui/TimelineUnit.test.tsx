@@ -1,21 +1,53 @@
 import { fireEvent, screen, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
-import { beforeEach, describe, expect, it } from "vitest"
+import { beforeEach, describe, expect, it, vi } from "vitest"
 
 import { useRackStore } from "../state/store"
 import { renderWithChakra } from "../test/render"
 import { TimelineUnit } from "./TimelineUnit"
 
+const engine = {
+  start: vi.fn().mockResolvedValue(undefined),
+  playFrom: vi.fn(),
+  stop: vi.fn(),
+}
+
+vi.mock("../audio/engine", () => ({
+  getEngine: () => engine,
+}))
+
 describe("<TimelineUnit />", () => {
   beforeEach(() => {
+    vi.clearAllMocks()
     useRackStore.setState({
       chain: [0, 2],
       sections: [],
       activePattern: 1,
       playingBar: -1,
       currentStep: -1,
+      playing: false,
+      followSong: true,
       folded: {},
     })
+  })
+
+  it("runs the song from a bar's play button: starting the clock, or jumping while it runs", async () => {
+    const user = userEvent.setup()
+    useRackStore.setState({ followSong: false })
+    renderWithChakra(<TimelineUnit />)
+
+    await user.click(screen.getByRole("button", { name: "Play from bar 2" }))
+    expect(engine.start).toHaveBeenCalledWith(1)
+    expect(engine.playFrom).not.toHaveBeenCalled()
+    expect(useRackStore.getState().playing).toBe(true)
+    // A slot picked from the bank was looping: the song takes over again.
+    expect(useRackStore.getState().followSong).toBe(true)
+    // The bar's own click (cycling the pattern) did not fire.
+    expect(useRackStore.getState().chain).toEqual([0, 2])
+
+    await user.click(screen.getByRole("button", { name: "Play from bar 1" }))
+    expect(engine.playFrom).toHaveBeenCalledWith(0)
+    expect(engine.start).toHaveBeenCalledTimes(1)
   })
 
   it("lists one block per bar, coloured by pattern, and marks the sounding bar", () => {
@@ -94,7 +126,7 @@ describe("<TimelineUnit />", () => {
     const drop = (el: HTMLElement, slot: number) => {
       const dataTransfer = {
         types: ["application/x-rack-pattern"],
-        getData: () => String(slot),
+        getData: (type: string) => (type === "application/x-rack-pattern" ? String(slot) : ""),
         dropEffect: "none",
       }
       fireEvent.dragOver(el, { dataTransfer })
@@ -109,6 +141,55 @@ describe("<TimelineUnit />", () => {
     expect(useRackStore.getState().chain).toEqual([0, 5, 7])
     drop(screen.getByRole("button", { name: "Rename section Intro" }), 9)
     expect(useRackStore.getState().chain).toEqual([9, 9, 9])
+  })
+
+  it("moves a bar dragged onto another, or onto the +, keeping the sections' lengths", () => {
+    useRackStore.setState({
+      chain: [0, 1, 2, 3],
+      sections: [
+        { name: "A", bars: 2 },
+        { name: "B", bars: 2 },
+      ],
+    })
+    renderWithChakra(<TimelineUnit />)
+    const drag = (from: HTMLElement, to: HTMLElement, bar: number) => {
+      const dataTransfer = {
+        types: ["application/x-rack-bar"],
+        setData: () => {},
+        getData: () => String(bar),
+        effectAllowed: "none",
+        dropEffect: "none",
+      }
+      fireEvent.dragStart(from, { dataTransfer })
+      expect(from).toHaveAttribute("data-dragging")
+      fireEvent.dragOver(to, { dataTransfer })
+      expect(to).toHaveAttribute("data-drop-target")
+      expect(dataTransfer.dropEffect).toBe("move")
+      fireEvent.drop(to, { dataTransfer })
+      fireEvent.dragEnd(from, { dataTransfer })
+    }
+
+    // Bar 1 onto bar 3: it lands after it.
+    drag(
+      screen.getByRole("listitem", { name: "Bar 1: pattern 1" }),
+      screen.getByRole("listitem", { name: "Bar 3: pattern 3" }),
+      0,
+    )
+    expect(useRackStore.getState().chain).toEqual([1, 2, 0, 3])
+    expect(useRackStore.getState().sections).toEqual([
+      { name: "A", bars: 2 },
+      { name: "B", bars: 2 },
+    ])
+    // Bar 4 onto the +: to the end (it is there already), so nothing changes; bar 1 onto the +: last.
+    drag(
+      screen.getByRole("listitem", { name: "Bar 1: pattern 2" }),
+      screen.getByRole("button", { name: "Add a bar of pattern 2" }),
+      0,
+    )
+    expect(useRackStore.getState().chain).toEqual([2, 0, 3, 1])
+    expect(screen.getByRole("listitem", { name: "Bar 4: pattern 2" })).not.toHaveAttribute(
+      "data-dragging",
+    )
   })
 
   it("sets a focused bar's pattern from the digits typed on it", async () => {

@@ -26,6 +26,19 @@ export function padBank(patterns: readonly Pattern[], instances: readonly TrackO
 export const swapSlots = (chain: readonly number[], a: number, b: number): number[] =>
   chain.map((s) => (s === a ? b : s === b ? a : s))
 
+/**
+ * The bar at `from` taken out and put back at `to` — the place it lands in the new chain, so
+ * dragging a bar onto a later one lands after it and onto an earlier one before it. Pure; out-of-range
+ * indices leave the chain as it is.
+ */
+export function movedBar(chain: readonly number[], from: number, to: number): number[] {
+  const out = [...chain]
+  if (from === to || from < 0 || to < 0 || from >= out.length || to >= out.length) return out
+  const [bar] = out.splice(from, 1)
+  out.splice(to, 0, bar!)
+  return out
+}
+
 export interface PlayingPattern {
   /** Bank slot, 0-based. */
   index: number

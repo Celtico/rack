@@ -35,6 +35,7 @@ export const timelineRecipe = defineSlotRecipe({
     "number",
     "progress",
     "remove",
+    "play",
     "add",
     "ruler",
     "mini",
@@ -141,6 +142,8 @@ export const timelineRecipe = defineSlotRecipe({
       // The bank's slots drag: onto another slot to swap (⌥ copies), a part dropped on one lands there,
       // and a slot dropped on a song bar becomes that bar's pattern.
       "&[draggable=true]": { cursor: "grab" },
+      // A song bar travelling along the timeline.
+      "&[data-dragging]": { opacity: 0.4 },
       "&[data-drop-target]": {
         outline: "2px dashed",
         outlineColor: "rack.led.on",
@@ -195,6 +198,21 @@ export const timelineRecipe = defineSlotRecipe({
       color: "inherit",
       opacity: 0.6,
       _hover: { opacity: 1 },
+    },
+    // Bottom-left: run the song from this bar.
+    play: {
+      position: "absolute",
+      bottom: "0",
+      left: "0",
+      boxSize: "4",
+      display: "grid",
+      placeItems: "center",
+      fontSize: "2xs",
+      lineHeight: "1",
+      color: "inherit",
+      opacity: 0.6,
+      _hover: { opacity: 1, color: "rack.led.on" },
+      _focusVisible: { outline: "2px solid", outlineColor: "rack.led.on", outlineOffset: "-2px" },
     },
     add: {
       w: BAR_WIDTH,

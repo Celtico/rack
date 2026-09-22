@@ -288,7 +288,7 @@ strict build order:
      one long render cost the square of its length — measured 16 bars in 20 s, 32 in 138 s, 48+ never
      within 15 min (profiled: the clock phase is small, the native render is the quadratic part). Each
      stretch is its own engine + `OfflineContext` (`renderStretch`), started at its bar (`engine.run(0,
-     fromBar)` → `scheduler.seek`), with `EngineSource.timeOffset` so every LFO starts at the phase it had
+fromBar)` → `scheduler.seek`), with `EngineSource.timeOffset` so every LFO starts at the phase it had
      reached, rendered with the plan's tail and summed onto the mix (`mixInto`) where the tail runs under
      the next stretch; the stretches carry the master gain but bypass the glue (`engine.bypassMaster()`),
      and `applyMaster` runs the compressor + limiter (`MASTER_COMPRESSOR` / `LIMITER_DB`, shared with
@@ -329,7 +329,7 @@ strict build order:
      folder and Demos sections `pt 3` and `pb 3` while closed; the Demos toggle is a folder-style row; no
      indent on a folder's grid, so all sleeves line up.
      In Add unit the machines are a **grid of tiles** (`Tile`, `TILE_GRID`: `auto-fill, minmax(7.5rem,
-     1fr)`, so a wider panel takes more across): the whole tile is one `chakra.button` (icon, name, title;
+1fr)`, so a wider panel takes more across): the whole tile is one `chakra.button` (icon, name, title;
      "×N" top-left when some are in the rack, the `+` / undo mark top-right is decoration) — pressing
      anywhere on it adds or puts back. Under the grid, "In the rack" lists every instance in the tiles'
      order (kind icon in its accent, tap to scroll to it, trash to remove), then "Put back" as tiles.
@@ -480,10 +480,12 @@ strict build order:
      (`StepGridRow.offIcon` exists for a mark in off cells but the bank no longer uses it — a crossed
      speaker was tried), and the sounding column goes a shade lighter — an empty
      slot reads as empty. **Drag and drop in the BANK** (HTML5, mouse only — touch keeps Copy part / Paste to
-     pattern in the grip menu): a slot button dragged onto another **swaps** the two patterns
-     (`swapPatterns(a, b)`: the chain is renumbered with `swapSlots` in `patterns.ts` and `activePattern`
-     follows, so nothing sounds different) or, with ⌥/Alt held, **copies** it there (`copyPattern(from, to)`;
-     the slot on screen stays); a marked matrix cell dragged onto another cell (any row of the same kind)
+     pattern in the grip menu): a slot button dragged onto another **copies** it there
+     (`copyPattern(from, to)`; the source and the slot on screen stay — it used to swap by default and
+     the user wanted the neighbour duplicated without moving what was there) or, with ⌥/Alt held,
+     **swaps** the two patterns (`swapPatterns(a, b)`: the chain is renumbered with `swapSlots` in
+     `patterns.ts` and `activePattern` follows, so nothing sounds different); a marked matrix cell
+     dragged onto another cell (any row of the same kind)
      or onto a slot button copies that part there (`setTrack`). Either dropped on the **bank's own
      surface** (the group box, not a cell or slot — outlined red-dashed while over it; the whole body was
      tried and the user preferred this; `RackUnit.onDragStart` ignores drags that began on something
@@ -508,7 +510,7 @@ strict build order:
      (`setFollowSong(false)`, it keeps looping as picking a slot does) and unfolds and scrolls the panel
      into view (`scrollToUnit`) — it was a double-click, the user wanted one —, and the machine is
      selected: Delete or Backspace then **empties its part in the pattern on screen** (`clearPart(id,
-     activePattern)`, a toast with Undo via `undoEdit`; it used to take the whole machine out of the rack
+activePattern)`, a toast with Undo via `undoEdit`; it used to take the whole machine out of the rack
      — the user wanted the pattern, and machines leave through the grip menu or Modules), Escape or a
      press anywhere else lets it go; the key handler skips text fields (`inTextField`, exported from
      `undoRedo.ts`).
@@ -532,7 +534,7 @@ strict build order:
      never an edit: `loadSong` bumps `store.loads` (UI-only counter) and the subscription resets its
      serialized baseline (also on a `nowPlaying` change). `autosavedAt` in the library store feeds the
      panel's "saved by itself · time" line. Versions: `STORES.versions` (DB version 3), `SongVersion
-     { id, entryId, savedAt, song }`; `update(id, song, keep?)` keeps the replaced song as a version unless
+{ id, entryId, savedAt, song }`; `update(id, song, keep?)` keeps the replaced song as a version unless
      one was kept within `VERSION_GAP_MS` (2 min; `keep` forces it), identical songs write nothing, at most
      `MAX_VERSIONS` = 30 per entry (oldest dropped), versions go with a removed entry; `loadVersions(id)`
      (lazy, into `versions[id]`), `keepVersion(id)` (dedupes), `removeVersion(id)`. The Songs panel's
@@ -620,6 +622,20 @@ strict build order:
      Duplicate, Move up/down, Remove) and its bars wrapping under it; the `+` bar sits after the last
      section. Under the timeline, `AddSection`: name + length + "Add section" (on the pattern on screen) and
      a "Structure" `Menu` of `STRUCTURES`. Without sections the unit looks as before ("Song bars" list).
+   - ✅ Extra — SONG **play from a bar**: a ▶ button at the bottom-left of every bar block (`play` slot
+     in the timeline recipe, the × keeps the top-right) runs the song from the first step of that bar:
+     `playFromBar(bar)` in `transportControl.ts` sets `followSong: true` and either
+     `engine.playFrom(bar)` while the clock runs (stop → `run(undefined, bar)`, the same stop/start the
+     playlist does, so a held slide is released and the sequence rewinds) or `engine.start(bar)` from a
+     stop (`start` now takes `fromBar`, handed to `run`, which `seek`s the scheduler).
+   - ✅ Extra — SONG **bars drag** (HTML5, mouse): a bar block is `draggable` (`BAR_DRAG` in
+     `dragTypes.ts`, `droppedBar`; `effectAllowed` "move", the drop's `dropEffect` "move" — a pattern
+     drop stays "copy") and dropped on another bar or on the + moves there: `moveChainBar(from, to)` →
+     `movedBar` (`patterns.ts`, pure: taken out and put back at `to`, so onto a later bar lands after it,
+     onto an earlier one before). Sections keep their lengths (the bar takes the section at its new
+     place); the song resumes; one undo step; a no-op move is not an edit. The travelling bar is dimmed
+     (`data-dragging`). `dropHandlers` takes an optional `onBar` and decides by the drag's `types`, never
+     by `getData` alone (the test mocks answer any type).
    - ✅ Extra — SONG **repeat**: "+1 bar" (`repeatLastBar`, the last bar once more) and "×2"
      (`repeatChain`, the chain after itself, cut at `MAX_CHAIN`) next to Clear; both resume the song and are
      one undo step.
@@ -745,7 +761,7 @@ strict build order:
      (±4 cents, passed as Hz) and force (velocity 0.8–1), held a quarter note; the six plucks go through a
      body (peaking +3 dB at 240 Hz, a highpass at 80 Hz under it — the low strings and the wood voice
      piled up into mud below that, which is why octave 3 sounded cleaner) and a lowpass at 5 kHz that takes the plastic top off a plain
-     Karplus-Strong (`attackNoise` stays 1: it is the *duration* of the pluck burst, and shortened to
+     Karplus-Strong (`attackNoise` stays 1: it is the _duration_ of the pluck burst, and shortened to
      0.35 the string was a click and sounded like a drum); under them a `wood` voice (six `Synth`
      triangles, one per string and taken over with it — a `PolySynth` of twelve ran dry on chugs —
      through a 900 Hz lowpass, −20 dB, a 1.2 s decay) plays the same
@@ -757,6 +773,29 @@ strict build order:
      is kept inside a sixteenth at any tempo (spacing capped at 60 ms over the strings). All six strings
      struck at once was what made it sound like a toy.
 
+   - ✅ Extra — **STR-6 sampled guitars** (the user found the string model poor: "un SMP-8 però amb
+     guitarra"). `StringsParams.sound` (`STRINGS_SOUNDS` = `nylon` / `electric` / `model` in
+     `params.ts`; default **nylon**, so older songs and the demos — none of which name a sound —
+     play the recording; `parseSong` checks it, `clampParams` falls back to the default, Random
+     sound keeps it). Recordings are CC0: FreePats' Spanish Classical Guitar (nylon) and
+     Karoryfer's Black And Green Guitars (the green Gretsch, electric), one note about every three
+     semitones from E2 to G5 as mono 96 kbps MP3 (4 s, faded, peak −1 dBFS; 1.2 MB in all) in
+     `public/samples/guitar/<sound>/<Note>.mp3` + `LICENSE.txt`, built by
+     `scripts/make-guitar-samples.sh` (curl + bsdtar + ffmpeg; FreePats has no A#2 / C#3, so the
+     nylon set steps by twos there; Karoryfer's file names sit an octave up). `src/audio/guitarSamples.ts`:
+     `GUITAR_NOTES`, `guitarSampleUrl`, `fetchGuitarSample` (bytes fetched once per session, shared by
+     every instance and render; a failed fetch is forgotten). `Strings` (`polySynths.ts`) builds a
+     `Tone.Sampler` (attack 2 ms, release = the Release knob, −11 dB) through a lowpass the Damp knob
+     drives (`dampToCutoff` = damp × 2.5, capped 16 kHz) when the sound is sampled — `loadSound`
+     decodes each note through the sampler's own context (an offline render decodes into its own
+     graph) and `add`s it; the sampler is used once every fetch has settled (`samplerReady`), the
+     model plays until then; `ready()` is what `engine.ready()` awaits for a render. A switch of
+     sound disposes the old sampler; the strum, order, ±4 cents and velocity are the same code path
+     for both. Sustain (the model's ring) only shows for the model. UI: a "Sound" `NativeSelect`
+     first in the STR-6 controls. The service worker's `rack-content` cache holds 160 entries now.
+     Checked with `render-check`: Sol solet rendered −17.7 dB RMS with the nylon guitar at −9 dB
+     against −20.2 with the model, hence −11 (a scratch copy of the song with `sound: "model"` under
+     `docs/` was the comparison).
    - ✅ Extra — **note names in the cells**: every melodic grid (MONO-1, BASS-2's note rows, POLY-4, EP-1,
      STR-6) prints the row's solfège name without the octave ("Sol", "Fa#") inside each cell, on or off
      (`StepGridRow.text`, `solfegeShort` in `key.ts`; `data-text` on the cell, `2xs` semibold silkscreen,
@@ -842,7 +881,7 @@ strict build order:
      fretboard fold. **Time from the characters** (the user's half-bar arpeggio came out as eight
      consecutive sixteenths and left the bar half empty): `TabColumn` carries a `step` — the body's
      inner `|` split it into bars, a bar's characters are spread over sixteen steps (`floor(pos ×
-     16 / span)`), the first note starts its bar (what precedes it is the writer's margin), bars and
+16 / span)`), the first note starts its bar (what precedes it is the writer's margin), bars and
      systems carry on into the next pattern; when that would land two struck columns on one step (a
      bar written wider than its beats, no inner bar lines — the first arpeggio the user pasted, 16
      notes over 42 characters), the columns go one step each as before. `tabToPatterns` places by

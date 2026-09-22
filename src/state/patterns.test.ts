@@ -2,7 +2,17 @@ import { describe, expect, it } from "vitest"
 
 import { defaultInstances } from "./instances"
 import { createEmptyPattern, rowsOf, toggleKitStep, withTrack, type KitTrack } from "./pattern"
-import { createDefaultBank, PATTERN_COUNT, resolvePlayingPattern } from "./patterns"
+import { createDefaultBank, movedBar, PATTERN_COUNT, resolvePlayingPattern } from "./patterns"
+
+describe("movedBar", () => {
+  it("lands after a later bar and before an earlier one, and ignores nonsense", () => {
+    expect(movedBar([0, 1, 2, 3], 0, 2)).toEqual([1, 2, 0, 3])
+    expect(movedBar([0, 1, 2, 3], 3, 1)).toEqual([0, 3, 1, 2])
+    expect(movedBar([0, 1, 2, 3], 1, 1)).toEqual([0, 1, 2, 3])
+    expect(movedBar([0, 1, 2, 3], 5, 1)).toEqual([0, 1, 2, 3])
+    expect(movedBar([0, 1, 2, 3], 1, -1)).toEqual([0, 1, 2, 3])
+  })
+})
 
 const OWNERS = [{ id: "drums-1", kind: "drums" as const }]
 

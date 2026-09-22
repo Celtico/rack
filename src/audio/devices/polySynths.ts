@@ -1,7 +1,13 @@
 import * as Tone from "tone"
 
-import type { EpParams, PolyParams, StringsParams } from "../../state/params"
-import { transposeNote, type ModHooks } from "../types"
+import type { EpParams, PolyParams, StringsParams, StringsSound } from "../../state/params"
+import {
+  fetchGuitarSample,
+  GUITAR_NOTES,
+  isSampledSound,
+  type SampledSound,
+} from "../guitarSamples"
+import { RAMP, transposeNote, type ModHooks } from "../types"
 import { setFilterParam } from "./gate"
 import { fatOscillator } from "./oscillators"
 
@@ -223,11 +229,33 @@ export class EPiano implements PolyInstrument {
 const STRING_COUNT = 6
 
 /**
- * STR-6: Karplus–Strong plucked strings. `PluckSynth` is monophonic and not a
- * `Monophonic`, so `PolySynth` cannot host it — a pool of six, allocated
- * round-robin, does the job and matches the name.
+ * The sampled guitars are recordings normalised to −1 dBFS; six of them in a strum add up, so
+ * they come in well under the plucks' −4 dB. Measured on Sol solet with `render-check`: at −9 dB
+ * the nylon guitar rendered 2.5 dB RMS over the model, at −11 it matches within a decibel.
+ */
+const SAMPLED_VOLUME = -11
+
+/** The Damp knob (500–8000 Hz) over a recording: a lowpass that is all but open at the default. */
+const dampToCutoff = (damp: number): number => Math.min(16000, damp * 2.5)
+
+/**
+ * STR-6: a sampled guitar — a `Tone.Sampler` over CC0 recordings of a nylon-string or an
+ * electric guitar, every note repitched from the nearest one — or, as the "model" sound, the
+ * Karplus–Strong plucked strings it began with. `PluckSynth` is monophonic and not a
+ * `Monophonic`, so `PolySynth` cannot host it — a pool of six, allocated round-robin, does the
+ * job and matches the name. Either way a chord is strummed one string at a time.
  */
 export class Strings implements PolyInstrument {
+  private readonly output: Tone.ToneAudioNode
+  private sound: StringsSound
+  /** The recordings, once `loadSound` has fetched them; the model plays until they are in. */
+  private sampler: Tone.Sampler | null = null
+  /** The Damp knob over the sampled sound. */
+  private samplerFilter: Tone.Filter | null = null
+  private samplerReady = false
+  private loading: Promise<void> = Promise.resolve()
+  private damp: number
+  private release: number
   private readonly strings: Tone.PluckSynth[]
   /**
    * Under the plucks, the same notes on a soft triangle with a short decay: a plucked string
@@ -250,7 +278,12 @@ export class Strings implements PolyInstrument {
   private down = true
 
   constructor(output: Tone.ToneAudioNode, p: StringsParams) {
+    this.output = output
+    this.sound = p.sound
+    this.damp = p.damp
+    this.release = p.release
     this.strum = p.strum
+    if (isSampledSound(p.sound)) this.loadSound(p.sound)
     this.top = new Tone.Filter({ type: "lowpass", frequency: 5000, rolloff: -12 }).connect(output)
     this.floor = new Tone.Filter({ type: "highpass", frequency: 80, rolloff: -12 }).connect(
       this.top,
@@ -284,6 +317,52 @@ export class Strings implements PolyInstrument {
   }
 
   /**
+   * Fetch a sampled guitar's notes into a fresh sampler (the previous one goes with its buffers),
+   * each decoded through the sampler's own context — an offline render decodes into its own graph.
+   * The bytes are shared across instances and renders (`fetchGuitarSample`). A note that fails
+   * leaves the others in; the sampler is used once every fetch has settled and something loaded.
+   */
+  private loadSound(sound: SampledSound): void {
+    this.disposeSampler()
+    const filter = new Tone.Filter({
+      type: "lowpass",
+      frequency: dampToCutoff(this.damp),
+      rolloff: -12,
+    }).connect(this.output)
+    const sampler = new Tone.Sampler({
+      attack: 0.002,
+      release: this.release,
+      volume: SAMPLED_VOLUME,
+    }).connect(filter)
+    this.sampler = sampler
+    this.samplerFilter = filter
+    this.loading = Promise.allSettled(
+      GUITAR_NOTES[sound].map(async (note) => {
+        const data = await fetchGuitarSample(sound, note)
+        const decoded = await sampler.context.decodeAudioData(data.slice(0))
+        if (this.sampler === sampler) sampler.add(note as Tone.Unit.Note, decoded)
+        return true
+      }),
+    ).then((results) => {
+      if (this.sampler === sampler)
+        this.samplerReady = results.some((r) => r.status === "fulfilled")
+    })
+  }
+
+  private disposeSampler(): void {
+    this.samplerReady = false
+    this.sampler?.dispose()
+    this.samplerFilter?.dispose()
+    this.sampler = null
+    this.samplerFilter = null
+  }
+
+  /** Resolves once the sampled sound's recordings are in (at once for the model): a render waits for it. */
+  ready(): Promise<void> {
+    return this.loading
+  }
+
+  /**
    * A chord as a hand strums it: the strings one after another, `strum` ms apart, low to
    * high on one stroke and high to low on the next, each a hair off in pitch and force so no
    * two strikes are the same. A column lit past six notes keeps its first six: the seventh
@@ -299,14 +378,22 @@ export class Strings implements PolyInstrument {
     this.down = !this.down
     // The whole strum stays inside a sixteenth at any tempo the rack allows.
     const spacing = Math.min(this.strum, 60 / Math.max(1, order.length - 1)) / 1000
+    // The recordings, once they are in; the model until then, and always as the "model" sound.
+    const sampled = this.sound !== "model" && this.samplerReady ? this.sampler : null
     order.forEach((note, i) => {
-      const string = this.strings[this.next % STRING_COUNT]
-      const wood = this.wood[this.next % STRING_COUNT]
-      this.next = (this.next + 1) % STRING_COUNT
       const cents = (Math.random() * 2 - 1) * 4
       const hz = Tone.Frequency(note).toFrequency() * 2 ** (cents / 1200)
       const at = time + i * spacing
       const velocity = 0.8 + Math.random() * 0.2
+      if (sampled) {
+        // A recording rings on its own; held a bar like a string, the release only ends what
+        // nothing struck again. The sampler gives every strike a fresh buffer source.
+        sampled.triggerAttackRelease(hz, "1m", at, velocity)
+        return
+      }
+      const string = this.strings[this.next % STRING_COUNT]
+      const wood = this.wood[this.next % STRING_COUNT]
+      this.next = (this.next + 1) % STRING_COUNT
       // Held a whole bar: a strummed string rings until the next strike takes it, and the release
       // (a ramp of the loop's resonance to nothing) only ends what nothing struck again.
       string?.triggerAttackRelease(hz, "1m", at, velocity)
@@ -328,26 +415,44 @@ export class Strings implements PolyInstrument {
   }
 
   set<K extends keyof StringsParams>(key: K, value: StringsParams[K]): void {
-    if (key === "strum") {
-      this.strum = value
-      return
+    switch (key) {
+      case "strum":
+        this.strum = value as number
+        return
+      case "sound": {
+        const sound = value as StringsSound
+        if (sound === this.sound) return
+        this.sound = sound
+        if (isSampledSound(sound)) this.loadSound(sound)
+        else this.disposeSampler()
+        return
+      }
+      case "damp":
+        this.damp = value as number
+        this.samplerFilter?.frequency.rampTo(dampToCutoff(this.damp), RAMP)
+        break
+      case "release":
+        this.release = value as number
+        if (this.sampler) this.sampler.release = this.release
+        break
     }
     for (const s of this.strings) {
       switch (key) {
         case "damp":
-          s.dampening = value
+          s.dampening = value as number
           break
         case "sustain":
-          s.resonance = value
+          s.resonance = value as number
           break
         case "release":
-          s.release = value
+          s.release = value as number
           break
       }
     }
   }
 
   dispose(): void {
+    this.disposeSampler()
     for (const s of this.strings) s.dispose()
     for (const w of this.wood) w.dispose()
     this.woodFilter.dispose()

@@ -270,7 +270,7 @@ export class AudioEngine {
 
   /**
    * Resolves once everything asynchronous in the graph is in place: the
-   * reverb's impulse response and the samplers' stored samples. The live
+   * reverb's impulse response, the samplers' stored samples and the guitars' recordings. The live
    * engine plays without waiting (a pad joins when it is decoded); an offline
    * render must wait, or it renders silence for them.
    */
@@ -279,6 +279,7 @@ export class AudioEngine {
     if (this.reverb) pending.push(this.reverb.ready)
     for (const { device } of this.strips.values()) {
       if (device.kind === "sampler" || device.kind === "mic") pending.push(device.kit.ready)
+      if (device.kind === "strings") pending.push(device.poly.ready())
     }
     await Promise.allSettled(pending)
   }
@@ -405,11 +406,20 @@ export class AudioEngine {
     else device.poly.dispose()
   }
 
-  /** Unlock the audio context (must be called from a user gesture) and start the transport. */
-  async start(): Promise<void> {
+  /** Unlock the audio context (must be called from a user gesture) and start the transport — at `fromBar` of the song. */
+  async start(fromBar = 0): Promise<void> {
     await Tone.start()
     this.build()
-    this.run()
+    this.run(undefined, fromBar)
+  }
+
+  /**
+   * Run the song again from the first step of `bar`: the clock stops (which releases anything held
+   * and rewinds the sequence) and starts at once with the bar counter set there. Requires build().
+   */
+  playFrom(bar: number): void {
+    this.stop()
+    this.run(undefined, bar)
   }
 
   /** Arm the sequence and start the graph's transport — now, or at a context time. Requires build(). */

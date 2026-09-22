@@ -14,6 +14,7 @@ import {
   DELAY_TIMES,
   FILTER_DEFAULT,
   FILTER_TYPES,
+  STRINGS_SOUNDS,
   FX_DEFAULT,
   SPACE_DEFAULT,
   WAVEFORMS,
@@ -206,6 +207,8 @@ function parseParams(v: unknown, path: string, kind: Kind): Instance["params"] {
     } else if (key === "filterType") {
       // Older files have no filter type: they keep the lowpass they were made with.
       out[key] = oneOf(value, `${path}.${key}`, FILTER_TYPES)
+    } else if (key === "sound") {
+      out[key] = oneOf(value, `${path}.${key}`, STRINGS_SOUNDS)
     } else if (key === "videoName" || key === "loopName" || key === "loopKey") {
       out[key] = value === null ? null : str(value, `${path}.${key}`)
     } else if (key === "live") {

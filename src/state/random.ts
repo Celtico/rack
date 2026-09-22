@@ -7,6 +7,7 @@ import {
   FILTER_RANGES,
   FILTER_TYPES,
   POLY_RANGES,
+  STRINGS_PARAMS_DEFAULT,
   STRINGS_RANGES,
   SYNTH_RANGES,
   VIDEO_RANGES,
@@ -90,6 +91,7 @@ export function randomParams<K extends Kind>(kind: K, rng: Rng): KindParams[K] {
       } as KindParams[K]
     case "strings":
       return {
+        sound: STRINGS_PARAMS_DEFAULT.sound,
         damp: logUniform(rng, STRINGS_RANGES.damp),
         sustain: uniform(rng, STRINGS_RANGES.sustain),
         release: logUniform(rng, STRINGS_RANGES.release),
@@ -155,28 +157,31 @@ function randomMod(kind: Kind, mod: ModParams, rng: Rng): ModParams {
 export function randomizeInstance(inst: Instance, rng: Rng): Instance {
   return {
     ...inst,
-    // A sampler's pads are its samples, a VID-1's file and loop length are its own: kept.
+    // A sampler's pads are its samples, a VID-1's file and loop length are its own, and a
+    // guitar's sound is which guitar it is: kept.
     params:
       inst.kind === "sampler"
         ? inst.params
-        : inst.kind === "video"
-          ? {
-              ...randomParams(inst.kind, rng),
-              videoName: inst.params.videoName,
-              bars: inst.params.bars,
-              start: inst.params.start,
-              end: inst.params.end,
-            }
-          : inst.kind === "mic"
+        : inst.kind === "strings"
+          ? { ...randomParams(inst.kind, rng), sound: inst.params.sound }
+          : inst.kind === "video"
             ? {
                 ...randomParams(inst.kind, rng),
-                loopKey: inst.params.loopKey,
-                loopName: inst.params.loopName,
-                loopBpm: inst.params.loopBpm,
+                videoName: inst.params.videoName,
                 bars: inst.params.bars,
-                live: inst.params.live,
+                start: inst.params.start,
+                end: inst.params.end,
               }
-            : randomParams(inst.kind, rng),
+            : inst.kind === "mic"
+              ? {
+                  ...randomParams(inst.kind, rng),
+                  loopKey: inst.params.loopKey,
+                  loopName: inst.params.loopName,
+                  loopBpm: inst.params.loopBpm,
+                  bars: inst.params.bars,
+                  live: inst.params.live,
+                }
+              : randomParams(inst.kind, rng),
     ...(inst.filter ? { filter: randomFilter(rng) } : {}),
     mod: randomMod(inst.kind, inst.mod, rng),
   } as Instance

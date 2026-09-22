@@ -10,6 +10,22 @@ export async function startTransport(): Promise<void> {
   useRackStore.getState().setPlaying(true)
 }
 
+/**
+ * Run the song from the start of `bar`: the clock starts there if stopped, or jumps there if it
+ * runs. The song is resumed too — a slot picked from the bank would loop instead.
+ */
+export async function playFromBar(bar: number): Promise<void> {
+  const { playing, setFollowSong, setPlaying } = useRackStore.getState()
+  setFollowSong(true)
+  if (playing) {
+    getEngine().playFrom(bar)
+    return
+  }
+  playVideoLoops()
+  await getEngine().start(bar)
+  setPlaying(true)
+}
+
 export function stopTransport(): void {
   const { setPlaying, setPlayhead } = useRackStore.getState()
   getEngine().stop()

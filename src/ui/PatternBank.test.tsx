@@ -33,6 +33,23 @@ describe("<PatternBank />", () => {
     useRackStore.getState().toggleStep("drums-1", "hat", 3)
   })
 
+  // ⌥ swapping is not covered: jsdom has no DragEvent, so `altKey` never reaches the handler.
+  it("copies a slot dragged onto another, leaving the source as it is", () => {
+    renderWithChakra(<PatternBank />)
+    const before = useRackStore.getState().patterns
+    const slot2 = screen.getByRole("button", { name: "Edit pattern 2" })
+
+    const dt = transfer("application/x-rack-pattern", "0")
+    fireEvent.dragOver(slot2, { dataTransfer: dt })
+    expect(dt.dropEffect).toBe("copy")
+    expect(slot2).toHaveAttribute("data-drop-target")
+    fireEvent.drop(slot2, { dataTransfer: dt })
+    const s = useRackStore.getState()
+    expect(s.patterns[0]).toBe(before[0])
+    expect(s.patterns[1]).toEqual(before[0])
+    expect(s.patterns[2]).toBe(before[2])
+  })
+
   it("asks before emptying a slot dropped on the bank's surface, and empties it on Empty", async () => {
     const user = userEvent.setup()
     renderWithChakra(<PatternBank />)

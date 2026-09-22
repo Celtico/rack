@@ -14,6 +14,7 @@ import {
   POLY_RANGES,
   STRINGS_PARAMS_DEFAULT,
   STRINGS_RANGES,
+  STRINGS_SOUNDS,
   SYNTH_PARAMS_DEFAULT,
   SYNTH_RANGES,
   type BassParams,
@@ -205,11 +206,16 @@ export function clampParams<K extends Kind>(kind: K, params: KindParams[K]): Kin
       ) as KindParams[K]
     case "ep":
       return clampFields(params as EpParams, EP_RANGES) as KindParams[K]
-    case "strings":
-      return clampFields(
+    case "strings": {
+      const s = clampFields(
         { ...STRINGS_PARAMS_DEFAULT, ...(params as StringsParams) },
         STRINGS_RANGES,
-      ) as KindParams[K]
+      )
+      return {
+        ...s,
+        sound: STRINGS_SOUNDS.includes(s.sound) ? s.sound : STRINGS_PARAMS_DEFAULT.sound,
+      } as KindParams[K]
+    }
     case "video": {
       const v = clampFields({ ...VIDEO_PARAMS_DEFAULT, ...(params as VideoParams) }, VIDEO_RANGES)
       return {

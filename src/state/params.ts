@@ -203,8 +203,16 @@ export const EP_RANGES = {
 export const EP_PARAMS_DEFAULT: EpParams = { tone: 2, bright: 6, decay: 1.6, release: 0.8 }
 
 /** STR-6: six plucked strings (Karplus–Strong). */
+/**
+ * What STR-6 sounds with: a sampled guitar — CC0 recordings of a nylon-string classical and a
+ * clean electric, served from `public/samples/guitar/` — or the plucked-string model.
+ */
+export const STRINGS_SOUNDS = ["nylon", "electric", "model"] as const
+export type StringsSound = (typeof STRINGS_SOUNDS)[number]
+
 export interface StringsParams {
-  /** Dampening filter, Hz — lower is darker. */
+  sound: StringsSound
+  /** Dampening filter, Hz — lower is darker. On a sampled sound, a lowpass over the recording. */
   damp: number
   /** String resonance, 0.8–0.999 — how long it rings. */
   sustain: number
@@ -221,6 +229,7 @@ export const STRINGS_RANGES = {
 } as const
 
 export const STRINGS_PARAMS_DEFAULT: StringsParams = {
+  sound: "nylon",
   damp: 4500,
   sustain: 0.99,
   release: 1.4,

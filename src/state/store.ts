@@ -58,7 +58,7 @@ import {
   type ModParams,
   type RandomParams,
 } from "./mod"
-import { createDefaultBank, MAX_CHAIN, PATTERN_COUNT, swapSlots } from "./patterns"
+import { createDefaultBank, MAX_CHAIN, movedBar, PATTERN_COUNT, swapSlots } from "./patterns"
 import {
   fitSections,
   grownLast,
@@ -159,6 +159,8 @@ export interface RackState {
   repeatChain: () => void
   setChainSlot: (bar: number, index: number) => void
   removeChainSlot: (bar: number) => void
+  /** Bar `from` moved to `to` (a drag on the timeline). Sections keep their lengths: the bar takes the section at its new place. */
+  moveChainBar: (from: number, to: number) => void
   clearChain: () => void
   /**
    * `bars` more bars of `pattern` (the slot on screen by default) at the end of the song, as a named
@@ -576,6 +578,13 @@ export const useRackStore = create<RackState>()((set, get) => ({
       chain: state.chain.filter((_, i) => i !== bar),
       sections: withoutBar(state.sections, bar),
     })),
+  moveChainBar: (from, to) =>
+    set((state) => {
+      const chain = movedBar(state.chain, from, to)
+      return chain.length === state.chain.length && chain.every((p, i) => p === state.chain[i])
+        ? state
+        : { ...remember(state), chain, followSong: true }
+    }),
   clearChain: () => set((state) => ({ ...remember(state), chain: [], sections: [] })),
 
   addSection: (name, bars, pattern) =>

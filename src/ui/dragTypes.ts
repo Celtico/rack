@@ -24,6 +24,17 @@ export const PATTERN_DRAG = "application/x-rack-pattern"
 /** A part being dragged from the bank's matrix: `<instance id>:<slot>`. */
 export const PART_DRAG = "application/x-rack-part"
 
+/** A bar of the song being dragged along the timeline: its index as text. */
+export const BAR_DRAG = "application/x-rack-bar"
+
+/** The song bar a drop carries, or null when the drag is something else. */
+export function droppedBar(dt: DataTransfer): number | null {
+  const data = dt.getData(BAR_DRAG)
+  if (data === "") return null
+  const bar = Number(data)
+  return Number.isInteger(bar) ? bar : null
+}
+
 /** The bank slot a drop carries, or null when the drag is something else. */
 export function droppedPattern(dt: DataTransfer): number | null {
   const data = dt.getData(PATTERN_DRAG)

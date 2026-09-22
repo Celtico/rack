@@ -49,6 +49,7 @@ describe("song save/load", () => {
     store.appendToChain(0)
     store.appendToChain(1)
     store.setInstanceParams("synth-1", { waveform: "square" })
+    store.setInstanceParams("strings-1", { sound: "electric" })
     store.setFxParam("delayTime", "4n")
     store.setInstanceSend("synth-1", 0.6)
     store.setInstanceMute("perc-1", true)
@@ -65,6 +66,7 @@ describe("song save/load", () => {
     const synth = song.patterns[1]!.tracks["synth-1"]!
     expect(synth.kind === "synth" && synth.notes[2]).toBe(6)
     expect(instOf<"synth">(song, "synth-1").params.waveform).toBe("square")
+    expect(instOf<"strings">(song, "strings-1").params.sound).toBe("electric")
     expect(instOf<"perc">(song, "perc-1").mute).toBe(true)
     expect(song.chain).toEqual([0, 1])
   })
@@ -236,6 +238,8 @@ describe("song save/load", () => {
     expect(instOf<"poly">(song, "poly-1").params.cutoff).toBe(2200)
     expect(instOf<"ep">(song, "ep-1").params.tone).toBe(2)
     expect(instOf<"strings">(song, "strings-1").params.damp).toBe(STRINGS_PARAMS_DEFAULT.damp)
+    // A file from before the sampled guitars gets the default sound.
+    expect(instOf<"strings">(song, "strings-1").params.sound).toBe("nylon")
     expect(instOf<"sampler">(song, "sampler-1").params.pad3).toEqual({
       name: null,
       pitch: 0,
@@ -383,6 +387,12 @@ describe("song save/load", () => {
     }
     badWave.instances.find((i) => i.id === "synth-1")!.params.waveform = "noise"
     expect(() => parseSong(JSON.stringify(badWave))).toThrow(/waveform/)
+
+    const badSound = JSON.parse(serializeSong(song)) as {
+      instances: { id: string; params: { sound?: string } }[]
+    }
+    badSound.instances.find((i) => i.id === "strings-1")!.params.sound = "banjo"
+    expect(() => parseSong(JSON.stringify(badSound))).toThrow(/sound/)
 
     const badFilter = JSON.parse(serializeSong(song)) as {
       instances: { id: string; params: { filterType?: string } }[]

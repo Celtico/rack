@@ -21,6 +21,17 @@ describe("random sound", () => {
     }
   })
 
+  it("keeps a guitar's sound through a random one, and clamps a nonsense sound to the default", () => {
+    const inst = createInstance("strings", []) as InstanceOf<"strings">
+    const electric = { ...inst, params: { ...inst.params, sound: "electric" as const } }
+    const random = randomizeInstance(electric, seq(0.3, 0.7)) as InstanceOf<"strings">
+    expect(random.params.sound).toBe("electric")
+    expect(random.params.damp).not.toBe(inst.params.damp)
+    expect(
+      clampParams("strings", { ...inst.params, sound: "banjo" as unknown as "nylon" }).sound,
+    ).toBe("nylon")
+  })
+
   it("spreads frequencies across octaves rather than linearly", () => {
     // Halfway through the rng, a log-uniform cutoff sits at the geometric middle of the range.
     const p = randomParams("synth", () => 0.5)

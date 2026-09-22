@@ -297,6 +297,33 @@ describe("rack store", () => {
     expect(useRackStore.getState().activePattern).toBe(0)
   })
 
+  it("moves a bar of the song, resuming the song and keeping the sections' lengths, as one undo step", () => {
+    useRackStore.setState({
+      chain: [0, 1, 2, 3],
+      sections: [
+        { name: "A", bars: 3 },
+        { name: "B", bars: 1 },
+      ],
+      followSong: false,
+    })
+    const store = useRackStore.getState()
+    store.moveChainBar(3, 0)
+    let s = useRackStore.getState()
+    expect(s.chain).toEqual([3, 0, 1, 2])
+    expect(s.sections).toEqual([
+      { name: "A", bars: 3 },
+      { name: "B", bars: 1 },
+    ])
+    expect(s.followSong).toBe(true)
+    // A move that changes nothing is not an edit.
+    const before = s
+    store.moveChainBar(2, 2)
+    expect(useRackStore.getState()).toBe(before)
+    store.undo()
+    s = useRackStore.getState()
+    expect(s.chain).toEqual([0, 1, 2, 3])
+  })
+
   it("empties every part of a slot, keeping who sits it out, as one undo step", () => {
     const store = useRackStore.getState()
     store.toggleStep("drums-1", "hat", 7)

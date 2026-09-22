@@ -21,6 +21,7 @@ import {
   LuEraser,
   LuLayoutList,
   LuPaintBucket,
+  LuPlay,
   LuPlus,
   LuRepeat,
   LuRepeat1,
@@ -38,7 +39,8 @@ import {
   type SectionSpan,
 } from "../state/sections"
 import { useRackStore } from "../state/store"
-import { droppedPattern, PATTERN_DRAG, useClearOnDragEnd } from "./dragTypes"
+import { BAR_DRAG, droppedBar, droppedPattern, PATTERN_DRAG, useClearOnDragEnd } from "./dragTypes"
+import { playFromBar } from "./transportControl"
 import { typeSlotDigit, type TypedDigit } from "./typeSlot"
 
 /** What a bank slot dragged into the timeline lands on. */
@@ -52,20 +54,25 @@ const sameSpot = (a: DropSpot | null, b: DropSpot) =>
 /**
  * Drag-and-drop handlers for one spot: a bank slot dropped on a bar sets that
  * bar's pattern, on the + appends a bar of it, on a section's name fills the
- * section with it. `over` outlines the spot under the drag.
+ * section with it. With `onBar`, a bar of the song dragged there moves to it.
+ * `over` outlines the spot under the drag.
  */
 function dropHandlers(
   spot: DropSpot,
   over: DropSpot | null,
   setOver: (spot: DropSpot | null) => void,
   onDrop: (pattern: number) => void,
+  onBar?: (bar: number) => void,
 ) {
   return {
     "data-drop-target": sameSpot(over, spot) ? "" : undefined,
     onDragOver: (e: DragEvent<HTMLElement>) => {
-      if (!e.dataTransfer.types.includes(PATTERN_DRAG)) return
+      const { types } = e.dataTransfer
+      const bar = onBar !== undefined && types.includes(BAR_DRAG)
+      if (!bar && !types.includes(PATTERN_DRAG)) return
       e.preventDefault()
-      e.dataTransfer.dropEffect = "copy"
+      // The effect must be one the drag allows, or the browser drops the drop silently.
+      e.dataTransfer.dropEffect = bar ? "move" : "copy"
       if (!sameSpot(over, spot)) setOver(spot)
     },
     onDragLeave: () => {
@@ -73,11 +80,14 @@ function dropHandlers(
     },
     onDrop: (e: DragEvent<HTMLElement>) => {
       setOver(null)
-      const pattern = droppedPattern(e.dataTransfer)
-      if (pattern === null) return
+      const dt = e.dataTransfer
+      const isBar = onBar !== undefined && dt.types.includes(BAR_DRAG)
+      const value = isBar ? droppedBar(dt) : droppedPattern(dt)
+      if (value === null) return
       e.preventDefault()
       e.stopPropagation()
-      onDrop(pattern)
+      if (isBar) onBar(value)
+      else onDrop(value)
     },
   }
 }
@@ -314,8 +324,9 @@ function AddSection() {
 /**
  * SONG: the chain laid out as bars, grouped under their sections when the song
  * has any (Intro 8, Verse 16…). Click a bar to cycle its pattern, or type the
- * pattern's number on it, × to drop it, + to append the active pattern. While
- * playing, the sounding bar is outlined and fills across its 16 steps.
+ * pattern's number on it, × to drop it, ▶ to run the song from it, + to append the
+ * active pattern; drag a bar onto another (or the +) to move it there. While playing,
+ * the sounding bar is outlined and fills across its 16 steps.
  */
 export function TimelineUnit() {
   const recipe = useSlotRecipe({ key: "songTimeline" })
@@ -331,16 +342,25 @@ export function TimelineUnit() {
     repeatChain,
     setChainSlot,
     removeChainSlot,
+    moveChainBar,
     clearChain,
     setFollowSong,
   } = useRackStore.getState()
   const full = chain.length >= MAX_CHAIN
   // The last digit typed on a bar, so "1" then "3" makes 13.
   const typed = useRef<TypedDigit | null>(null)
-  // The spot a bank slot is being dragged over.
+  // The spot a bank slot (or a bar of the song) is being dragged over.
   const [over, setOver] = useState<DropSpot | null>(null)
   const clearOver = useCallback(() => setOver(null), [])
   useClearOnDragEnd(over !== null, clearOver)
+  // The bar being dragged along the timeline, dimmed while it travels.
+  const [dragging, setDragging] = useState<number | null>(null)
+
+  const onBarDragStart = (index: number) => (e: DragEvent<HTMLElement>) => {
+    e.dataTransfer.setData(BAR_DRAG, String(index))
+    e.dataTransfer.effectAllowed = "move"
+    setDragging(index)
+  }
 
   const onBarKeyDown = (bar: number, pattern: number) => (e: KeyboardEvent) => {
     if (e.key === "Enter" || e.key === " ") {
@@ -379,16 +399,38 @@ export function TimelineUnit() {
           css={styles.block}
           data-pattern={pattern + 1}
           data-playing={index === playingIndex ? "" : undefined}
+          data-dragging={index === dragging ? "" : undefined}
           tabIndex={0}
           aria-label={`Bar ${index + 1}: pattern ${pattern + 1}`}
+          title="Click to change the pattern · drag to move the bar"
+          draggable
+          onDragStart={onBarDragStart(index)}
+          onDragEnd={() => setDragging(null)}
           onClick={() => setChainSlot(index, (pattern + 1) % PATTERN_COUNT)}
           onKeyDown={onBarKeyDown(index, pattern)}
-          {...dropHandlers({ kind: "bar", bar: index }, over, setOver, (p) =>
-            setChainSlot(index, p),
+          {...dropHandlers(
+            { kind: "bar", bar: index },
+            over,
+            setOver,
+            (p) => setChainSlot(index, p),
+            (from) => moveChainBar(from, index),
           )}
         >
           <chakra.span css={styles.number}>{pattern + 1}</chakra.span>
           {index === playingIndex && <BarProgress css={styles.progress} />}
+          {/* Run the song from here — starts the clock if it is stopped, jumps if it runs. */}
+          <chakra.button
+            type="button"
+            css={styles.play}
+            aria-label={`Play from bar ${index + 1}`}
+            title="Play the song from this bar"
+            onClick={(e) => {
+              e.stopPropagation()
+              void playFromBar(index)
+            }}
+          >
+            <LuPlay />
+          </chakra.button>
           <chakra.button
             type="button"
             css={styles.remove}
@@ -443,7 +485,9 @@ export function TimelineUnit() {
                     css={styles.add}
                     aria-label={`Add a bar of pattern ${activePattern + 1}`}
                     onClick={() => appendToChain(activePattern)}
-                    {...dropHandlers({ kind: "add" }, over, setOver, appendToChain)}
+                    {...dropHandlers({ kind: "add" }, over, setOver, appendToChain, (from) =>
+                      moveChainBar(from, chain.length - 1),
+                    )}
                   >
                     <LuPlus />
                   </chakra.button>
