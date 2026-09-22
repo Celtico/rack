@@ -4,7 +4,7 @@ import { BPM_DEFAULT, FX_DEFAULT, MASTER_DEFAULT } from "../state/params"
 import { padBank } from "../state/patterns"
 import { SONG_VERSION, type Song } from "../state/song"
 import { useLibraryStore } from "../state/songLibrary"
-import { foldedAll, toSong, useRackStore } from "../state/store"
+import { toSong, useRackStore } from "../state/store"
 import { stopTransport } from "./transportControl"
 
 let pending: Promise<boolean> | null = null
@@ -36,9 +36,7 @@ export function loadDefaultSong(): Promise<boolean> {
     useLibraryStore.getState().setNowPlaying(null)
     useRackStore.getState().loadSong(emptyRack())
     getEngine().syncFromStore()
-    // The rack opens folded; a song the user loads later opens its machines instead.
-    const s = useRackStore.getState()
-    useRackStore.setState({ folded: foldedAll(s.instances.map((i) => i.id)) })
+    // The rack opens folded (`loadSong` folds every panel).
     return false
   })()
   return pending
@@ -68,7 +66,6 @@ export function newSong(): ReplacedRack {
   lib.setUnsavedName(null)
   useRackStore.getState().loadSong(emptyRack())
   getEngine().syncFromStore()
-  useRackStore.setState({ folded: foldedAll([]) })
   useLayoutStore.getState().showAll()
   return before
 }

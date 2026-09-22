@@ -1021,10 +1021,9 @@ export const useRackStore = create<RackState>()((set, get) => ({
         solo: {},
         history: emptyHistory(),
         loads: state.loads + 1,
-        // Every machine the song uses opens up; fixed units keep their fold state.
-        folded: Object.fromEntries(
-          Object.entries(state.folded).filter(([id]) => !song.instances.some((i) => i.id === id)),
-        ),
+        // A loaded song opens as a compact stack: every machine and the fixed panels folded
+        // (the clock stays open) — the user unfolds what they want to work on.
+        folded: foldedAll(song.instances.map((i) => i.id)),
       }
     }),
 

@@ -110,7 +110,10 @@ strict build order:
      **an empty rack** (`emptyRack()`: no machines at all, no chain, 120 BPM — units come from "Add unit"), folded and
      **stopped** — no factory song, and not the last saved one either: songs are chosen on purpose from the
      Songs drawer, where the factory songs wait under "Demos". `autoplay(start)` only starts the clock when
-     `start` is true (a loaded song); it always installs the audio-resume handlers. The coded starter groove
+     `start` is true (a loaded song); it always installs the audio-resume handlers. **Every load opens
+     folded**: `loadSong` sets `folded: foldedAll(ids)` — each machine, FX-2, BANK and SONG folded, the
+     clock open (it used to unfold the song's machines; the user asked for a compact stack on entry, and
+     Unfold all is one press away). The coded starter groove
      (`starterTrack`) is now only the store's pre-load state.
    - ✅ Extra — the **song's name on the toolbar**: `SongTitle` in `Rack.tsx`, plain silkscreen capitals
      (no display box — tried, the user wanted it without a fill) in the middle of the toolbar (the box that

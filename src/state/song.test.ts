@@ -114,13 +114,15 @@ describe("song save/load", () => {
       chain: [3, 2],
     }
 
-    useRackStore.getState().setFolded(["drums-1", "SONG"], true)
+    useRackStore.getState().setFolded(["drums-1", "SONG"], false)
     useRackStore.getState().loadSong(song)
     const s = useRackStore.getState()
     expect(s.bpm).toBe(240)
-    // Machines in the song open up; fixed units keep their fold state.
-    expect(s.folded["drums-1"]).toBeUndefined()
+    // A loaded song opens folded: every machine and the fixed panels, the clock open.
+    expect(s.folded["drums-1"]).toBe(true)
     expect(s.folded.SONG).toBe(true)
+    expect(s.folded["FX-2"]).toBe(true)
+    expect(s.folded.CLOCK).toBeUndefined()
     expect(s.instances.find((i) => i.id === "drums-1")!.send).toBe(1)
     expect((s.instances.find((i) => i.id === "synth-1") as InstanceOf<"synth">).params.cutoff).toBe(
       80,
