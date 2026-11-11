@@ -1,5 +1,6 @@
 # Publishes RACK to GitHub Pages on every push to main. Everything runs in the browser, so the
-# site is just the contents of dist/, built with the repository name as its base path.
+# site is just the contents of dist/, built for wherever Pages serves it: /<repository>/ on
+# github.io, or the root when the repository has a custom domain (Settings → Pages).
 #
 # One-time setup in the repository: Settings → Pages → Source: "GitHub Actions".
 name: GitHub Pages
@@ -26,6 +27,9 @@ jobs:
         with:
           # The version by the toolbar mark is the commit count, so the build needs the history.
           fetch-depth: 0
+      # Where the site is served: "/rack" on celtico.github.io, empty with a custom domain.
+      - id: pages
+        uses: actions/configure-pages@v5
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
@@ -35,7 +39,7 @@ jobs:
       - run: pnpm test
       - run: pnpm build
         env:
-          BASE_PATH: /${{ github.event.repository.name }}/
+          BASE_PATH: ${{ steps.pages.outputs.base_path }}/
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
