@@ -19,8 +19,15 @@ function gitVersion(): { version: string; commit: string } {
 }
 const { version, commit } = gitVersion()
 
+/**
+ * Where the app is served from, with a leading and a trailing slash: `/` on its own domain,
+ * `/<repository>/` on GitHub Pages (`BASE_PATH=/rack/ pnpm build`).
+ */
+const base = `/${(process.env.BASE_PATH ?? "").replace(/^\/+|\/+$/g, "")}/`.replace("//", "/")
+
 // https://vite.dev/config/
 export default defineConfig({
+  base,
   define: {
     __RACK_VERSION__: JSON.stringify(version),
     __RACK_COMMIT__: JSON.stringify(commit),
@@ -51,7 +58,8 @@ export default defineConfig({
         background_color: "#ffffff",
         display: "standalone",
         orientation: "any",
-        start_url: "/",
+        start_url: base,
+        scope: base,
         icons: [
           { src: "icons/icon-192.png", sizes: "192x192", type: "image/png" },
           { src: "icons/icon-512.png", sizes: "512x512", type: "image/png" },
@@ -69,8 +77,11 @@ export default defineConfig({
         globIgnores: ["songs/**", "samples/**", "midi/**", "splash/**"],
         runtimeCaching: [
           {
+            // Serialised into the service worker, so it cannot close over `base`: it matches the
+            // content folders wherever the app is mounted.
             urlPattern: ({ url }) =>
-              /^\/(songs|samples|midi)\//.test(url.pathname) || url.pathname === "/-rack-song.json",
+              /\/(songs|samples|midi)\//.test(url.pathname) ||
+              url.pathname.endsWith("/-rack-song.json"),
             handler: "StaleWhileRevalidate",
             options: { cacheName: "rack-content", expiration: { maxEntries: 160 } },
           },
