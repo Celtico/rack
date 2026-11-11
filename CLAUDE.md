@@ -978,6 +978,11 @@ pnpm format         # Prettier --write
 
 Deploy: `docker compose up -d --build` (nginx on host port 7273). Production: https://rack.serverscel.com/
 
+GitHub Pages: `.github/workflows/pages.yml` runs the tests and `BASE_PATH=/rack/ pnpm build` on every
+push to `main` and publishes `dist/` at https://celtico.github.io/rack/. `BASE_PATH` becomes Vite's
+`base`, so anything under `public/` must be reached through `import.meta.env.BASE_URL`, never a
+leading `/`.
+
 ## Architecture
 
 ```

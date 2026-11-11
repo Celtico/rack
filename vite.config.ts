@@ -123,5 +123,8 @@ export default defineConfig({
     environment: "jsdom",
     setupFiles: ["./src/test/setup.ts"],
     css: false,
+    // The slowest UI tests take ~1.5 s on a laptop; a CI runner is several times slower, and the
+    // 5 s default would fail the deploy on a test that passes.
+    testTimeout: 20_000,
   },
 })

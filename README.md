@@ -10,7 +10,11 @@ and settings. The transport, pattern bank and song timeline share a fixed top pa
 Undo) and dragged into any order; the FX-2 mixer has a fader and LED meter per machine. The
 arrangement is remembered by the browser.
 
-Live: https://rack.serverscel.com/
+Live: https://rack.serverscel.com/ · https://celtico.github.io/rack/
+
+`.github/workflows/pages.yml` builds with `BASE_PATH=/rack/` and publishes `dist/` to GitHub Pages
+on every push to `main` (Settings → Pages → Source: "GitHub Actions", once). Without `BASE_PATH`
+the build is served from `/`, as the Docker image does.
 
 ## Stack
 
