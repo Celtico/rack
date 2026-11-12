@@ -1,5 +1,7 @@
 # RACK
 
+![RACK: a rack of instruments in the browser](public/cover.png)
+
 A browser-based hardware rack: a drum machine (**DR-4**), a percussion kit (**PERC-6**), a sampler
 for your own files (**SMP-8**), an acid bass (**BASS-2**), a mono synth (**MONO-1**), a poly pad
 (**POLY-4**), an FM electric piano (**EP-1**), plucked strings (**STR-6**), an FX unit (**FX-2**),
